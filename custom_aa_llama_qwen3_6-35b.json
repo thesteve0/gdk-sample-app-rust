@@ -1,0 +1,34 @@
+{
+  "name": "custom_aa_llama_qwen3_6-35b",
+  "engine": "openai",
+  "display_name": "AA Llama Qwen3.6-35B",
+  "description": "Custom AA Llama Qwen3.6-35B provider",
+  "api_key_env": "",
+  "base_url": "http://127.0.0.1:8080",
+  "models": [
+    {
+      "name": "qwen3.6-35b-a3b",
+      "context_limit": null,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null,
+      "reasoning": false
+    }
+  ],
+  "headers": null,
+  "timeout_seconds": null,
+  "supports_streaming": true,
+  "requires_auth": false,
+  "catalog_provider_id": null,
+  "base_path": null,
+  "env_vars": null,
+  "dynamic_models": null,
+  "skip_canonical_filtering": false,
+  "model_doc_link": null,
+  "setup_steps": [],
+  "fast_model": null,
+  "preserves_thinking": true,
+  "emit_clear_thinking": false,
+  "setup": null
+}
