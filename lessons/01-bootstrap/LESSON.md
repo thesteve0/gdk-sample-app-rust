@@ -57,11 +57,17 @@ Create `src/main.rs`:
 
 ```rust
 fn main() {
+    // A missing `.env` is normal during bootstrap; dotenvy leaves the process
+    // environment unchanged in that case.
+    dotenvy::dotenv().ok();
+
     println!("Hello from gdk_hello");
 }
 ```
 
-Cargo recognizes `src/main.rs` as the default binary entry point. The root source is the current exercise; the source under this lesson directory is a complete reference snapshot.
+Cargo recognizes `src/main.rs` as the default binary entry point. Calling `dotenvy::dotenv()` exercises the `dotenvy` dependency now, while the application has no provider or secrets to configure yet. Ignoring its error makes a missing local `.env` normal and leaves the existing process environment unchanged. Lesson 2 relies on the same call before it constructs a provider.
+
+The root source is the current exercise; the source under this lesson directory is a complete reference snapshot.
 
 ## Step 1.4: Build and run
 
@@ -74,10 +80,15 @@ cargo run
 
 `Cargo.lock` records the resolved dependency set for this application/course repository.
 
+## Expected structural behavior
+
+The program invokes `dotenvy::dotenv()` and then prints its greeting. It does not construct a provider, read provider JSON, or make a network request.
+
 ## Success criteria
 
 - Cargo uses the pinned Rust toolchain and successfully checks the project.
-- `cargo run` prints `Hello from gdk_hello`.
+- `cargo run` succeeds with no `.env` file and prints `Hello from gdk_hello`.
+- `src/main.rs` invokes the `dotenvy` dependency before the greeting.
 - You can identify the roles of `Cargo.toml`, `Cargo.lock`, `src/main.rs`, lesson material, and `.env.example`.
 
 ## Next

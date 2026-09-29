@@ -8,8 +8,8 @@ Give learners a clean, understandable Rust project before provider or inference 
 
 - Course orientation and GDK-versus-Goose distinction: 5 minutes
 - Walk through `Cargo.toml`, the exact provider-library pin, and the native-Rust decision: 10 minutes
-- Create and explain `src/main.rs`: 10 minutes
-- Build and run the placeholder: 10 minutes
+- Create and explain `src/main.rs`, including the harmless dotenv bootstrap call: 10 minutes
+- Build and run the dependency-backed greeting: 10 minutes
 - Review and questions: 5 minutes
 
 ## Before class
@@ -25,6 +25,7 @@ Give learners a clean, understandable Rust project before provider or inference 
 - Why commit `Cargo.lock` for an application/course repository?
 - Why is `goose-providers` pinned to an exact alpha release?
 - Why does a standalone Rust CLI use the native provider API instead of a Python/Kotlin binding layer?
+- Why can this lesson load `.env` even when no `.env` file exists?
 - Which files may contain secrets, and why is `.env` ignored?
 
 ## Live-demo cautions
@@ -35,4 +36,4 @@ Give learners a clean, understandable Rust project before provider or inference 
 
 ## Checkpoint
 
-Learners can run the documented command and explain `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `src/main.rs`, and `.env.example`.
+Learners can run the documented command, observe that it succeeds without a local `.env`, and explain why the bootstrap program calls `dotenvy::dotenv().ok()`. They can also explain `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `src/main.rs`, and `.env.example`.

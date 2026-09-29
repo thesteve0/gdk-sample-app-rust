@@ -115,7 +115,7 @@ Run the current Lesson 1 placeholder from the repository root:
 cargo run
 ```
 
-It prints `Hello from gdk_hello`. Lessons 2–4 are Draft reference implementations. Their provider behavior has been exercised during migration, but their release status remains Draft until the instructor independently approves them.
+It loads an optional local `.env` through `dotenvy` and prints `Hello from gdk_hello`; no provider is constructed or contacted. Lessons 2–4 are Draft reference implementations. Their provider behavior has been exercised during migration, but their release status remains Draft until the instructor independently approves them.
 
 ## Validation philosophy
 
