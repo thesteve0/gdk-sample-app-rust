@@ -11,7 +11,7 @@ use serde_json::Value;
 
 const DEFAULT_PROVIDER_CONFIG: &str = "custom_aa_llama_qwen3_6-35b.json";
 const SYSTEM_INSTRUCTION: &str =
-    "You are a concise programming instructor. Answer in no more than three sentences.";
+    "You are a history and geography expert. Answer in no more than three sentences.";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -24,14 +24,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let model = ModelConfig::new(first_configured_model(&provider_config)?);
 
     let mut messages = vec![Message::user()
-        .with_text("Should I build a Goose SDK application with Rust or Python?")];
+        .with_text("What is the capital of France?")];
 
     println!("Assistant (turn 1):");
     let first_response = stream_response(provider.as_ref(), &model, &messages).await?;
 
     messages.extend([
         Message::assistant().with_text(first_response),
-        Message::user().with_text("Summarize your recommendation in five words or fewer."),
+        Message::user().with_text("Tell me the historical origin of this city. Write no more than 2 sentences"),
     ]);
 
     println!("\nAssistant (turn 2):");
@@ -88,7 +88,7 @@ fn provider_config_path() -> Result<PathBuf, Box<dyn Error>> {
             "Provider configuration not found: {}. Run from the repository root or provide a valid JSON path.",
             path.display()
         )
-        .into());
+            .into());
     }
 
     Ok(path)

@@ -38,3 +38,9 @@ Make the request boundary explicit. Learners should understand that a system ins
 ## Checkpoint
 
 Learners distinguish system instructions from history, reconstruct the first response, append it as an assistant turn, and make a context-dependent follow-up call.
+
+## Transition to Lesson 5
+
+The next lesson does not add model-selection CLI plumbing. It changes to the day-trading teaching-assistant domain and introduces a deterministic maximum-planned-loss tool at the raw provider boundary. Use entry `51.20`, stop `50.70`, and 200 shares; the exact result is `100.00` before fees, slippage, or a gap through the stop.
+
+Keep Lesson 5 deliberately narrow: define and advertise the tool, inspect all returned content blocks, recognize a structured request, and preserve its ID. Do not execute it yet. That pause lets learners see that the model proposes a capability call while the application remains responsible for authorization and dispatch. Lesson 6 performs validation, execution, the correlated user-role response, and follow-up inference.
