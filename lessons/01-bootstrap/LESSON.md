@@ -2,7 +2,46 @@
 
 ## Goal
 
-Create a clean Rust project layout for a GDK agentic application using Cargo, a binary entry point, and safe environment configuration.
+Create a clean Rust project layout for the command-line application used throughout this GDK course, using Cargo, a binary entry point, and safe environment configuration.
+
+## How this agentic application works
+
+This course builds a Rust command-line **agentic application**: an application that combines model inference with application-controlled state and capabilities. The target is a day-trading teaching assistant. It can explain hypothetical trades and later calculate their planned risk, but it will not receive brokerage credentials or place, modify, or cancel trades.
+
+The Rust application—not the model—owns the workflow. It reads configuration, keeps the discussion history, decides which capabilities exist, validates untrusted inputs, performs permitted work, and presents the result. The Goose Development Kit (GDK) libraries give the application native Rust types and provider APIs; they do not take control away from the application.
+
+| Term | Meaning in this course |
+| --- | --- |
+| **Application** | The Rust CLI learners are building. It controls the workflow, configuration, data, safety boundaries, and available capabilities. |
+| **Provider** | The configured service interface the application uses to communicate with a model. |
+| **Model** | The probabilistic language model that generates text and, in later lessons, structured requests. |
+| **Inference** | One request from the application to the model and the model's response. |
+| **Message** | A contribution sent to or received from the model, such as a user question or assistant response. |
+| **Conversation history** | The ordered messages that the application retains and sends again when later inference needs prior context. |
+| **Tool** | An application-provided capability with a defined input shape. Later lessons use tools for deterministic calculations; a model may request one, but cannot run it itself. |
+| **Agentic loop** | The later repeating workflow in which the application asks the model for the next step, handles a permitted tool request if one arrives, and gives the result back to the model. |
+
+The complete destination of the course looks like this. This is an architectural preview, not behavior implemented in Lesson 1:
+
+```text
+User
+  |
+  v
+Rust application
+  |-- keeps conversation state
+  |-- sends an inference request to the provider/model
+  |-- advertises only allowed tools
+  |-- validates and executes permitted tool requests
+  |-- returns tool results to the model
+  v
+Provider / model
+  |-- produces text
+  |-- may later request a tool
+  v
+Rust application presents the final response
+```
+
+The model does not directly run Rust code, access credentials, retain the application's state, or place trades. The application controls each boundary. Lessons 2–5 build the first parts of this picture; Lessons 6–8 complete the raw request/result loop and then introduce the GDK state-machine runtime.
 
 ## Directory structure
 
@@ -53,6 +92,8 @@ Create `.env.example` with placeholder key documentation and ignore the real `.e
 
 ## Step 1.3: Add the binary entry point
 
+`src/main.rs` is where the application begins. It is the future orchestrator described above; this bootstrap version only prepares safe local configuration and proves that Cargo can run the binary.
+
 Create `src/main.rs`:
 
 ```rust
@@ -93,4 +134,4 @@ The program invokes `dotenvy::dotenv()` and then prints its greeting. It does no
 
 ## Next
 
-Lesson 2 parses the declarative provider JSON and performs a connectivity/model-discovery smoke test.
+Lesson 2 makes the overview concrete by constructing the configured provider—the application's connection to a model service—and discovering the models it makes available. It does not perform inference yet.

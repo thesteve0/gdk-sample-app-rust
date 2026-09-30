@@ -38,8 +38,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let configured_model = first_configured_model(&provider_config)?;
     let model = ModelConfig::new(configured_model);
 
+    // The application supplies one user turn as input to this inference request.
+    // The model's assistant turn will arrive incrementally through the stream.
     let messages = [Message::user().with_text("What is the capital of France?")];
 
+    // Start inference. Streaming returns assistant-response fragments as they
+    // are produced, so the application can print each one without waiting for
+    // the complete response.
     let mut stream = provider
         .stream(&model, "you are an expert on geography", &messages, &[])
         .await?;

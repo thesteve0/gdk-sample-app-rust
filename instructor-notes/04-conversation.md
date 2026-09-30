@@ -2,10 +2,11 @@
 
 ## Teaching objective
 
-Make the request boundary explicit. Learners should understand that a system instruction and ordered history are inputs to each provider call, and streamed assistant text must be reconstructed before it becomes a later assistant turn.
+Make the transition from a single inference exchange to an application-owned discussion explicit. Define turn, conversation history, and system instruction before using them. Learners should understand that a system instruction and ordered history are inputs to each provider call, the provider object does not retain this program's history, and streamed assistant text must be reconstructed before the application creates a later assistant turn.
 
 ## Suggested pacing
 
+- Trace how application-owned turns become ordered conversation history: 10 minutes
 - Contrast system instructions and user messages: 10 minutes
 - Refactor Lesson 3 into a text-returning helper: 15 minutes
 - Add assistant and follow-up user turns: 15 minutes
@@ -21,6 +22,11 @@ Make the request boundary explicit. Learners should understand that a system ins
 
 ## Discussion prompts
 
+- Why does the application—not the provider object—own the discussion history?
+- What is a turn, and why must its ordering be preserved?
+- Which state belongs to the application, and which component generates the next response?
+- What makes an ordered list of messages history rather than a single prompt?
+- Why is the system instruction not a user or assistant turn?
 - What behavior belongs in a system instruction rather than a user message?
 - Why does the second call include the original user question and assistant reply?
 - What information is lost if only the follow-up is sent?
@@ -31,7 +37,8 @@ Make the request boundary explicit. Learners should understand that a system ins
 
 - Models may ignore requested length limits; treat them as prompt effects, not deterministic assertions.
 - The second call re-sends text and therefore consumes more input tokens.
-- The provider object does not hold application conversation history.
+- The provider object does not hold application conversation history. Do not imply that the model or provider object remembers earlier calls merely because the second response refers to the first.
+- This lesson intentionally retains only plain text. Lesson 5 introduces structured assistant output and the need to reconstruct complete provider messages.
 - Keep tool roles conceptual until the tool-result lesson.
 - Avoid introducing an interactive input loop here; two fixed turns keep message ordering visible.
 

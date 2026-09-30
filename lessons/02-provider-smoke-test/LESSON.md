@@ -6,10 +6,30 @@ Verify that a configured provider can be constructed and use the public Goose Ru
 
 ## Concepts introduced
 
+- A **provider** is the application's configured connection to a model service.
+- A **model** is the model service's text-generating component; a provider can make more than one model available.
 - A declarative provider JSON is the source of truth for provider setup.
 - The public `goose_providers` Rust crate constructs a provider from that JSON.
 - `fetch_supported_models()` asks that provider for its supported models.
 - Tokio runs the asynchronous model-discovery call.
+
+## Where this fits in the application
+
+Lesson 1's application overview showed that the application sends later inference requests through a provider to a model. This lesson establishes that connection without asking a model to generate anything:
+
+```text
+Rust application
+    |
+    | reads provider JSON and constructs a provider
+    v
+Provider
+    |
+    | discovers available model identifiers
+    v
+Model service
+```
+
+The provider owns provider-specific details such as the configured endpoint, authentication, headers, and model-discovery behavior. The application owns the provider JSON and decides when to ask for discovery. This is not an **inference** request yet: inference is the later request/response exchange in which the application asks a selected model to generate a response.
 
 ## What this test checks
 
@@ -43,7 +63,7 @@ let provider_json = fs::read_to_string(provider_config_path)?;
 let provider = from_json(&provider_json, None, EnvKeyResolver {})?;
 ```
 
-`from_json` is the public constructor in the Goose Rust provider library. It resolves the declarative configuration—including its environment-variable settings—before returning a provider object. Keep the provider JSON as the authority; do not reconstruct its URL, authentication, headers, or endpoint paths in application code.
+`from_json` is the public constructor in the Goose Rust provider library. It resolves the declarative configuration—including its environment-variable settings—before returning a provider object. The returned provider is the application-side interface to the model service; it is not the model itself and it does not perform inference here. Keep the provider JSON as the authority; do not reconstruct its URL, authentication, headers, or endpoint paths in application code.
 
 ## Step 2.2: Discover models through the provider
 

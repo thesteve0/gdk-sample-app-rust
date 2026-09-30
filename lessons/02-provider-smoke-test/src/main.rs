@@ -15,8 +15,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // server actually advertises.
     let provider_config: Value = serde_json::from_str(&provider_json)?;
 
-    // Constructing the provider confirms that GDK accepts the declarative JSON.
+    // The provider is the application's configured interface to the model
+    // service. Constructing it does not yet send a prompt to a model.
     let provider = from_json(&provider_json, None, EnvKeyResolver {})?;
+    // Model discovery asks which model IDs this provider makes available. It is
+    // not an inference request and produces no model-generated response.
     let available_models = provider.fetch_supported_models().await?;
     if available_models.is_empty() {
         return Err("Provider is reachable but returned no models".into());

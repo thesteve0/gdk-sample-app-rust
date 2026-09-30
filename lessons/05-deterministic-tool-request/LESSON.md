@@ -10,12 +10,34 @@ This lesson ends at the request boundary. Advertising a tool does not authorize 
 
 - Deterministic computation versus probabilistic model reasoning.
 - A tool definition: name, description, and advertised JSON input schema.
+- **Structured assistant output:** typed fields the application can inspect without guessing from prose.
+- A **tool request:** structured assistant output that asks the application to use an advertised tool.
+- A **correlation ID:** the request ID that links a later tool response to one specific tool request.
 - Passing a tool definition to provider inference through the `tools` slice.
 - Reconstructing streamed deltas into complete messages with `Conversation::push`.
 - Inspecting every reconstructed message and content block.
 - Reading a request's parsed call through its `Result`, without blindly unwrapping it.
 - Retaining the complete assistant message, including its request ID, **in memory during this run**.
 - Advertising a tool versus authorizing and executing it.
+
+## Where this fits in the agentic application
+
+Lessons 3 and 4 established the first half of the application flow: the application sends inference requests and retains ordinary user/assistant discussion history. This lesson adds an advertised capability, but the application remains in control at every boundary:
+
+```text
+Application advertises one allowed tool
+    |
+    v
+Model may produce text or a structured tool request
+    |
+    v
+Application reconstructs and inspects the complete response
+    |
+    v
+Lesson 5 stops: it retains the request but does not authorize or execute it
+```
+
+A tool request is not a command the model can carry out. It is a proposal for the application to consider. Lesson 6 completes the next steps: validate the proposal, execute only an allowed calculation, and return the result with the matching correlation ID.
 
 ## Prerequisites
 
@@ -82,9 +104,9 @@ The model may request a capability, but the application authorizes and executes 
 | --- | --- |
 | `Tool` definition | The application advertises a capability contract to the provider and model. |
 | JSON input schema | Describes the expected argument shape; it does **not** validate received model output. |
-| Tool-request block | Structured assistant output asking the application to use a capability. |
-| Request ID | A future correlation key: Lesson 6 must attach it to the corresponding tool response. |
-| `Conversation` | Application-owned, reconstructed message history retained in memory for the next raw-protocol step. It is not persistent storage. |
+| Tool-request block | Structured assistant output: a named tool, arguments, and an ID that ask the application to consider a capability. |
+| Request ID | A future correlation ID: Lesson 6 must attach it to the corresponding tool response so the provider can match result to request. |
+| `Conversation` | The GDK container that reconstructs and retains this call's received assistant message(s) for the next raw-protocol step. It is not persistent storage or the complete input history. |
 
 ## Step 5.2: Name the prompt for a request, not a result
 
@@ -156,9 +178,61 @@ Advertising the definition does not force the model to call it and does not run 
 
 The next two steps also change what the program retains from the stream: instead of collecting only text, it reconstructs complete messages so it can inspect structured blocks.
 
+### Why this lesson needs a `Conversation`, not just concatenated text
+
+Lessons 3 and 4 received ordinary text answers.
+
+- In **Lesson 3**, the program only needed to display the assistant's streamed text.
+- In **Lesson 4**, it needed the first answer's text so it could create a new `Message::assistant()` entry before sending a follow-up user question.
+
+For those purposes, collecting text fragments into a `String` was enough.
+
+This lesson begins an **agentic discussion**, where an assistant response can ask the application to do work rather than—or in addition to—writing text. That means the application must preserve more than the visible words.
+
+### The pieces of the discussion
+
+The application owns the discussion history. Its main pieces are:
+
+| Term | Meaning |
+| --- | --- |
+| **`Conversation`** | The GDK container this lesson uses to reconstruct and retain complete assistant message(s) received in this streamed call. It does not contain the original user input here, and it exists only in memory. |
+| **Message** | One participant's contribution to the discussion, such as a user question or an assistant response. A message has a role and can contain one or more content blocks. |
+| **Content block** | One typed piece of a message, such as text or a structured tool request. One assistant message may contain multiple blocks. |
+| **Stream delta** | A partial update received while the provider is streaming a message. A delta is not necessarily a complete message or complete content block. |
+| **Tool-request block** | Structured assistant output that names a requested tool, supplies arguments, and carries a request ID. The request ID must later be matched with the tool response. |
+
+**Structured assistant output** is data with a known shape that the program can examine by fields, rather than prose the program would have to guess how to interpret. Here, a tool-request block separately carries a tool name, its arguments, and an ID. The model produces this request, but the application must still treat every field as untrusted input; the shape does not authorize execution or prove the arguments are valid.
+
+The flow in this lesson is:
+
+```text
+User message
+    |
+    v
+Provider streams partial assistant-message deltas
+    |
+    v
+Application prints any text immediately
+    |
+    v
+Conversation::push merges the deltas into a complete assistant message
+    |
+    v
+Application inspects every completed content block
+    |
+    v
+If present: retain the structured tool request and its ID for Lesson 6
+```
+
+A text-only reconstruction would lose the information needed for the next step. For example, `as_concat_text()` can display text, but it does not retain a tool request's structured name, arguments, or correlation ID.
+
+A **correlation ID** lets the application link one specific tool response to the request that caused it. It matters when an assistant message contains multiple requests, when requests have the same tool name, or when later protocol steps need to identify the exact request being answered. In Lesson 6, the application will include the retained request ID in the corresponding tool response so the provider can associate the calculation result with the correct request.
+
+`Conversation::push(message)` is therefore not just string concatenation. It merges the assistant-message deltas received during this stream, preserving their structured content and relevant metadata until the program inspects the reconstructed message after streaming ends. This lesson's `Conversation` contains received assistant message(s), not the original user input. Lesson 6 will carry the retained assistant request message forward with the original user message(s) when it continues the raw protocol. This lesson still does **not** execute the tool. It only preserves and inspects the assistant's request so that the application can validate and handle it safely in the next lesson.
+
 ## Step 5.5: Reconstruct complete messages from stream deltas
 
-A streamed response is **not** one stream item, and one response is **not** one content block. The helper prints text blocks as they arrive and collects the complete messages into a `Conversation`. `Conversation::push` coalesces partial deltas that belong to the same message:
+A streamed response is **not** one stream item, and one response is **not** necessarily one content block. The helper prints text blocks as they arrive, then places every streamed `Message` delta into a `Conversation`. `Conversation::push` reconstructs complete messages while preserving structured blocks and metadata, including a future tool request's ID and arguments:
 
 ```rust
 async fn stream_and_collect(
@@ -189,9 +263,9 @@ async fn stream_and_collect(
 }
 ```
 
-This retains the `Some`/`None` handling from Lesson 4. The important change is `conversation.push(message)`: inspect the reconstructed messages later, not a single partial stream delta.
+This retains the `Some`/`None` handling from Lesson 4. The important change is `conversation.push(message)`: inspect reconstructed complete messages later, rather than flattening a partial stream delta into text.
 
-`as_concat_text()` prints text blocks only. A provider may also return a `Thinking`, image, error, or other block; the next step inspects those blocks after reconstruction rather than promising that they appear in streamed text output.
+`as_concat_text()` prints text blocks only. A provider may also return a `Thinking`, image, error, tool-request, or other block; the next step inspects those blocks after reconstruction rather than promising that they appear in streamed text output.
 
 ## Step 5.6: Inspect every reconstructed content block safely
 

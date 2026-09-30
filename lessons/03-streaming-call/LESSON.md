@@ -6,12 +6,33 @@ Build on Lesson 2 by making the first inference request. Introduce the minimum n
 
 ## Concepts introduced
 
+- An **inference request** is one application request to a selected model; an **inference response** is the model's answer.
+- A **stream** delivers one response as a sequence of partial updates instead of waiting for the entire answer.
+- A **message** is one typed contribution to the request or response. This lesson sends one user message and receives partial assistant-message updates.
 - `ModelConfig` selects a model for one request.
 - `Provider::fetch_supported_models` discovers which models a provider advertises before a request.
 - `Message` represents user and assistant turns in native Rust.
 - `Provider::stream` returns an asynchronous message stream.
 - `futures::StreamExt` supplies `.next()` for consuming that stream.
 - The streamed usage (`ProviderUsage`) reports the model the server actually used to answer, which can differ from the one we requested.
+
+## Where this fits in the application
+
+The application now makes its first inference request. It chooses a configured model, sends the provider a system instruction and one user message, then renders text updates as the provider streams them back:
+
+```text
+Rust application
+    |
+    | inference request: selected model + system instruction + user message
+    v
+Provider / model
+    |
+    | streamed partial assistant-message updates
+    v
+Rust application prints text and checks completion usage
+```
+
+This is **not yet an agentic loop**. The application makes one inference request, receives one response stream, and has no tools to advertise or execute. The application still owns the request, error handling, and output; the model only generates the response.
 
 ## Prerequisites
 
@@ -62,6 +83,8 @@ let model = ModelConfig::new(first_configured_model(&provider_config)?);
 
 ## Step 3.4: Build a user message
 
+A **user message** is the application's typed representation of what the user asks. A **turn** is one participant's contribution: this first request has one user turn and no assistant-history turn yet. Lesson 4 stores an assistant turn and sends ordered history on a later inference request.
+
 ```rust
 let messages = [Message::user().with_text(
     "What is the capital of France?",
@@ -71,6 +94,8 @@ let messages = [Message::user().with_text(
 This first request has one user text message. Assistant history is introduced in Lesson 4.
 
 ## Step 3.5: Start and consume the stream
+
+The application requests inference through the provider. Its response arrives as a stream of **partial updates** (also called deltas): each update can contain only part of the assistant's eventual answer. Printing a text fragment immediately makes the CLI responsive, but this lesson does not need to retain a complete response after it finishes.
 
 Keep system instructions, messages, and tools separate:
 

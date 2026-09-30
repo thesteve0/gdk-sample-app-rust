@@ -2,10 +2,11 @@
 
 ## Teaching objective
 
-Separate provider configuration and connectivity from inference. Learners should understand that constructing a declarative provider, discovering its supported models, and generating a response are separate checks.
+Connect Lesson 1's architecture vocabulary to code while separating provider configuration and connectivity from inference. Learners should understand that the application constructs a provider as its interface to a model service, that a provider can expose models, and that construction, discovery, and generating a response are separate checks.
 
 ## Suggested pacing
 
+- Reconnect the application → provider → model path from Lesson 1: 5 minutes
 - Review provider JSON: 10 minutes
 - Explain provider construction and the provider abstraction: 10 minutes
 - Walk through `fetch_supported_models()`: 10 minutes
@@ -21,6 +22,8 @@ Separate provider configuration and connectivity from inference. Learners should
 
 ## Discussion prompts
 
+- Which component owns provider configuration, and which component is the configured interface to the model service?
+- Why is model discovery not an inference request?
 - What does `from_json` validate and configure locally?
 - Why does a successful model-discovery request not prove inference works?
 - Why should the application use the provider abstraction instead of rebuilding its request URL, headers, and authentication?

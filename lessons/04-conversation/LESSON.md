@@ -6,10 +6,28 @@ Extend Lesson 3's one-message request into a two-turn conversation. Keep the sys
 
 ## Concepts introduced
 
+- A **turn** is one user or assistant contribution; **conversation history** is their ordered sequence.
+- The application, not the provider object, owns and re-sends that history for each later inference request.
 - The separate `system` argument versus `Message` history.
 - `Message::user()` and `Message::assistant()`.
 - Capturing streamed text while printing it.
 - Re-sending explicit history on every provider call.
+
+## How a one-request exchange becomes a discussion
+
+Lesson 3 made one inference request: one user message went in and streamed assistant text came back. A **conversation** is a discussion across multiple turns. The application creates it by retaining prior messages and supplying them in order on each later request; the provider object does not remember earlier calls for this program.
+
+This lesson performs two requests:
+
+```text
+Application-owned history             Inference request
+-------------------------             -----------------
+user: question                     ->  first request
+assistant: first response          ->  retained after streaming
+user: follow-up                    ->  second request receives all three turns
+```
+
+For now, the program reconstructs only the first response's text because that is all it needs to create `Message::assistant().with_text(...)`. Lesson 5 introduces structured assistant output, where preserving plain text is no longer enough.
 
 ## Prerequisites
 
@@ -23,7 +41,7 @@ const SYSTEM_INSTRUCTION: &str =
     "You are a history and geography expert. Answer in no more than three sentences.";
 ```
 
-The system instruction controls the request but is not a conversation turn. Pass it as the separate `system` argument to both calls rather than inserting it into `messages`.
+A **system instruction** is application-supplied guidance for the model's behavior. It controls each request but is not a conversation turn: a user does not say it and an assistant does not answer it. Pass it as the separate `system` argument to both calls rather than inserting it into `messages`.
 
 ### The system instruction is one of four things a call receives
 
@@ -60,7 +78,7 @@ The application can't rely on any of this, so it must re-send the full instructi
 
 ## Step 4.2: Make a stream helper return text
 
-A conversation needs the first assistant response as a future history entry. The helper continues printing partial messages but stores their text:
+The application needs the first assistant response as a future history entry. The helper continues printing partial messages but stores their text. The model does not add this history itself; after the stream ends, the application creates the next assistant turn from the collected text:
 
 ```rust
 let mut text_parts = Vec::new();
@@ -110,6 +128,8 @@ Every `Some` is the compiler saying "a value is here, go ahead and use it"; ever
 
 ## Step 4.3: Start with one user message
 
+The `messages` vector is the application's in-memory conversation history. It starts with the user's first turn:
+
 ```rust
 let mut messages = vec![Message::user()
     .with_text("What is the capital of France?")];
@@ -118,6 +138,8 @@ let first_response = stream_response(provider.as_ref(), &model, &messages).await
 ```
 
 ## Step 4.4: Append assistant and follow-up turns
+
+After the first stream completes, the application extends the history with two more turns: the assistant text it retained and the user's follow-up. The assistant message must come before the follow-up, because this preserves what each participant said and when.
 
 ```rust
 messages.extend([

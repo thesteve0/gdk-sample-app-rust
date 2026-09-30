@@ -111,6 +111,9 @@ async fn stream_and_collect(
             if !text.is_empty() {
                 print!("{text}");
             }
+            // Text alone is enough for Lessons 3 and 4, but a tool-capable assistant
+            // response can also contain structured requests, arguments, and correlation
+            // IDs. Preserve the complete reconstructed message for the next agentic step.
             conversation.push(message);
         }
         if let Some(usage) = usage {

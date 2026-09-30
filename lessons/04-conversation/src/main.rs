@@ -23,12 +23,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let provider = from_json(&provider_json, None, EnvKeyResolver {})?;
     let model = ModelConfig::new(first_configured_model(&provider_config)?);
 
+    // Application-owned conversation history begins with one user turn. It is
+    // explicitly sent with each inference request.
     let mut messages = vec![Message::user()
         .with_text("What is the capital of France?")];
 
     println!("Assistant (turn 1):");
+    // The model generates the first assistant turn from the system instruction
+    // and the current application-owned history.
     let first_response = stream_response(provider.as_ref(), &model, &messages).await?;
 
+    // Preserve the generated assistant turn, then append the follow-up user turn.
+    // The application, not the provider, maintains this ordered history.
     messages.extend([
         Message::assistant().with_text(first_response),
         Message::user().with_text("Tell me the historical origin of this city. Write no more than 2 sentences"),
@@ -45,6 +51,8 @@ async fn stream_response(
     model: &ModelConfig,
     messages: &[Message],
 ) -> Result<String, Box<dyn Error>> {
+    // Each inference call receives the same system instruction plus the complete
+    // history the application wants the model to use.
     let mut stream = provider.stream(model, SYSTEM_INSTRUCTION, messages, &[]).await?;
 
     let mut text_parts = Vec::new();

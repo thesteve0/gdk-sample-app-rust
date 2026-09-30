@@ -2,10 +2,12 @@
 
 ## Teaching objective
 
-Introduce the first inference request while keeping Rust and GDK concepts to the minimum required for message construction, per-request model selection, async streaming, and structural stream handling.
+Introduce the first inference request while connecting it to Lesson 1's application-owned workflow. Define inference, response stream, partial update, message, and turn before learners see the corresponding code; then keep Rust and GDK concepts to the minimum required for message construction, per-request model selection, async streaming, and structural stream handling.
 
 ## Suggested pacing
 
+- Trace the application → provider/model → streamed-response flow: 5 minutes
+- Define inference, message, turn, stream, and partial update: 5 minutes
 - Review provider setup and first-model selection: 5 minutes
 - Construct a native `Message`: 15 minutes
 - Explain `ModelConfig` and `provider.stream`: 10 minutes
@@ -21,6 +23,11 @@ Introduce the first inference request while keeping Rust and GDK concepts to the
 
 ## Discussion prompts
 
+- Which responsibilities remain with the application during an inference request?
+- Why is this a single inference exchange rather than an agentic loop?
+- What is inference, and which part is the application versus the model?
+- What is the difference between a message and a turn?
+- What does streaming change about when the application can display model output?
 - Why does a request select a model when the JSON already declares models?
 - What does `Message::user().with_text(...)` express about a turn?
 - Why is each stream item allowed to contain a message, usage, or both?
@@ -33,6 +40,8 @@ Introduce the first inference request while keeping Rust and GDK concepts to the
 - Generated text is nondeterministic; validate structure, not wording.
 - Do not imply that stream exhaustion alone is proof of normal completion; the reference requires completion usage metadata.
 - Provider errors are returned through the stream item's `Result` and propagated by `transpose()?`.
+- Define inference before using it as shorthand for `provider.stream`. Avoid saying that the application “thinks” or “answers”: the application assembles and handles the request, while the selected model generates the assistant response.
+- A partial update is not a complete retained conversation message; this distinction becomes important in Lessons 4 and 5.
 - Do not introduce tool requests in detail yet.
 
 ## Checkpoint

@@ -2,10 +2,11 @@
 
 ## Teaching objective
 
-Make the raw provider tool boundary explicit. Learners should understand that an application advertises a deterministic capability, a model may request it, and the application alone authorizes, validates, and executes it. The lesson ends at the pending request—not at a calculation or final response.
+Build on the application-owned workflow established in Lessons 1–4 and make the raw provider tool boundary explicit. Define structured assistant output, tool request, and correlation ID before examining their fields. Learners should understand that an application advertises a deterministic capability, a model may request it, and the application alone authorizes, validates, and executes it. The lesson ends at the pending request—not at a calculation or final response.
 
 ## Suggested pacing
 
+- Reconnect the Lesson 1 application/model boundary and define structured output: 10 minutes
 - Tool-request boundary and why deterministic arithmetic belongs in application code: 10 minutes
 - Scenario card and raw protocol diagram: 10 minutes
 - Define one narrowly advertised schema: 15 minutes
@@ -24,9 +25,13 @@ Make the raw provider tool boundary explicit. Learners should understand that an
 ## Discussion prompts
 
 - Why is a deterministic Rust calculation preferable to trusting model-generated arithmetic?
+- What makes a tool request structured output rather than prose the application must interpret?
+- Why does a request ID act as a correlation ID, even before this lesson returns a result?
 - What does the model receive when the application advertises a tool, and what does it send back when it wants that capability?
 - Why does the advertised schema not validate or authorize received arguments?
 - Why are tool names and arguments untrusted model output?
+- What information survives in a reconstructed message that would be lost by keeping only `as_concat_text()` output?
+- Does the Lesson 5 `Conversation` contain the original user message too? Why or why not?
 - Why inspect every content block instead of only the first one?
 - Why read the tool call through its `Result` instead of unwrapping it?
 - Why reconstruct streamed deltas with `Conversation::push` before inspection?
@@ -37,7 +42,7 @@ Make the raw provider tool boundary explicit. Learners should understand that an
 - A model may reply with plain text rather than a structured request. Record that outcome; it is not automatically a code defect.
 - The provider JSON does not guarantee native tool calling, and the reference program does not expose a finish reason. Do not promise `tool_calls` as a live-run result.
 - `Message::as_concat_text()` prints text blocks only. A provider may supply a `Thinking` or other non-text block; the reconstructed block-inspection phase renders it separately.
-- The inspection view may repeat text already printed while streaming. This is intentional: it demonstrates that the application is inspecting reconstructed messages rather than a single delta.
+- First point out live text printed from stream deltas, then the reconstructed-content view. Their possible text repetition is intentional: it demonstrates two concerns, responsive display and structured protocol inspection.
 - The `Conversation` is retained in memory during the program run only. Do not imply that Lesson 5 creates persistent cross-run state.
 - Do not extend the exercise into decimal calculation, `CallToolResult`, tool responses, an agent loop, `SyncTool`, `ToolOperation`, sessions, effects, market data, retrieval, or explicit model selection.
 

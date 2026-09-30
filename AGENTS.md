@@ -34,12 +34,29 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 - Make small, concept-focused changes.
 - Introduce only concepts required by the active lesson.
 - Explain why a GDK abstraction is needed, not merely how to type it.
+- Build the conceptual foundation progressively: establish the application-level mental model and define each domain concept before the lesson uses its code-level form.
 - Do not scaffold the final application or future lessons prematurely.
 - Do not introduce ownership workarounds, traits, generic abstractions, workspaces, or async machinery before the active lesson needs them.
 - Ask the instructor before making uncertain curriculum, sequencing, or architecture decisions.
 - Keep the roadmap in `README.md` current when lesson state or order changes.
 
 The accepted post-Lesson 4 direction is recorded in `post-lesson4-plan.md`. It prioritizes the raw tool protocol, then the GDK state machine, before later market data, evaluation, retrieval, and CLI/model-selection work. The roadmap is not constrained to a fixed number of lessons.
+
+### Progressive conceptual foundation and editorial rules
+
+Apply these rules to every lesson and to curriculum changes:
+
+1. **Define a new domain term in prose before it appears in a code snippet.**
+2. Give the term a plain-language purpose: explain not only *what it is*, but *why the application needs it now*.
+3. Reuse the exact term consistently after defining it.
+4. Do not introduce a library type, method, field, or protocol value before its conceptual counterpart is established. For example:
+   - define *conversation history* before `Conversation`;
+   - define *structured output* before `as_tool_request()`;
+   - define *correlation ID* before `request.id`;
+   - define the *tool execution boundary* before dispatch code.
+5. Future-state diagrams are encouraged when they help learners form a mental model, but clearly label them as future behavior and distinguish them from what the current lesson implements.
+
+Use concise source comments to point out what code is doing and why it is needed at that point. Keep the longer explanation, terminology, diagrams, and instructor discussion in the lesson prose and `instructor-notes/`, rather than turning source comments into the lesson.
 
 ## Accepted post-Lesson 4 sequence
 
