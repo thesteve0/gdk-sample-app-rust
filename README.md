@@ -43,8 +43,8 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 1 | Project bootstrap with Cargo and `src/main.rs` | **Complete** | [`lessons/01-bootstrap/`](lessons/01-bootstrap/) |
 | 2 | Provider configuration and model discovery smoke test | **Complete** | [`lessons/02-provider-smoke-test/`](lessons/02-provider-smoke-test/) |
 | 3 | First streaming model call | **Complete** | [`lessons/03-streaming-call/`](lessons/03-streaming-call/) |
-| 4 | System instructions, message roles, and multi-turn conversation | **Active** | [`lessons/04-conversation/`](lessons/04-conversation/) |
-| 5 | Define a deterministic trading calculator tool and inspect its raw request | Planned | — |
+| 4 | System instructions, message roles, and multi-turn conversation | **Complete** | [`lessons/04-conversation/`](lessons/04-conversation/) |
+| 5 | Define a deterministic trading calculator tool and inspect its raw request | **Active** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
 | 6 | Execute the tool and return its result through the raw provider protocol | Planned | — |
 | 7 | Introduce state-machine operations, effects, sessions, and a minimal runtime | Planned | — |
 | 8 | Assemble provider inference and the typed tool operation | Planned | — |
@@ -65,7 +65,7 @@ The post-Lesson 4 roadmap is accepted based on the isolated technical spike in [
 
 ### Immediate Lesson 5 boundary
 
-Lesson 5 introduces exactly one domain-specific deterministic tool: maximum planned loss for a hypothetical long position. Its example uses entry `51.20`, stop `50.70`, and 200 shares, producing `100.00` before fees, slippage, or a gap through the stop. Learners define its name, description, and JSON input schema; pass that definition to raw provider inference; inspect all returned content blocks; identify a structured tool request; and preserve its request ID. They do **not** execute the tool or return a result until Lesson 6. Early tool lessons continue selecting the first configured model; explicit model selection remains deferred.
+Lesson 5 introduces exactly one domain-specific deterministic tool: maximum planned loss for a hypothetical long position. Its example uses entry `51.20`, stop `50.70`, and 200 shares, producing `100.00` before fees, slippage, or a gap through the stop. Learners define its name, description, and JSON input schema; pass that definition to raw provider inference; inspect all returned content blocks; and identify a structured tool request, including its future correlation ID. They do **not** execute the tool or return a result until Lesson 6; the reconstructed request is retained only in memory during the current run. Early tool lessons continue selecting the first configured model; explicit model selection remains deferred.
 
 ## Repository organization
 
@@ -85,7 +85,7 @@ Lesson 5 introduces exactly one domain-specific deterministic tool: maximum plan
 
 ### Root source
 
-Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 4 conversation checkpoint: it reconstructs a streamed assistant reply and sends an ordered user/assistant/user history with a follow-up question, keeping the system instruction separate from the conversation.
+Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 5 tool-request checkpoint: it advertises one deterministic `maximum_planned_loss` tool to a single inference call, inspects every reconstructed content block, and recognizes a structured request while retaining its id, name, and arguments in the in-memory `Conversation`. It stops before execution — advertising or receiving a request does not run the tool — and does not persist history across program runs.
 
 ### Lesson directories
 
@@ -159,13 +159,13 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Run the active exercise
 
-Run the current Lesson 4 conversation exercise from the repository root:
+Run the current Lesson 5 tool-request exercise from the repository root:
 
 ```bash
 cargo run
 ```
 
-It loads an optional local `.env` through `dotenvy`, makes two streaming requests against the first configured model, prints each assistant reply to stdout, and prints completion usage metadata to stderr. The first reply is reconstructed in memory and re-sent as an assistant turn so the second request carries an ordered user/assistant/user history. Lessons 5 onward are planned. Provider-calling lessons are validated live here, but their release status remains Draft until the instructor independently approves them.
+It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a single streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For a parseable structured request, it prints the id, name, and arguments; it reports an unparseable request safely. It stops before execution — advertising or receiving a request does not run the tool — and retains the reconstructed assistant message only in memory for the current run. Lessons 6 onward are planned. Provider-calling lessons are validated live here, but their release status remains Draft until the instructor independently approves them.
 
 ## Validation philosophy
 
