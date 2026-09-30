@@ -36,12 +36,14 @@ The provider owns provider-specific details such as the configured endpoint, aut
 1. The provider JSON can be parsed and used to construct a Goose provider.
 2. The provider's configured authentication, headers, base URL, and model-discovery behavior are used together.
 3. At least one model is available.
+4. Whether the first configured model in the JSON appears among the advertised model IDs.
 
 For the configured OpenAI-compatible provider, `fetch_supported_models()` queries its models endpoint. Its exact behavior comes from the provider configuration: `dynamic_models: false` uses the configured static list; `true` or `null` attempts discovery and can fall back to configured models if the endpoint is unavailable with a 404. A successful discovery call proves neither inference nor streaming; Lesson 3 covers those separately.
 
 ## Prerequisites
 
 - Lesson 1 is complete.
+- This lesson adds two requirements to the root `Cargo.toml` that Lesson 1 does not use yet: `serde_json = "1.0.149"` for reading the provider JSON, and `tokio = { version = "1", features = ["macros", "rt-multi-thread"] }` to drive the asynchronous entry point.
 - The exact `goose-providers` dependency from the root manifest is available.
 - A compatible provider is running at the selected JSON configuration's `base_url` when its configuration uses dynamic model discovery.
 
@@ -83,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-This keeps provider-specific details inside the Goose library. In particular, the configured provider's normal authentication and headers are applied if model discovery makes an HTTP request. The complete reference source is [`src/main.rs`](src/main.rs).
+This keeps provider-specific details inside the Goose library. In particular, the configured provider's normal authentication and headers are applied if model discovery makes an HTTP request. The complete reference source is [`src/main.rs`](src/main.rs). That source also defines a `first_configured_model` helper, which reads the first name from the JSON's `models` array and compares it with the advertised IDs after discovery.
 
 ## Step 2.3: Run it
 
@@ -111,13 +113,14 @@ Provider names and model IDs depend on the selected configuration and endpoint.
 
 ## Expected structural behavior
 
-The program loads `.env`, reads one provider JSON path, constructs a provider through `from_json`, awaits `fetch_supported_models`, rejects an empty result, and prints the provider and each returned model ID. It must not make an inference request.
+The program loads `.env`, reads one provider JSON path, constructs a provider through `from_json`, awaits `fetch_supported_models`, rejects an empty result, and prints the provider and each returned model ID. When the JSON declares a configured model, it also compares that name against the advertised IDs and prints the outcome; the comparison is skipped when the JSON declares no model. It must not make an inference request.
 
 ## Success criteria
 
 - The selected provider configuration constructs successfully.
 - Model discovery completes, either through the configured endpoint or the configuration's documented static fallback behavior.
 - At least one model is returned and printed.
+- If the JSON declares a configured model, the run prints whether that model is among the advertised IDs. A mismatch message is an expected diagnostic, not a run failure: it names the configured model and lists the advertised IDs so the two can be aligned before the next lesson.
 - No manually assembled HTTP request, authentication header, or endpoint path appears in application code.
 
 ## Next

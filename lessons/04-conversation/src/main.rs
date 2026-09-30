@@ -28,19 +28,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut messages = vec![Message::user()
         .with_text("What is the capital of France?")];
 
-    println!("Assistant (turn 1):");
-    // The model generates the first assistant turn from the system instruction
+    println!("Model response (assistant role, turn 1):");
+    // The model generates the first assistant-role turn from the system instruction
     // and the current application-owned history.
     let first_response = stream_response(provider.as_ref(), &model, &messages).await?;
 
-    // Preserve the generated assistant turn, then append the follow-up user turn.
+    // Preserve the generated assistant-role turn, then append the follow-up user turn.
     // The application, not the provider, maintains this ordered history.
     messages.extend([
         Message::assistant().with_text(first_response),
         Message::user().with_text("Tell me the historical origin of this city. Write no more than 2 sentences"),
     ]);
 
-    println!("\nAssistant (turn 2):");
+    println!("\nModel response (assistant role, turn 2):");
     stream_response(provider.as_ref(), &model, &messages).await?;
 
     Ok(())

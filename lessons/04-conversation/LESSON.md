@@ -2,11 +2,11 @@
 
 ## Goal
 
-Extend Lesson 3's one-message request into a two-turn conversation. Keep the system instruction separate from conversation messages, reconstruct the first streamed assistant reply, and send the complete ordered history with a follow-up user message.
+Extend Lesson 3's one-message request into a two-turn conversation. Keep the system instruction separate from conversation messages, reconstruct the first streamed assistant-role reply, and send the complete ordered history with a follow-up user message.
 
 ## Concepts introduced
 
-- A **turn** is one user or assistant contribution; **conversation history** is their ordered sequence.
+- A **turn** is one `user`- or `assistant`-role contribution; **conversation history** is their ordered sequence.
 - The application, not the provider object, owns and re-sends that history for each later inference request.
 - The separate `system` argument versus `Message` history.
 - `Message::user()` and `Message::assistant()`.
@@ -15,7 +15,7 @@ Extend Lesson 3's one-message request into a two-turn conversation. Keep the sys
 
 ## How a one-request exchange becomes a discussion
 
-Lesson 3 made one inference request: one user message went in and streamed assistant text came back. A **conversation** is a discussion across multiple turns. The application creates it by retaining prior messages and supplying them in order on each later request; the provider object does not remember earlier calls for this program.
+Lesson 3 made one inference request: one user message went in and streamed model-generated assistant-role text came back. A **conversation** is a discussion across multiple turns. The application creates it by retaining prior messages and supplying them in order on each later request; the provider object does not remember earlier calls for this program.
 
 This lesson performs two requests:
 
@@ -23,16 +23,16 @@ This lesson performs two requests:
 Application-owned history             Inference request
 -------------------------             -----------------
 user: question                     ->  first request
-assistant: first response          ->  retained after streaming
+assistant role: first response     ->  retained after streaming
 user: follow-up                    ->  second request receives all three turns
 ```
 
-For now, the program reconstructs only the first response's text because that is all it needs to create `Message::assistant().with_text(...)`. Lesson 5 introduces structured assistant output, where preserving plain text is no longer enough.
+For now, the program reconstructs only the first response's text because that is all it needs to create `Message::assistant().with_text(...)`. Lesson 5 introduces structured model output, where preserving plain text is no longer enough.
 
 ## Prerequisites
 
 - Lessons 1–3 are complete.
-- The selected provider streams text and accepts ordinary user/assistant history.
+- The selected provider streams text and accepts ordinary user/assistant-role history.
 
 ## Step 4.1: Name the system instruction
 
@@ -41,7 +41,7 @@ const SYSTEM_INSTRUCTION: &str =
     "You are a history and geography expert. Answer in no more than three sentences.";
 ```
 
-A **system instruction** is application-supplied guidance for the model's behavior. It controls each request but is not a conversation turn: a user does not say it and an assistant does not answer it. Pass it as the separate `system` argument to both calls rather than inserting it into `messages`.
+A **system instruction** is application-supplied guidance for the model's behavior. It controls each request but is not a conversation turn: a user does not say it and an assistant-role message does not answer it. Pass it as the separate `system` argument to both calls rather than inserting it into `messages`.
 
 ### The system instruction is one of four things a call receives
 
@@ -57,28 +57,17 @@ provider.stream(model, SYSTEM_INSTRUCTION, messages, &[])
 
 - `model` selects which model to run.
 - `SYSTEM_INSTRUCTION` is passed as its **own dedicated `system` argument** — not as an entry in `messages`. The SDK places it as a distinct `role: "system"` message in the request, ahead of the conversation history.
-- `messages` carries the actual user↔assistant turns.
+- `messages` carries the actual user↔assistant-role turns.
 
-Why a separate argument instead of an entry in `messages`? A system message is not a dialogue turn: the model never replies to it, and it does not count as a user or assistant exchange. The SDK surfaces it as its own parameter so that distinction stays explicit in code.
+Why a separate argument instead of an entry in `messages`? A system message is not a dialogue turn: the model never replies to it, and it does not count as a user or assistant-role exchange. The SDK surfaces it as its own parameter so that distinction stays explicit in code.
 
 > **Note on cost and context.** The system instruction's tokens do count toward the size of every request — the model must read them to follow the instruction — so it does use context-window budget for that request. But it is *treated differently* from the history: it is a fixed, constant overhead (the same instruction on every call), whereas the `messages` list grows by two entries each turn. It sits outside the turn history and shapes every turn rather than being one turn itself.
 
-> Its marginal cost is also backend-dependent. A server that reuses a shared KV prefix across requests skips re-prefilling the identical system prompt on each new turn, so each turn costs less than the raw token count suggests — but *whether it does* depends entirely on the provider you are talking to.
-
-### Prompt caching in llama.cpp
-
-**llama.cpp's `server`** (the likely backend at `127.0.0.1:8080`) does this, but the knobs are easy to get wrong:
-
-- **`--cache-prompt` is a boolean toggle, not a value-taking flag.** Write just `--cache-prompt` to enable, or `--no-cache-prompt` to disable — never `--cache-prompt true`. Per the current manpage it is *enabled by default*, so the common case needs no flag at all.
-- **The `true`/`false` value is a per-request body field**, `cache_prompt`, which overrides the server default for one request — this is what the project author means by telling people to set `cache_prompt = true`.
-- **`--cache-reuse N`** is a separate knob: the minimum chunk size (in tokens) at which it reuses cached KV via "KV shifting"; it requires prompt caching enabled and defaults to `0`.
-- **Caveats:** reuse is *per-slot* (a finished slot keeps its KV alive and matches the incoming prefix against it), so the follow-up turn must land on a slot whose cache shares the prefix — prefix-affinity selection helps but does not guarantee it; sliding-window-attention models can break reuse (servers log "forcing full prompt re-processing"); and the reused prefix is bounded by the slot's cache size, so a long conversation eventually evicts it.
-
-The application can't rely on any of this, so it must re-send the full instruction every call. This is a server-side optimization layered on top of a correct, simple contract.
+> Some servers reduce the marginal cost of that fixed instruction by caching an identical system prefix and skipping re-prefilling on each new turn. That is a backend-specific optimization layered on top of a correct, simple contract: the application cannot rely on any backend's caching behavior, so it always re-sends the full instruction with every call.
 
 ## Step 4.2: Make a stream helper return text
 
-The application needs the first assistant response as a future history entry. The helper continues printing partial messages but stores their text. The model does not add this history itself; after the stream ends, the application creates the next assistant turn from the collected text:
+The application needs the first assistant-role response as a future history entry. The helper continues printing partial messages but stores their text. The model does not add this history itself; after the stream ends, the application creates the next assistant-role turn from the collected text:
 
 ```rust
 let mut text_parts = Vec::new();
@@ -137,9 +126,9 @@ let mut messages = vec![Message::user()
 let first_response = stream_response(provider.as_ref(), &model, &messages).await?;
 ```
 
-## Step 4.4: Append assistant and follow-up turns
+## Step 4.4: Append assistant-role and follow-up turns
 
-After the first stream completes, the application extends the history with two more turns: the assistant text it retained and the user's follow-up. The assistant message must come before the follow-up, because this preserves what each participant said and when.
+After the first stream completes, the application extends the history with two more turns: the assistant-role text it retained and the user's follow-up. The assistant-role message must come before the follow-up, because this preserves what each participant said and when.
 
 ```rust
 messages.extend([
@@ -148,7 +137,7 @@ messages.extend([
 ]);
 ```
 
-The second request receives all three entries, in order: original user question, assistant response, follow-up user question. The application owns this history; the provider object does not preserve it for later calls.
+The second request receives all three entries, in order: original user question, assistant-role response, follow-up user question. The application owns this history; the provider object does not preserve it for later calls.
 
 ## Step 4.5: Run it
 
@@ -167,7 +156,7 @@ cargo run -- path/to/provider.json
 ## Expected structural behavior
 
 - The first response streams to stdout and is reconstructed in memory.
-- The first response becomes an assistant message.
+- The first response becomes an assistant-role message.
 - The second request receives all three history messages in order.
 - Both calls use the same separate system instruction.
 - Usage diagnostics are printed only when completion usage is supplied.
@@ -176,7 +165,7 @@ cargo run -- path/to/provider.json
 
 - Both calls receive text and completion usage metadata.
 - The first response is reconstructed from its text fragments.
-- The history is user, assistant, user in that order.
+- The history is user, assistant-role, user in that order.
 - System instructions remain separate from history.
 - No exact model wording is required.
 

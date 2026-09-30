@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let tools = [tool_definition()];
     let messages = vec![Message::user().with_text(USER_PROMPT)];
 
-    println!("Assistant (turn 1, tool advertised):");
+    println!("Model response (assistant role, tool advertised):");
     let conversation = stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
 
     // Inspect every content block across every reconstructed message. A single
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // The application owns this history; the provider does not preserve it.
     // It remains in memory for this run only; persistence arrives in a later lesson.
     println!(
-        "\nRetained {} reconstructed assistant message(s) in memory for the next raw-protocol step.",
+        "\nRetained {} reconstructed assistant-role message(s) in memory for the next raw-protocol step.",
         conversation.messages().len()
     );
 
@@ -111,9 +111,9 @@ async fn stream_and_collect(
             if !text.is_empty() {
                 print!("{text}");
             }
-            // Text alone is enough for Lessons 3 and 4, but a tool-capable assistant
+            // Text alone is enough for Lessons 3 and 4, but a tool-capable model
             // response can also contain structured requests, arguments, and correlation
-            // IDs. Preserve the complete reconstructed message for the next agentic step.
+            // IDs. Preserve the complete assistant-role message for the next agentic step.
             conversation.push(message);
         }
         if let Some(usage) = usage {

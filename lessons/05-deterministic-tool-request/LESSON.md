@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define and advertise **one** deterministic tool, `maximum_planned_loss`, to raw provider inference. Reconstruct the streamed assistant message, inspect every content block, and identify a pending structured tool request without executing it.
+Define and advertise **one** deterministic tool, `maximum_planned_loss`, to raw provider inference. Reconstruct the streamed assistant-role message, inspect every content block, and identify a pending structured tool request without executing it.
 
 This lesson ends at the request boundary. Advertising a tool does not authorize it, receiving a request does not execute it, and no result is returned to the model yet.
 
@@ -10,19 +10,19 @@ This lesson ends at the request boundary. Advertising a tool does not authorize 
 
 - Deterministic computation versus probabilistic model reasoning.
 - A tool definition: name, description, and advertised JSON input schema.
-- **Structured assistant output:** typed fields the application can inspect without guessing from prose.
-- A **tool request:** structured assistant output that asks the application to use an advertised tool.
+- **Structured model output:** typed fields the application can inspect without guessing from prose.
+- A **tool request:** structured model output that asks the application to use an advertised tool.
 - A **correlation ID:** the request ID that links a later tool response to one specific tool request.
 - Passing a tool definition to provider inference through the `tools` slice.
 - Reconstructing streamed deltas into complete messages with `Conversation::push`.
 - Inspecting every reconstructed message and content block.
 - Reading a request's parsed call through its `Result`, without blindly unwrapping it.
-- Retaining the complete assistant message, including its request ID, **in memory during this run**.
+- Retaining the complete assistant-role message, including its request ID, **in memory during this run**.
 - Advertising a tool versus authorizing and executing it.
 
 ## Where this fits in the agentic application
 
-Lessons 3 and 4 established the first half of the application flow: the application sends inference requests and retains ordinary user/assistant discussion history. This lesson adds an advertised capability, but the application remains in control at every boundary:
+Lessons 3 and 4 established the first half of the application flow: the application sends inference requests and retains ordinary user/assistant-role discussion history. This lesson adds an advertised capability, but the application remains in control at every boundary:
 
 ```text
 Application advertises one allowed tool
@@ -42,9 +42,10 @@ A tool request is not a command the model can carry out. It is a proposal for th
 ## Prerequisites
 
 - Lessons 1–4 are complete.
+- This lesson adds one requirement to the root `Cargo.toml` that Lessons 1–4 do not use yet: `rmcp = "=3.4.1"`, which supplies the MCP `Tool` type and `JsonObject` schema used to advertise the deterministic tool.
 - The selected provider supports the GDK streaming call used here, including its `tools` argument.
 - The provider JSON declares the first model to select.
-- Before class, the instructor has verified that the classroom provider/model can emit a native structured request. The bundled local endpoint did so in the recorded post-Lesson-4 spike, but a request is not guaranteed on every provider, model, or run.
+- Before class, the instructor has verified that the classroom provider/model can emit a native structured request, but a request is not guaranteed on every provider, model, or run.
 
 ## Step 5.1: Why give the application a deterministic tool?
 
@@ -81,7 +82,7 @@ User message (entry 51.20, stop 50.70, 200 shares)
 Provider inference + advertised tool definition (maximum_planned_loss)
     |
     v
-Assistant ToolRequest (id, name, arguments)  <-- LESSON 5 STOPS HERE
+Model returns an assistant-role ToolRequest (id, name, arguments)  <-- LESSON 5 STOPS HERE
     |
     v
 [Lesson 6] Application validates and allowlists the request
@@ -104,9 +105,9 @@ The model may request a capability, but the application authorizes and executes 
 | --- | --- |
 | `Tool` definition | The application advertises a capability contract to the provider and model. |
 | JSON input schema | Describes the expected argument shape; it does **not** validate received model output. |
-| Tool-request block | Structured assistant output: a named tool, arguments, and an ID that ask the application to consider a capability. |
+| Tool-request block | Structured model output: a named tool, arguments, and an ID that ask the application to consider a capability. |
 | Request ID | A future correlation ID: Lesson 6 must attach it to the corresponding tool response so the provider can match result to request. |
-| `Conversation` | The GDK container that reconstructs and retains this call's received assistant message(s) for the next raw-protocol step. It is not persistent storage or the complete input history. |
+| `Conversation` | The GDK container that reconstructs and retains this call's received assistant-role message(s) for the next raw-protocol step. It is not persistent storage or the complete input history. |
 
 ## Step 5.2: Name the prompt for a request, not a result
 
@@ -168,7 +169,7 @@ let messages = vec![Message::user().with_text(USER_PROMPT)];
 
 let conversation = stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
 //               │          │             │          │          └── one advertised tool
-//               │          │             │          └── ordered user/assistant history
+//               │          │             │          └── ordered user/assistant-role history
 //               │          │             └── separate system instruction
 //               │          └── configured model
 //               └── provider
@@ -182,12 +183,12 @@ The next two steps also change what the program retains from the stream: instead
 
 Lessons 3 and 4 received ordinary text answers.
 
-- In **Lesson 3**, the program only needed to display the assistant's streamed text.
+- In **Lesson 3**, the program only needed to display the model's streamed assistant-role text.
 - In **Lesson 4**, it needed the first answer's text so it could create a new `Message::assistant()` entry before sending a follow-up user question.
 
 For those purposes, collecting text fragments into a `String` was enough.
 
-This lesson begins an **agentic discussion**, where an assistant response can ask the application to do work rather than—or in addition to—writing text. That means the application must preserve more than the visible words.
+This lesson begins an **agentic discussion**, where a model response can ask the application to do work rather than—or in addition to—writing text. That means the application must preserve more than the visible words.
 
 ### The pieces of the discussion
 
@@ -195,13 +196,13 @@ The application owns the discussion history. Its main pieces are:
 
 | Term | Meaning |
 | --- | --- |
-| **`Conversation`** | The GDK container this lesson uses to reconstruct and retain complete assistant message(s) received in this streamed call. It does not contain the original user input here, and it exists only in memory. |
-| **Message** | One participant's contribution to the discussion, such as a user question or an assistant response. A message has a role and can contain one or more content blocks. |
-| **Content block** | One typed piece of a message, such as text or a structured tool request. One assistant message may contain multiple blocks. |
+| **`Conversation`** | The GDK container this lesson uses to reconstruct and retain complete assistant-role message(s) received in this streamed call. It does not contain the original user input here, and it exists only in memory. |
+| **Message** | One participant's contribution to the discussion, such as a user question or an assistant-role response. A message has a role and can contain one or more content blocks. |
+| **Content block** | One typed piece of a message, such as text or a structured tool request. One assistant-role message may contain multiple blocks. |
 | **Stream delta** | A partial update received while the provider is streaming a message. A delta is not necessarily a complete message or complete content block. |
-| **Tool-request block** | Structured assistant output that names a requested tool, supplies arguments, and carries a request ID. The request ID must later be matched with the tool response. |
+| **Tool-request block** | Structured model output that names a requested tool, supplies arguments, and carries a request ID. The request ID must later be matched with the tool response. |
 
-**Structured assistant output** is data with a known shape that the program can examine by fields, rather than prose the program would have to guess how to interpret. Here, a tool-request block separately carries a tool name, its arguments, and an ID. The model produces this request, but the application must still treat every field as untrusted input; the shape does not authorize execution or prove the arguments are valid.
+**Structured model output** is data with a known shape that the program can examine by fields, rather than prose the program would have to guess how to interpret. Here, a tool-request block separately carries a tool name, its arguments, and an ID. The model produces this request, but the application must still treat every field as untrusted input; the shape does not authorize execution or prove the arguments are valid.
 
 The flow in this lesson is:
 
@@ -209,13 +210,13 @@ The flow in this lesson is:
 User message
     |
     v
-Provider streams partial assistant-message deltas
+Provider streams partial assistant-role message deltas
     |
     v
 Application prints any text immediately
     |
     v
-Conversation::push merges the deltas into a complete assistant message
+Conversation::push merges the deltas into a complete assistant-role message
     |
     v
 Application inspects every completed content block
@@ -226,9 +227,9 @@ If present: retain the structured tool request and its ID for Lesson 6
 
 A text-only reconstruction would lose the information needed for the next step. For example, `as_concat_text()` can display text, but it does not retain a tool request's structured name, arguments, or correlation ID.
 
-A **correlation ID** lets the application link one specific tool response to the request that caused it. It matters when an assistant message contains multiple requests, when requests have the same tool name, or when later protocol steps need to identify the exact request being answered. In Lesson 6, the application will include the retained request ID in the corresponding tool response so the provider can associate the calculation result with the correct request.
+A **correlation ID** lets the application link one specific tool response to the request that caused it. It matters when an assistant-role message contains multiple requests, when requests have the same tool name, or when later protocol steps need to identify the exact request being answered. In Lesson 6, the application will include the retained request ID in the corresponding tool response so the provider can associate the calculation result with the correct request.
 
-`Conversation::push(message)` is therefore not just string concatenation. It merges the assistant-message deltas received during this stream, preserving their structured content and relevant metadata until the program inspects the reconstructed message after streaming ends. This lesson's `Conversation` contains received assistant message(s), not the original user input. Lesson 6 will carry the retained assistant request message forward with the original user message(s) when it continues the raw protocol. This lesson still does **not** execute the tool. It only preserves and inspects the assistant's request so that the application can validate and handle it safely in the next lesson.
+`Conversation::push(message)` is therefore not just string concatenation. It merges the assistant-role message deltas received during this stream, preserving their structured content and relevant metadata until the program inspects the reconstructed message after streaming ends. This lesson's `Conversation` contains received assistant-role message(s), not the original user input. Lesson 6 will carry the retained assistant-role request message forward with the original user message(s) when it continues the raw protocol. This lesson still does **not** execute the tool. It only preserves and inspects the model's request so that the application can validate and handle it safely in the next lesson.
 
 ## Step 5.5: Reconstruct complete messages from stream deltas
 
@@ -322,12 +323,12 @@ if !saw_tool_request {
 }
 
 println!(
-    "\nRetained {} reconstructed assistant message(s) in memory for the next raw-protocol step.",
+    "\nRetained {} reconstructed assistant-role message(s) in memory for the next raw-protocol step.",
     conversation.messages().len()
 );
 ```
 
-The `Conversation` value contains the complete assistant message, including any request ID, while this program is running. This reference then exits; it does **not** save conversation history across program runs. Lesson 6 will extend the same raw-protocol flow by carrying the assistant request message forward to its correlated response.
+The `Conversation` value contains the complete assistant-role message, including any request ID, while this program is running. This reference then exits; it does **not** save conversation history across program runs. Lesson 6 will extend the same raw-protocol flow by carrying the assistant-role request message forward to its correlated response.
 
 ## Expected structural behavior
 
@@ -336,7 +337,7 @@ The `Conversation` value contains the complete assistant message, including any 
 - For a parseable `maximum_planned_loss` request, the program prints its ID, name, and arguments. The example arguments are normally shaped like `{"entry_price": "51.20", "stop_price": "50.70", "share_count": 200}`.
 - For an unparseable request, the program prints its ID and parse error without panicking.
 - The application performs no calculation, creates no tool response, and makes no follow-up inference.
-- The complete assistant message is retained in memory only for the duration of this run.
+- The complete assistant-role message is retained in memory only for the duration of this run.
 - A text-only response or no structured request is a provider/model outcome to record, not automatically a code defect.
 
 ## Success criteria
@@ -363,7 +364,7 @@ Or choose another existing provider configuration:
 cargo run -- path/to/provider.json
 ```
 
-Record whether the run produced a native structured request, plain text only, an unparseable request, or another block shape. The recorded post-Lesson-4 spike observed native `maximum_planned_loss` requests with the bundled endpoint, but the provider JSON does not guarantee tool-call behavior and this program does not inspect `finish_reason`. Do not treat a text-only run as proof that the program executed a tool or necessarily as a code defect.
+Record whether the run produced a native structured request, plain text only, an unparseable request, or another block shape. The bundled endpoint has emitted native `maximum_planned_loss` requests, but the provider JSON does not guarantee tool-call behavior and this program does not inspect `finish_reason`. Do not treat a text-only run as proof that the program executed a tool or necessarily as a code defect.
 
 ## Next
 

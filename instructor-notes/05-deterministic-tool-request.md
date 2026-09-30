@@ -2,7 +2,7 @@
 
 ## Teaching objective
 
-Build on the application-owned workflow established in Lessons 1–4 and make the raw provider tool boundary explicit. Define structured assistant output, tool request, and correlation ID before examining their fields. Learners should understand that an application advertises a deterministic capability, a model may request it, and the application alone authorizes, validates, and executes it. The lesson ends at the pending request—not at a calculation or final response.
+Build on the application-owned workflow established in Lessons 1–4 and make the raw provider tool boundary explicit. Define structured model output, tool request, and correlation ID before examining their fields. Learners should understand that an application advertises a deterministic capability, a model may request it, and the application alone authorizes, validates, and executes it. The lesson ends at the pending request—not at a calculation or final response.
 
 ## Suggested pacing
 
@@ -19,7 +19,7 @@ Build on the application-owned workflow established in Lessons 1–4 and make th
 
 - Confirm the classroom provider is running and reachable at its `base_url`.
 - Run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` against the reference solution.
-- Re-run the live scenario against the exact classroom provider/model. The recorded spike observed native `maximum_planned_loss` requests with `entry_price="51.20"`, `stop_price="50.70"`, and `share_count=200`, but this is compatibility evidence rather than a guarantee for every provider/model/run.
+- Re-run the live scenario against the exact classroom provider/model. Native `maximum_planned_loss` requests have been observed with `entry_price="51.20"`, `stop_price="50.70"`, and `share_count=200`, but this is compatibility evidence rather than a guarantee for every provider/model/run.
 - Use the same hypothetical scenario. Lesson 6 will calculate `100.00` before fees, slippage, or a gap through the stop.
 
 ## Discussion prompts
@@ -58,8 +58,8 @@ Build on the application-owned workflow established in Lessons 1–4 and make th
 
 ## Checkpoint
 
-Learners define one narrowly advertised deterministic tool schema, advertise it to a single inference call, reconstruct messages with merge semantics, inspect every content block, and safely recognize either a parseable request or an unparseable request. They stop before execution, retaining the complete assistant message only in memory for the next raw-protocol step.
+Learners define one narrowly advertised deterministic tool schema, advertise it to a single inference call, reconstruct messages with merge semantics, inspect every content block, and safely recognize either a parseable request or an unparseable request. They stop before execution, retaining the complete assistant-role message only in memory for the next raw-protocol step.
 
 ## Transition to Lesson 6
 
-Lesson 6 carries the assistant tool-request message forward, treats the model-provided name and arguments as untrusted input, validates and allowlists the call, parses decimal strings exactly, executes the deterministic calculation, sends a correlated user-role response using the request ID, and requests the final educational explanation with the fees, slippage, and gap-through-stop exclusions.
+Lesson 6 carries the assistant-role tool-request message forward, treats the model-generated name and arguments as untrusted input, validates and allowlists the call, parses decimal strings exactly, executes the deterministic calculation, sends a correlated user-role response using the request ID, and requests the final educational explanation with the fees, slippage, and gap-through-stop exclusions.

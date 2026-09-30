@@ -16,7 +16,7 @@ The Rust application—not the model—owns the workflow. It reads configuration
 | **Provider** | The configured service interface the application uses to communicate with a model. |
 | **Model** | The probabilistic language model that generates text and, in later lessons, structured requests. |
 | **Inference** | One request from the application to the model and the model's response. |
-| **Message** | A contribution sent to or received from the model, such as a user question or assistant response. |
+| **Message** | A contribution sent to or received from the model, such as a user question or an assistant-role response. |
 | **Conversation history** | The ordered messages that the application retains and sends again when later inference needs prior context. |
 | **Tool** | An application-provided capability with a defined input shape. Later lessons use tools for deterministic calculations; a model may request one, but cannot run it itself. |
 | **Agentic loop** | The later repeating workflow in which the application asks the model for the next step, handles a permitted tool request if one arrives, and gives the result back to the model. |
@@ -72,7 +72,7 @@ rust-version = "1.94.1"
 [dependencies]
 dotenvy = "0.15.7"
 futures = "0.3"
-goose-providers = { version = "=0.1.0-alpha.10", features = ["rustls-tls"] }
+goose-providers = { version = "=0.1.0-alpha.11", features = ["rustls-tls"] }
 ```
 
 `goose-providers` is alpha, so the course pins an exact release. It is the native Rust library used by this standalone CLI to construct providers, send requests, and receive streams. `futures` supplies the `StreamExt` trait used to consume those streams in later lessons. `dotenvy` loads a local `.env` before provider construction in later lessons.

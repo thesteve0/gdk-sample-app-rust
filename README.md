@@ -59,9 +59,9 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 17 | Command-line workflow, explicit model selection, and operational errors | Planned | — |
 | Optional capstone | Open-weights model comparison or fine-tuning experiment | Planned | — |
 
-**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Draft** exists but needs independent Rust validation; **Planned** is expected direction only.
+**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only.
 
-The post-Lesson 4 roadmap is accepted based on the isolated technical spike in [`spikes/post-lesson4/`](spikes/post-lesson4/). The spike confirmed native structured tool calls with the configured local provider, a complete raw request/result round trip, and the equivalent typed tool through `goose-agent`. It also confirmed that the state-machine transition needs two focused lessons and that model-facing prices should be decimal strings parsed into exact decimal arithmetic. [`post-lesson4-plan.md`](post-lesson4-plan.md) is the durable architecture and curriculum record; spike code is exploratory evidence, not lesson source.
+The post-Lesson 4 roadmap is accepted based on isolated technical validation with the configured local provider. That validation confirmed native structured tool calls, a complete raw request/result round trip, the equivalent typed tool through `goose-agent`, a two-lesson state-machine transition, and decimal-string prices parsed into exact decimal arithmetic. [`post-lesson4-plan.md`](post-lesson4-plan.md) is the durable architecture and curriculum record.
 
 ### Immediate Lesson 5 boundary
 
@@ -74,13 +74,15 @@ Lesson 5 introduces exactly one domain-specific deterministic tool: maximum plan
 ├── src/main.rs                 # current exercise; changes as the course advances
 ├── lessons/                    # explanation plus complete reference source
 ├── instructor-notes/           # instructor-only pacing and teaching guidance
-├── spikes/                     # isolated engineering evidence, not lesson solutions
 ├── post-lesson4-plan.md        # accepted post-Lesson 4 curriculum/architecture context
+├── AGENTS.md                   # guidance for coding agents and Goose-assisted self-study
 ├── Cargo.toml
 ├── Cargo.lock
 ├── rust-toolchain.toml
 ├── custom_aa_llama_qwen3_6-35b.json
-└── .env.example
+├── .env.example
+├── .gitignore                  # keeps /target/, .env, .idea/, and out/ untracked
+└── LICENSE                     # Apache License 2.0
 ```
 
 ### Root source
@@ -106,7 +108,7 @@ From the repository root, let Cargo fetch and build the exact dependency resolut
 cargo check
 ```
 
-The manifest pins `goose-providers` and `goose-agent` to `0.1.0-alpha.11`; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol. `goose-agent` supplies the GDK state-machine agent loop and typed tool operations introduced after learners understand that protocol. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
+The manifest pins `goose-providers` to `0.1.0-alpha.11`; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. Each lesson that adds a new requirement instructs adding it to the root manifest. `goose-agent`, which supplies the GDK state-machine agent loop and typed tool operations introduced after learners understand the raw protocol, is added to the manifest when the course reaches those lessons. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
 
 ## Provider configuration
 
@@ -165,7 +167,7 @@ Run the current Lesson 5 tool-request exercise from the repository root:
 cargo run
 ```
 
-It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a single streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For a parseable structured request, it prints the id, name, and arguments; it reports an unparseable request safely. It stops before execution — advertising or receiving a request does not run the tool — and retains the reconstructed assistant message only in memory for the current run. Lessons 6 onward are planned. Provider-calling lessons are validated live here, but their release status remains Draft until the instructor independently approves them.
+It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a single streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For a parseable structured request, it prints the id, name, and arguments; it reports an unparseable request safely. It stops before execution — advertising or receiving a request does not run the tool — and retains the reconstructed assistant-role message only in memory for the current run. Lessons 6 onward are planned. Provider-calling lessons are validated live here; marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
 ## Validation philosophy
 

@@ -60,17 +60,17 @@ Use concise source comments to point out what code is doing and why it is needed
 
 ## Accepted post-Lesson 4 sequence
 
-The technical spike in `spikes/post-lesson4/` validated the direction in `post-lesson4-plan.md`. Preserve these decisions unless the instructor explicitly revises them:
+Isolated technical validation supported the direction recorded in `post-lesson4-plan.md`. Preserve these decisions unless the instructor explicitly revises them:
 
 - Lesson 5 defines one deterministic maximum-planned-loss tool, advertises it to raw provider inference, and inspects structured request content. It stops before dispatch or a tool response.
 - Lesson 6 validates and executes that request, returns a correlated user-role tool response, and asks the provider for a final educational explanation.
 - Lessons 7 and 8 split the state-machine transition: first operations/effects/sessions/minimal runtime, then provider-backed inference plus the typed `ToolOperation`.
-- Price arguments at the model/tool boundary are decimal strings. When execution begins in Lesson 6, parse and validate them immediately using exact decimal arithmetic. Do not teach binary floating point for currency. The validated spike uses `rust_decimal`, permits at most four decimal places, and formats dollar results to two places.
+- Price arguments at the model/tool boundary are decimal strings. When execution begins in Lesson 6, parse and validate them immediately using exact decimal arithmetic. Do not teach binary floating point for currency. Validation used `rust_decimal`: at most four decimal places, dollar results formatted to two places.
 - Keep tool names allowlisted, treat names and arguments as untrusted model output, reject unknown fields, preserve request IDs, handle all content blocks/tool requests, and impose explicit round/request or state-step bounds.
-- Keep `spikes/post-lesson4/` as engineering evidence. Do not copy its large exploratory implementation directly into a lesson; derive the smallest concept-focused lesson code.
+- Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting Lesson 5, read `post-lesson4-plan.md`, `spikes/post-lesson4/README.md`, and the exact pinned GDK/RMCP source. Preserve the root Lesson 4 checkpoint until the instructor approves advancing the active exercise.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Preserve the root Lesson 4 checkpoint until the instructor approves advancing the active exercise.
 
 ## Lesson requirements
 

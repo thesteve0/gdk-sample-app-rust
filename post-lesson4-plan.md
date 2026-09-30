@@ -202,6 +202,8 @@ The spike compared integer minor units with decimal strings parsed by `rust_deci
 
 Integer minor units remain a valid internal design when a fixed scale has already been established, but cents are less natural in a first tool schema and cannot represent sub-cent prices without selecting another scale. Do not use binary floating point for Lesson 5 currency calculations.
 
+The spike also validated an explicit failure/termination policy for raw-protocol exploration: at most 3 raw inference rounds, 4 tool requests, and 6 state-machine steps per run. The principle — imposing explicit round/request or state-step bounds — carries into every tool and state-machine lesson; exact limits may be retuned per lesson.
+
 ## Accepted post-Lesson 4 sequence
 
 The completed spike established that the state-machine transition should be split across two lessons. The sequence below is accepted; do not collapse Lessons 7 and 8 merely to shorten the roadmap.

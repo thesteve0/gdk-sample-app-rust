@@ -40,7 +40,7 @@ Introduce the first inference request while connecting it to Lesson 1's applicat
 - Generated text is nondeterministic; validate structure, not wording.
 - Do not imply that stream exhaustion alone is proof of normal completion; the reference requires completion usage metadata.
 - Provider errors are returned through the stream item's `Result` and propagated by `transpose()?`.
-- Define inference before using it as shorthand for `provider.stream`. Avoid saying that the application “thinks” or “answers”: the application assembles and handles the request, while the selected model generates the assistant response.
+- Define inference before using it as shorthand for `provider.stream`. Avoid saying that the application “thinks” or “answers”: the application assembles and handles the request, while the selected model generates the assistant-role response.
 - A partial update is not a complete retained conversation message; this distinction becomes important in Lessons 4 and 5.
 - Do not introduce tool requests in detail yet.
 

@@ -8,10 +8,10 @@ Build on Lesson 2 by making the first inference request. Introduce the minimum n
 
 - An **inference request** is one application request to a selected model; an **inference response** is the model's answer.
 - A **stream** delivers one response as a sequence of partial updates instead of waiting for the entire answer.
-- A **message** is one typed contribution to the request or response. This lesson sends one user message and receives partial assistant-message updates.
+- A **message** is one typed contribution to the request or response. This lesson sends one user message and receives partial assistant-role message updates.
 - `ModelConfig` selects a model for one request.
 - `Provider::fetch_supported_models` discovers which models a provider advertises before a request.
-- `Message` represents user and assistant turns in native Rust.
+- `Message` represents the `user` and `assistant` message roles in native Rust.
 - `Provider::stream` returns an asynchronous message stream.
 - `futures::StreamExt` supplies `.next()` for consuming that stream.
 - The streamed usage (`ProviderUsage`) reports the model the server actually used to answer, which can differ from the one we requested.
@@ -27,7 +27,7 @@ Rust application
     v
 Provider / model
     |
-    | streamed partial assistant-message updates
+    | streamed partial assistant-role message updates
     v
 Rust application prints text and checks completion usage
 ```
@@ -83,7 +83,7 @@ let model = ModelConfig::new(first_configured_model(&provider_config)?);
 
 ## Step 3.4: Build a user message
 
-A **user message** is the application's typed representation of what the user asks. A **turn** is one participant's contribution: this first request has one user turn and no assistant-history turn yet. Lesson 4 stores an assistant turn and sends ordered history on a later inference request.
+A **user message** is the application's typed representation of what the user asks. A **turn** is one participant's contribution: this first request has one user turn and no assistant-role history turn yet. Lesson 4 stores an assistant-role turn and sends ordered history on a later inference request.
 
 ```rust
 let messages = [Message::user().with_text(
@@ -91,11 +91,11 @@ let messages = [Message::user().with_text(
 )];
 ```
 
-This first request has one user text message. Assistant history is introduced in Lesson 4.
+This first request has one user text message. Assistant-role history is introduced in Lesson 4.
 
 ## Step 3.5: Start and consume the stream
 
-The application requests inference through the provider. Its response arrives as a stream of **partial updates** (also called deltas): each update can contain only part of the assistant's eventual answer. Printing a text fragment immediately makes the CLI responsive, but this lesson does not need to retain a complete response after it finishes.
+The application requests inference through the provider. Its response arrives as a stream of **partial updates** (also called deltas): each update can contain only part of the model's eventual assistant-role answer. Printing a text fragment immediately makes the CLI responsive, but this lesson does not need to retain a complete response after it finishes.
 
 Keep system instructions, messages, and tools separate:
 
@@ -122,7 +122,7 @@ while let Some((message, usage)) = stream.next().await.transpose()? {
 }
 ```
 
-Each item is a `Result` holding an optional partial `Message` and optional completion usage. `transpose()?` propagates a provider error. A partial message may contain a fragment of assistant text; a non-`None` usage value marks normal completion. The reference implementation requires both text and that completion metadata before reporting success.
+Each item is a `Result` holding an optional partial `Message` and optional completion usage. `transpose()?` propagates a provider error. A partial message may contain a fragment of assistant-role text; a non-`None` usage value marks normal completion. The reference implementation requires both text and that completion metadata before reporting success.
 
 The completion usage is more than token counts: its `model` field names the model the server actually used to answer. Prefer this ground truth over the model you requested — a provider can ignore the requested model and serve another. Reporting `usage.model` therefore tells you which model produced the response, which is the answer to "did it really use the model I asked for?".
 
@@ -140,6 +140,10 @@ Pass a different provider JSON with:
 cargo run -- path/to/provider.json
 ```
 
+## Expected structural behavior
+
+The program loads `.env`, reads one provider JSON path (the bundled default or a positional override), constructs a provider through `from_json`, awaits `fetch_supported_models`, rejects an empty model list, and selects the first configured model. It sends exactly one inference request — one user message plus a system instruction, no history and no tools — streams text fragments to stdout, and fails unless the stream returns both text and completion usage metadata. It prints, from the streamed usage, the model that actually answered.
+
 ## Success criteria
 
 - The provider is constructed directly from the selected provider JSON.
@@ -152,4 +156,4 @@ cargo run -- path/to/provider.json
 
 ## Next
 
-Lesson 4 keeps a system instruction separate, reconstructs the streamed assistant response, and sends it back as ordered conversation history.
+Lesson 4 keeps a system instruction separate, reconstructs the streamed assistant-role response, and sends it back as ordered conversation history.
