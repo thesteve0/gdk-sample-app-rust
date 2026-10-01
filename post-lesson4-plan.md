@@ -552,8 +552,7 @@ Start by reading, in order:
 2. `git status` and diffs, because the working tree intentionally contains instructor work;
 3. `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, and the provider JSON;
 4. root `src/main.rs` plus all Lesson 4 prose, source, and instructor notes;
-5. `spikes/post-lesson4/README.md` and only the relevant portions of its `main.rs`;
-6. exact pinned `goose-providers`, `goose-provider-types`, RMCP, and (for later lessons) `goose-agent` source.
+5. exact pinned `goose-providers`, `goose-provider-types`, RMCP, and (for later lessons) `goose-agent` source.
 
 Lesson 5's required endpoint is an assistant response containing a structured request for `maximum_planned_loss`, not a completed calculation. Use the hypothetical long-position scenario with decimal-string entry `51.20`, decimal-string stop `50.70`, and integer share count `200`. Define one narrowly described tool with a strict object schema, pass it as the provider call's tools slice, inspect all streamed message/content blocks, print or otherwise expose the request name/arguments/ID, and preserve enough complete assistant state for Lesson 6. Reconstruct streaming deltas with GDK message merge semantics; do not assume one stream item is a complete response or one response has only one block/request.
 

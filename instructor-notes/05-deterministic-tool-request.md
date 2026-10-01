@@ -28,6 +28,7 @@ Build on the application-owned workflow established in Lessons 1–4 and make th
 - What makes a tool request structured output rather than prose the application must interpret?
 - Why does a request ID act as a correlation ID, even before this lesson returns a result?
 - What does the model receive when the application advertises a tool, and what does it send back when it wants that capability?
+- The sending phase prints the full outbound payload — prompts plus the advertised tool definition — before any model output. Why make the entire context visible first?
 - Why does the advertised schema not validate or authorize received arguments?
 - Why are tool names and arguments untrusted model output?
 - What information survives in a reconstructed message that would be lost by keeping only `as_concat_text()` output?
@@ -36,13 +37,16 @@ Build on the application-owned workflow established in Lessons 1–4 and make th
 - Why read the tool call through its `Result` instead of unwrapping it?
 - Why reconstruct streamed deltas with `Conversation::push` before inspection?
 - Why is a request ID needed even though Lesson 5 does not yet return a result?
+- Why is a `tool_calls` finish reason evidence of the request boundary, and why does the program still not act on it?
+- The closing section prints the full request/response cycle and names the exact step where the run stopped. Why make the artificial stop explicit instead of letting the program end silently?
 
 ## Live-demo cautions
 
 - A model may reply with plain text rather than a structured request. Record that outcome; it is not automatically a code defect.
-- The provider JSON does not guarantee native tool calling, and the reference program does not expose a finish reason. Do not promise `tool_calls` as a live-run result.
-- `Message::as_concat_text()` prints text blocks only. A provider may supply a `Thinking` or other non-text block; the reconstructed block-inspection phase renders it separately.
-- First point out live text printed from stream deltas, then the reconstructed-content view. Their possible text repetition is intentional: it demonstrates two concerns, responsive display and structured protocol inspection.
+- The provider JSON does not guarantee native tool calling. The reference program displays a compact usage line with the finish reason when the provider supplies one, but it never branches on it; do not promise `tool_calls` on every run.
+- `Message::as_concat_text()` prints text blocks only. If no text block streams, the run says so under the streaming header and points to the reconstructed view.
+- Each phase prints under a labeled header (sending, streaming, usage, reconstructed, stop-here). Point out the headers first; streamed text and the reconstructed text block may repeat intentionally. Under the sending header, the reference program prints the full system instruction, the user message, and the advertised tool definition (name, description, input schema) — use this to show the three pieces that travel in the first call, that the tool-use request lives in the system instruction text (not the schema), and that the schema is advertised guidance only.
+- A Thinking block is printed in full under a framing label: the model's private reasoning that may narrate tool calls and results that never happened. The classroom model has hallucinated `[Tool Call]` and `[Response]` narration inside its thinking — use it to discuss why the structured request, not prose, is ground truth.
 - The `Conversation` is retained in memory during the program run only. Do not imply that Lesson 5 creates persistent cross-run state.
 - Do not extend the exercise into decimal calculation, `CallToolResult`, tool responses, an agent loop, `SyncTool`, `ToolOperation`, sessions, effects, market data, retrieval, or explicit model selection.
 

@@ -14,6 +14,7 @@ This lesson ends at the request boundary. Advertising a tool does not authorize 
 - A **tool request:** structured model output that asks the application to use an advertised tool.
 - A **correlation ID:** the request ID that links a later tool response to one specific tool request.
 - Passing a tool definition to provider inference through the `tools` slice.
+- A **finish reason**: provider telemetry describing why the model's turn ended — `tool_calls` means the model ended its turn expecting a tool result. This program displays it but never acts on it.
 - Reconstructing streamed deltas into complete messages with `Conversation::push`.
 - Inspecting every reconstructed message and content block.
 - Reading a request's parsed call through its `Result`, without blindly unwrapping it.
@@ -167,13 +168,32 @@ At the provider call site, the new input from Lesson 4 is a non-empty `tools` sl
 let tools = [tool_definition()];
 let messages = vec![Message::user().with_text(USER_PROMPT)];
 
-let conversation = stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
-//               │          │             │          │          └── one advertised tool
-//               │          │             │          └── ordered user/assistant-role history
-//               │          │             └── separate system instruction
-//               │          └── configured model
-//               └── provider
+println!("── Sending ─────────────────────────────────────────────");
+println!("1 user message; advertising 1 tool: {TOOL_NAME}");
+println!("  (the model may now request it)");
+
+// The full outbound payload is these prompts plus the advertised tool
+// definition: the entire context the model sees in the first call.
+// Printing all of it makes it visible — the model answers only what this
+// call contains, and nothing here executes anything.
+println!("\nOutbound payload sent with this call, quoted in full:");
+println!("  system instruction:");
+print_indented(SYSTEM_INSTRUCTION, "    > ");
+println!("  user message:");
+print_indented(USER_PROMPT, "    > ");
+print_tool_definition(&tools[0])?;
+
+println!("\n── Streaming response deltas ───────────────────────────");
+let (conversation, usage) =
+    stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
+//  └── the four inputs are unchanged: provider, model, system+user history, tools
+print_usage_summary(&usage);
+
+println!("\n── Reconstructed messages (after Conversation::push) ───");
+let saw_tool_request = inspect_reconstructed(&conversation)?;
 ```
+
+Right after the announcement, the program prints the entire outbound payload it sends: the `system` instruction from Step 5.2, the single user message, and the advertised tool definition from Step 5.3 — its name, description, and input schema. All three travel in the same inference call, so this is the complete context the model sees before any model output arrives. Note where the request to use the tool lives: in the system instruction text, not in the tool definition itself.
 
 Advertising the definition does not force the model to call it and does not run it. A provider/model may return plain text, a structured request, a mixture of blocks, or no usable request. Observe and report that structural outcome in the live run.
 
@@ -210,10 +230,13 @@ The flow in this lesson is:
 User message
     |
     v
+Application prints the outbound payload (system instruction + user message + tool definition)
+    |
+    v
 Provider streams partial assistant-role message deltas
     |
     v
-Application prints any text immediately
+Application prints any text immediately and records usage telemetry
     |
     v
 Conversation::push merges the deltas into a complete assistant-role message
@@ -241,103 +264,196 @@ async fn stream_and_collect(
     model: &ModelConfig,
     messages: &[Message],
     tools: &[Tool],
-) -> Result<Conversation, Box<dyn Error>> {
+) -> Result<(Conversation, Option<ProviderUsage>), Box<dyn Error>> {
     let mut stream = provider
         .stream(model, SYSTEM_INSTRUCTION, messages, tools)
         .await?;
 
+    // A streamed response is not one stream item and one response. Conversation::push
+    // coalesces the partial deltas that share a message back into complete messages.
     let mut conversation = Conversation::empty();
-    while let Some((message, usage)) = stream.next().await.transpose()? {
+    let mut streamed_text = false;
+    let mut usage = None;
+    while let Some((message, item_usage)) = stream.next().await.transpose()? {
         if let Some(message) = message {
             let text = message.as_concat_text();
             if !text.is_empty() {
                 print!("{text}");
+                streamed_text = true;
             }
+            // Text alone is enough for Lessons 3 and 4, but a tool-capable model
+            // response can also contain structured requests, arguments, and correlation
+            // IDs. Preserve the complete assistant-role message for the next agentic step.
             conversation.push(message);
         }
-        if let Some(usage) = usage {
-            eprintln!("\nusage: {usage:#?}");
+        if let Some(item_usage) = item_usage {
+            usage = Some(item_usage);
         }
     }
 
-    Ok(conversation)
+    if !streamed_text {
+        println!(
+            "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
+        );
+    }
+
+    Ok((conversation, usage))
 }
 ```
 
-This retains the `Some`/`None` handling from Lesson 4. The important change is `conversation.push(message)`: inspect reconstructed complete messages later, rather than flattening a partial stream delta into text.
+This retains the `Some`/`None` handling from Lesson 4. The two changes are `conversation.push(message)` and collecting the call's final `ProviderUsage` for a compact summary. `as_concat_text()` prints text blocks only. When no text block arrives at all, the helper says so under the streaming header and defers to the reconstructed view instead of leaving an unexplained gap in the output.
 
-`as_concat_text()` prints text blocks only. A provider may also return a `Thinking`, image, error, tool-request, or other block; the next step inspects those blocks after reconstruction rather than promising that they appear in streamed text output.
+A **finish reason** is provider telemetry that describes why the model's turn ended. A finish reason of `tool_calls` means the model stopped its turn expecting the application to run a tool and return a result — it is evidence of the request boundary, not permission to act. This program only displays it:
+
+```rust
+/// Print one compact usage line. A finish reason of `tool_calls` means the
+/// model ended its turn expecting a tool result: display it, never act on it.
+fn print_usage_summary(usage: &Option<ProviderUsage>) {
+    println!("\n── Usage ───────────────────────────────────────────────");
+    let Some(usage) = usage else {
+        println!("(no usage telemetry was provided by the provider)");
+        return;
+    };
+    println!(
+        "model={}  tokens in={} out={}",
+        usage.model,
+        usage
+            .usage
+            .input_tokens
+            .map_or("-".to_string(), |n| n.to_string()),
+        usage
+            .usage
+            .output_tokens
+            .map_or("-".to_string(), |n| n.to_string()),
+    );
+    if let Some(reasons) = &usage.finish_reasons {
+        println!("finish_reasons={reasons:?}");
+        if reasons.iter().any(|reason| reason == "tool_calls") {
+            println!("  ← the model ended its turn expecting a tool result.");
+            println!("    The application, not the finish reason, decides what happens next.");
+        }
+    }
+}
+```
+
+The compact line replaces a full struct dump: `model`, token counts, and the finish reason carry the teaching, while the remaining `ProviderUsage` fields (`stats`, `cost`, `response_id`, `additional_data`) are provider internals this lesson does not use.
 
 ## Step 5.6: Inspect every reconstructed content block safely
 
-Label this as a second, reconstructed view of the response. It may repeat text printed while streaming; that repetition demonstrates that the program is now examining the complete reconstructed message rather than an individual delta.
+Label this as a second, reconstructed view of the response. Each phase prints under a labeled header, so streamed text and the reconstructed text block may both appear; that repetition is intentional. It demonstrates two concerns: responsive display while streaming and structured protocol inspection after reconstruction.
 
 ```rust
-println!("\nReconstructed content blocks:");
-let mut saw_tool_request = false;
-for message in conversation.messages() {
-    for block in &message.content {
-        if let Some(request) = block.as_tool_request() {
-            match &request.tool_call {
-                Ok(call) => {
-                    saw_tool_request = true;
-                    println!("  tool request id={}", request.id);
-                    println!("  tool name={}", call.name);
-                    println!("  tool arguments={:?}", call.arguments);
+fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Error>> {
+    let mut saw_tool_request = false;
+    for (message_index, message) in conversation.messages().iter().enumerate() {
+        println!(
+            "message {}: role={:?}, {} content block(s)",
+            message_index + 1,
+            message.role,
+            message.content.len()
+        );
+
+        for (block_index, block) in message.content.iter().enumerate() {
+            let label = format!("block {}/{}:", block_index + 1, message.content.len());
+
+            if let Some(request) = block.as_tool_request() {
+                saw_tool_request = true;
+                println!("  {label} ToolRequest — the model asks the application to run a tool");
+                // The request ID is the correlation ID: Lesson 6 must attach it to
+                // the tool response so the provider can match result to request.
+                println!("    request id (correlation ID): {}", request.id);
+                // `tool_call` is a Result: tool-call parsing can fail inside a
+                // request, so never blindly unwrap it.
+                match &request.tool_call {
+                    Ok(call) => {
+                        println!("    tool name: {}", call.name);
+                        println!(
+                            "    arguments (untrusted model output; JSON object, order not guaranteed):"
+                        );
+                        match &call.arguments {
+                            Some(arguments) => {
+                                print_indented(&serde_json::to_string_pretty(arguments)?, "      ")
+                            }
+                            None => println!("      (none)"),
+                        }
+                    }
+                    Err(error) => {
+                        println!("    unparseable call (reported without panicking): {error}");
+                    }
                 }
-                Err(error) => {
-                    saw_tool_request = true;
-                    println!(
-                        "  tool request id={} has an unparseable call: {}",
-                        request.id, error
-                    );
+            } else if let Some(thinking) = block.as_thinking() {
+                println!("  {label} Thinking — the model's private reasoning. It may narrate");
+                println!(
+                    "             tool calls and results that never happened. Not ground truth."
+                );
+                print_indented(&thinking.thinking, "             ");
+            } else if let Some(text) = block.as_text() {
+                if !text.trim().is_empty() {
+                    println!("  {label} Text");
+                    print_indented(text, "    ");
                 }
+            } else {
+                println!("  {label} other non-text block: {block}");
             }
-        } else if let Some(text) = block.as_text() {
-            if !text.trim().is_empty() {
-                println!("  text: {text}");
-            }
-        } else {
-            println!("  {block}");
         }
+    }
+
+    Ok(saw_tool_request)
+}
+
+/// Print multi-line model text with a fixed indent so streamed prose, private
+/// reasoning, and structured arguments stay visually inside their labeled block.
+fn print_indented(text: &str, indent: &str) {
+    for line in text.lines() {
+        println!("{indent}{line}");
     }
 }
 ```
 
-The double loop is deliberate: a response can contain multiple messages, each message can contain several blocks, and one message can contain more than one tool request. A `Thinking` block is one possible non-text block that the final `else` renders when the provider supplies it.
+The double loop is deliberate: a response can contain multiple messages, each message can contain several blocks, and one message can contain more than one tool request. The output makes that structure visible instead of flattening it: every message prints its role and block count, and every block prints its index and kind.
 
-A tool-request block has an ID even when its enclosed call cannot be parsed. For a **parseable** request, print its ID, name, and arguments. For an **unparseable** one, print its ID and parse error without panicking. Do not deserialize, validate, allowlist, or execute the arguments yet.
+A tool-request block has an ID even when its enclosed call cannot be parsed. For a **parseable** request, print its ID labeled as the correlation ID, its tool name, and its arguments as pretty JSON — the same shape the advertised schema describes, in whatever order the model sent them. For an **unparseable** one, print its ID and parse error without panicking. A `Thinking` block is framed as the model's private reasoning: it may narrate tool calls and results that never happened, so it is never ground truth. Do not deserialize, validate, allowlist, or execute the arguments yet.
 
 ## Step 5.7: Stop at the request boundary
 
-After inspection, make the boundary visible:
+After inspection, show where the run stops inside the cycle:
 
 ```rust
-println!();
-if !saw_tool_request {
-    println!("No structured maximum_planned_loss request was received this run.");
-    println!(
-        "Advertising or receiving a request does not execute the tool. Lesson 6 \
-         validates the untrusted arguments and dispatches the calculation."
-    );
-}
+println!("\n── We stopped here ────────────────────────────────────");
+println!("The full request/response cycle for a tool-using turn:");
+println!("  1. send system instruction + user message (+ the advertised tool)");
+println!("  2. model responds with thinking + a tool request");
+println!("  3. application validates the request and executes the tool");
+println!("  4. send the full history + tool response; model writes the final answer");
+println!("  5. application returns the final answer to the user");
 
-println!(
-    "\nRetained {} reconstructed assistant-role message(s) in memory for the next raw-protocol step.",
-    conversation.messages().len()
-);
+if saw_tool_request {
+    println!("\nThis run stopped between steps 2 and 3 — an artificial stop for teaching.");
+    println!("The tool request above was received, but nothing executed: the application");
+    println!("alone authorizes, validates, and runs the calculation. Lesson 6 resumes");
+    println!("the cycle at step 3.");
+} else {
+    println!("\nThis run stopped after step 2: no tool request arrived, so there was");
+    println!("nothing to execute. Advertising a tool permits a request; it does not");
+    println!("cause one. Lesson 6 validates and dispatches when one does arrive.");
+}
 ```
 
-The `Conversation` value contains the complete assistant-role message, including any request ID, while this program is running. This reference then exits; it does **not** save conversation history across program runs. Lesson 6 will extend the same raw-protocol flow by carrying the assistant-role request message forward to its correlated response.
+The section shows the learner **where** the run stopped inside the cycle instead of summarizing leftover state. The diagram lists the full request/response flow for a tool-using turn, and the branch statement then names the exact stopping point. With a request received, the run stops between steps 2 and 3 — an artificial stop for teaching: the request arrived but nothing executed, and Lesson 6 resumes the cycle at step 3. With no request, the run stops after step 2: advertising a tool permits a request but does not cause one. Step 4 is the resubmission point worth naming aloud: the provider is stateless, so the follow-up call resends the entire history — system instruction, user message, assistant tool request, and the tool response. One state fact stays here in prose rather than in the terminal: the `Conversation` is in-process state only, so this program does **not** save conversation history across program runs. Persistence comes later.
 
 ## Expected structural behavior
 
-- Text blocks stream to stdout as they arrive; non-text blocks are inspected later from reconstructed messages.
-- Every content block in every reconstructed message is inspected, not only the first block.
-- For a parseable `maximum_planned_loss` request, the program prints its ID, name, and arguments. The example arguments are normally shaped like `{"entry_price": "51.20", "stop_price": "50.70", "share_count": 200}`.
+- The run prints five labeled phases: sending (what is advertised), streaming, usage, reconstructed messages, and the closing stop summary.
+- Under the sending header, the program prints the entire outbound payload before any model output: both prompts quoted in full (labeled as the system instruction and the user message) and the advertised tool definition with its name, description, and pretty-printed input schema.
+- Text blocks stream to stdout as they arrive; if no text block streams, the run says so under the streaming header and points to the reconstructed view.
+- Usage prints as one compact line: model, token counts, and the finish reason when the provider supplies one. A `tool_calls` finish reason is displayed as evidence of the request boundary and never used to change behavior.
+- Every content block in every reconstructed message is inspected, not only the first block; every message prints its role and block count, and every block prints its index and kind.
+- A `Thinking` block is printed in full under a framing label: the model's private reasoning that may narrate tool calls and results that never happened.
+- For a parseable `maximum_planned_loss` request, the program prints its ID labeled as the correlation ID, its tool name, and its arguments as pretty JSON in the order the model sent them.
 - For an unparseable request, the program prints its ID and parse error without panicking.
-- The application performs no calculation, creates no tool response, and makes no follow-up inference.
-- The complete assistant-role message is retained in memory only for the duration of this run.
+- The application performs no calculation, creates no tool response, and makes no follow-up inference; the cycle-position statement runs on every path.
+- The closing section prints the full request/response cycle for a tool-using turn and names the exact step where the run stopped — between steps 2 and 3 with a request received, after step 2 without one.
+- The complete assistant-role message is retained in memory only for the duration of this run; the terminal prints the cycle position rather than a state summary, and the lesson text carries the in-process-state note.
 - A text-only response or no structured request is a provider/model outcome to record, not automatically a code defect.
 
 ## Success criteria
@@ -364,7 +480,7 @@ Or choose another existing provider configuration:
 cargo run -- path/to/provider.json
 ```
 
-Record whether the run produced a native structured request, plain text only, an unparseable request, or another block shape. The bundled endpoint has emitted native `maximum_planned_loss` requests, but the provider JSON does not guarantee tool-call behavior and this program does not inspect `finish_reason`. Do not treat a text-only run as proof that the program executed a tool or necessarily as a code defect.
+Record whether the run produced a native structured request, plain text only, an unparseable request, or another block shape. The bundled endpoint has emitted native `maximum_planned_loss` requests, but the provider JSON does not guarantee tool-call behavior. The program displays the finish reason when the provider supplies one, but it never changes protocol behavior because of it. Do not treat a text-only run as proof that the program executed a tool or necessarily as a code defect.
 
 ## Next
 

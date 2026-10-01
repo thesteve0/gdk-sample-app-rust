@@ -3,7 +3,7 @@ use std::{env, error::Error, fs, path::PathBuf, sync::Arc};
 use futures::StreamExt;
 use goose_providers::{
     base::Provider,
-    conversation::{message::Message, Conversation},
+    conversation::{message::Message, token_usage::ProviderUsage, Conversation},
     declarative::{from_json, EnvKeyResolver},
     model::ModelConfig,
 };
@@ -32,72 +32,73 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let tools = [tool_definition()];
     let messages = vec![Message::user().with_text(USER_PROMPT)];
 
-    println!("Model response (assistant role, tool advertised):");
-    let conversation = stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
+    // Phase 1: what the application sends. The tool is advertised, never run.
+    println!("── Sending ─────────────────────────────────────────────");
+    println!("1 user message; advertising 1 tool: {TOOL_NAME}");
+    println!("  (the model may now request it)");
 
-    // Inspect every content block across every reconstructed message. A single
-    // streamed response can carry several blocks, and one response can carry
-    // more than one tool request, so we look at all of them.
-    println!("\nReconstructed content blocks:");
-    let mut saw_tool_request = false;
-    for message in conversation.messages() {
-        for block in &message.content {
-            if let Some(request) = block.as_tool_request() {
-                // `tool_call` is a Result: tool-call parsing can fail inside a
-                // request, so never blindly unwrap it.
-                match &request.tool_call {
-                    Ok(call) => {
-                        saw_tool_request = true;
-                        println!("  tool request id={}", request.id);
-                        println!("  tool name={}", call.name);
-                        println!("  tool arguments={:?}", call.arguments);
-                    }
-                    Err(error) => {
-                        saw_tool_request = true;
-                        println!(
-                            "  tool request id={} has an unparseable call: {}",
-                            request.id, error
-                        );
-                    }
-                }
-            } else if let Some(text) = block.as_text() {
-                if !text.trim().is_empty() {
-                    println!("  text: {text}");
-                }
-            } else {
-                println!("  {block}");
-            }
-        }
+    // The full outbound payload is these prompts plus the advertised tool
+    // definition: the entire context the model sees in the first call.
+    // Printing all of it makes it visible — the model answers only what this
+    // call contains, and nothing here executes anything.
+    println!("\nOutbound payload sent with this call, quoted in full:");
+    println!("  system instruction:");
+    print_indented(SYSTEM_INSTRUCTION, "    > ");
+    println!("  user message:");
+    print_indented(USER_PROMPT, "    > ");
+    print_tool_definition(&tools[0])?;
+
+    // Phase 2: stream the response, printing text blocks as they arrive.
+    println!("\n── Streaming response deltas ───────────────────────────");
+    let (conversation, usage) =
+        stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
+
+    // Phase 3: compact telemetry. A finish reason of `tool_calls` is evidence
+    // of the request boundary, but the program only displays it, never acts on it.
+    print_usage_summary(&usage);
+
+    // Phase 4: inspect every block of every reconstructed message. Structured
+    // requests, thinking, and text are labeled; the request ID is the
+    // correlation ID Lesson 6 must reuse.
+    println!("\n── All the response messages (after Conversation::push) ───");
+    let saw_tool_request = inspect_reconstructed(&conversation)?;
+
+    // Phase 5: show exactly where this run stops inside the normal
+    // request/response cycle. The stop is artificial, for teaching: the
+    // protocol itself would continue at the step named below, and Lesson 6
+    // implements that step.
+    println!("\n── We stopped here ────────────────────────────────────");
+    println!("The full request/response cycle for a tool-using turn:");
+    println!("  1. send system instruction + user message (+ the advertised tool)");
+    println!("  2. model responds with thinking + a tool request");
+    println!("  3. application validates the request and executes the tool");
+    println!("  4. send the full history + tool response; model writes the final answer");
+    println!("  5. application returns the final answer to the user");
+
+    if saw_tool_request {
+        println!("\nThis run stopped between steps 2 and 3 — an artificial stop for teaching.");
+        println!("The tool request above was received, but nothing executed: the application");
+        println!("alone authorizes, validates, and runs the calculation. Lesson 6 resumes");
+        println!("the cycle at step 3.");
+    } else {
+        println!("\nThis run stopped after step 2: no tool request arrived, so there was");
+        println!("nothing to execute. Advertising a tool permits a request; it does not");
+        println!("cause one. Lesson 6 validates and dispatches when one does arrive.");
     }
-
-    println!();
-    if !saw_tool_request {
-        println!("No structured maximum_planned_loss request was received this run.");
-        println!(
-            "Advertising or receiving a request does not execute the tool. Lesson 6 \
-             validates the untrusted arguments and dispatches the calculation."
-        );
-    }
-
-    // The application owns this history; the provider does not preserve it.
-    // It remains in memory for this run only; persistence arrives in a later lesson.
-    println!(
-        "\nRetained {} reconstructed assistant-role message(s) in memory for the next raw-protocol step.",
-        conversation.messages().len()
-    );
 
     Ok(())
 }
 
 /// Stream one inference call, printing text as it arrives and reconstructing the
 /// complete messages with GDK merge semantics so the request boundary stays
-/// visible instead of collapsing to a single partial fragment.
+/// visible instead of collapsing to a single partial fragment. Returns the
+/// reconstructed Conversation and the call's usage telemetry.
 async fn stream_and_collect(
     provider: &dyn Provider,
     model: &ModelConfig,
     messages: &[Message],
     tools: &[Tool],
-) -> Result<Conversation, Box<dyn Error>> {
+) -> Result<(Conversation, Option<ProviderUsage>), Box<dyn Error>> {
     let mut stream = provider
         .stream(model, SYSTEM_INSTRUCTION, messages, tools)
         .await?;
@@ -105,23 +106,148 @@ async fn stream_and_collect(
     // A streamed response is not one stream item and one response. Conversation::push
     // coalesces the partial deltas that share a message back into complete messages.
     let mut conversation = Conversation::empty();
-    while let Some((message, usage)) = stream.next().await.transpose()? {
+    let mut streamed_text = false;
+    let mut usage = None;
+    while let Some((message, item_usage)) = stream.next().await.transpose()? {
         if let Some(message) = message {
             let text = message.as_concat_text();
             if !text.is_empty() {
                 print!("{text}");
+                streamed_text = true;
             }
             // Text alone is enough for Lessons 3 and 4, but a tool-capable model
             // response can also contain structured requests, arguments, and correlation
             // IDs. Preserve the complete assistant-role message for the next agentic step.
             conversation.push(message);
         }
-        if let Some(usage) = usage {
-            eprintln!("\nusage: {usage:#?}");
+        if let Some(item_usage) = item_usage {
+            usage = Some(item_usage);
         }
     }
 
-    Ok(conversation)
+    if !streamed_text {
+        println!(
+            "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
+        );
+    }
+
+    Ok((conversation, usage))
+}
+
+/// Print one compact usage line. A finish reason of `tool_calls` means the
+/// model ended its turn expecting a tool result: display it, never act on it.
+fn print_usage_summary(usage: &Option<ProviderUsage>) {
+    println!("\n── Relevant response metadata (Usage block of the response)──────────────────");
+    let Some(usage) = usage else {
+        println!("(no usage telemetry was provided by the provider)");
+        return;
+    };
+    println!(
+        "model={}  tokens in={} out={}",
+        usage.model,
+        usage
+            .usage
+            .input_tokens
+            .map_or("-".to_string(), |n| n.to_string()),
+        usage
+            .usage
+            .output_tokens
+            .map_or("-".to_string(), |n| n.to_string()),
+    );
+    if let Some(reasons) = &usage.finish_reasons {
+        println!("finish_reasons={reasons:?}");
+        if reasons.iter().any(|reason| reason == "tool_calls") {
+            println!("  ← the model ended its turn expecting a tool result.");
+            println!("    The application, not the finish reason, decides what happens next.");
+        }
+    }
+}
+
+/// Inspect every content block across every reconstructed message. A single
+/// streamed response can carry several blocks, and one response can carry
+/// more than one tool request, so label and inspect all of them.
+fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Error>> {
+    let mut saw_tool_request = false;
+    for (message_index, message) in conversation.messages().iter().enumerate() {
+        println!(
+            "message {}: role={:?}, {} content block(s)",
+            message_index + 1,
+            message.role,
+            message.content.len()
+        );
+
+        for (block_index, block) in message.content.iter().enumerate() {
+            let label = format!("block {}/{}:", block_index + 1, message.content.len());
+
+            if let Some(request) = block.as_tool_request() {
+                saw_tool_request = true;
+                println!("  {label} ToolRequest — the model asks the application to run a tool\n++++++++\n");
+                // The request ID is the correlation ID: Lesson 6 must attach it to
+                // the tool response so the provider can match result to request.
+                println!("    request id (correlation ID): {}", request.id);
+                // `tool_call` is a Result: tool-call parsing can fail inside a
+                // request, so never blindly unwrap it.
+                match &request.tool_call {
+                    Ok(call) => {
+                        println!("    tool name: {}", call.name);
+                        println!(
+                            "    arguments (untrusted model output; JSON object, order not guaranteed):"
+                        );
+                        match &call.arguments {
+                            Some(arguments) => {
+                                print_indented(&serde_json::to_string_pretty(arguments)?, "      ")
+                            }
+                            None => println!("      (none)"),
+                        }
+                    }
+                    Err(error) => {
+                        println!("    unparseable call (reported without panicking): {error}");
+                    }
+                }
+                println!("++++++++++\n");
+            } else if let Some(thinking) = block.as_thinking() {
+                println!("  {label} Thinking block — Not ground truth\n++++++++\n");
+                print_indented(&thinking.thinking, "             ");
+                println!("++++++++++\n");
+            } else if let Some(text) = block.as_text() {
+                if !text.trim().is_empty() {
+                    println!("  {label} Text");
+                    print_indented(text, "    ");
+                }
+            } else {
+                println!("  {label} other non-text block: {block}");
+            }
+        }
+    }
+
+    Ok(saw_tool_request)
+}
+
+/// Print multi-line text with a fixed indent so outbound prompts, streamed
+/// prose, private reasoning, advertised schemas, and structured arguments
+/// stay visually inside their labeled block.
+fn print_indented(text: &str, indent: &str) {
+    for line in text.lines() {
+        println!("{indent}{line}");
+    }
+}
+
+/// Print the advertised tool definition the model receives with the prompts:
+/// name, description, and the JSON input schema. All three travel in the same
+/// inference call, so they belong in the outbound payload view.
+fn print_tool_definition(tool: &Tool) -> Result<(), Box<dyn Error>> {
+    println!("  advertised tool definition:");
+    println!("    name: {}", tool.name);
+    if let Some(description) = &tool.description {
+        println!("    description:");
+        print_indented(description, "      > ");
+    }
+    println!("    input schema (advertised shape, not runtime validation):");
+    print_indented(
+        &serde_json::to_string_pretty(tool.input_schema.as_ref())?,
+        "      ",
+    );
+    Ok(())
 }
 
 /// The one narrowly described advertised schema for this lesson. It tells the
@@ -137,7 +263,7 @@ fn tool_definition() -> Tool {
         "required": ["entry_price", "stop_price", "share_count"],
         "additionalProperties": false
     }))
-    .expect("static input schema must be a JSON object");
+        .expect("static input schema must be a JSON object");
 
     Tool::new(
         TOOL_NAME,
