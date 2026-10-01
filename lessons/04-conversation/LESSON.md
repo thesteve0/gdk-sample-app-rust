@@ -76,12 +76,12 @@ while let Some((message, usage)) = stream.next().await.transpose()? {
     if let Some(message) = message {
         let text = message.as_concat_text();
         if !text.is_empty() {
-            print!("{text}");
+            print!("{}", text);
             text_parts.push(text);
         }
     }
     if let Some(usage) = usage {
-        eprintln!("\nusage: {usage:#?}");
+        eprintln!("\nusage: {:#?}", usage);
     }
 }
 

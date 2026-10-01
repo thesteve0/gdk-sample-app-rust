@@ -564,7 +564,7 @@ fn tool_definition() -> Tool {
         "required": ["entry_price", "stop_price", "share_count"],
         "additionalProperties": false
     }))
-        .expect("static input schema must be a JSON object");
+    .expect("static input schema must be a JSON object");
 
     Tool::new(
         TOOL_NAME,

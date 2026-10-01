@@ -13,6 +13,13 @@ use serde_json::{json, Value};
 const DEFAULT_PROVIDER_CONFIG: &str = "custom_aa_llama_qwen3_6-35b.json";
 const TOOL_NAME: &str = "maximum_planned_loss";
 
+/// A delimiter printed before and after every block of protocol payload: the
+/// outbound prompts and tool definition, and the model's output. Everything
+/// between two delimiter lines is a value that traveled to or from the
+/// provider; everything else on the terminal is this application's
+/// explanatory text.
+const PAYLOAD_DELIMITER: &str = "++++++++";
+
 const SYSTEM_INSTRUCTION: &str = "You are a day-trading teaching assistant. For the supplied hypothetical trade, use the maximum_planned_loss tool. Never claim to place, modify, or cancel a trade.";
 const USER_PROMPT: &str = "A hypothetical long trade enters at $51.20, uses a stop at $50.70, and has 200 shares. What is the maximum planned loss?";
 
@@ -34,22 +41,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Phase 1: what the application sends. The tool is advertised, never run.
     println!("── Sending ─────────────────────────────────────────────");
-    println!("1 user message; advertising 1 tool: {TOOL_NAME}");
+    println!("1 user message; advertising 1 tool: {}", TOOL_NAME);
     println!("  (the model may now request it)");
 
     // The full outbound payload is these prompts plus the advertised tool
     // definition: the entire context the model sees in the first call.
     // Printing all of it makes it visible — the model answers only what this
     // call contains, and nothing here executes anything.
-    println!("\nOutbound payload sent with this call, quoted in full:");
+    println!("\nOutbound payload sent with this call (application → provider), quoted in full:");
+    print_delimiter();
     println!("  system instruction:");
     print_indented(SYSTEM_INSTRUCTION, "    > ");
     println!("  user message:");
     print_indented(USER_PROMPT, "    > ");
     print_tool_definition(&tools[0])?;
+    print_delimiter();
 
     // Phase 2: stream the response, printing text blocks as they arrive.
-    println!("\n── Streaming response deltas ───────────────────────────");
+    println!("\n── Streaming response deltas (provider → application) ──");
     let (conversation, usage) =
         stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
 
@@ -60,7 +69,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Phase 4: inspect every block of every reconstructed message. Structured
     // requests, thinking, and text are labeled; the request ID is the
     // correlation ID Lesson 6 must reuse.
-    println!("\n── All the response messages (after Conversation::push) ───");
+    println!(
+        "\n── All the response messages (provider → application, after Conversation::push) ──"
+    );
     let saw_tool_request = inspect_reconstructed(&conversation)?;
 
     // Phase 5: show exactly where this run stops inside the normal
@@ -112,7 +123,13 @@ async fn stream_and_collect(
         if let Some(message) = message {
             let text = message.as_concat_text();
             if !text.is_empty() {
-                print!("{text}");
+                // Streamed text is the model's output, not commentary. Open the
+                // delimiter at the first delta and close it after the stream ends;
+                // individual deltas cannot each carry a fence of their own.
+                if !streamed_text {
+                    print_delimiter();
+                }
+                print!("{}", text);
                 streamed_text = true;
             }
             // Text alone is enough for Lessons 3 and 4, but a tool-capable model
@@ -125,7 +142,12 @@ async fn stream_and_collect(
         }
     }
 
-    if !streamed_text {
+    if streamed_text {
+        // Streamed deltas do not guarantee a trailing newline, so start the
+        // closing delimiter on a fresh line.
+        println!();
+        print_delimiter();
+    } else {
         println!(
             "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
         );
@@ -142,20 +164,20 @@ fn print_usage_summary(usage: &Option<ProviderUsage>) {
         println!("(no usage telemetry was provided by the provider)");
         return;
     };
+    let input_tokens = match usage.usage.input_tokens {
+        Some(count) => count.to_string(),
+        None => "-".to_string(),
+    };
+    let output_tokens = match usage.usage.output_tokens {
+        Some(count) => count.to_string(),
+        None => "-".to_string(),
+    };
     println!(
         "model={}  tokens in={} out={}",
-        usage.model,
-        usage
-            .usage
-            .input_tokens
-            .map_or("-".to_string(), |n| n.to_string()),
-        usage
-            .usage
-            .output_tokens
-            .map_or("-".to_string(), |n| n.to_string()),
+        usage.model, input_tokens, output_tokens
     );
     if let Some(reasons) = &usage.finish_reasons {
-        println!("finish_reasons={reasons:?}");
+        println!("finish_reasons={:?}", reasons);
         if reasons.iter().any(|reason| reason == "tool_calls") {
             println!("  ← the model ended its turn expecting a tool result.");
             println!("    The application, not the finish reason, decides what happens next.");
@@ -181,7 +203,11 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
 
             if let Some(request) = block.as_tool_request() {
                 saw_tool_request = true;
-                println!("  {label} ToolRequest — the model asks the application to run a tool\n++++++++\n");
+                println!(
+                    "  {} ToolRequest — the model asks the application to run a tool",
+                    label
+                );
+                print_delimiter();
                 // The request ID is the correlation ID: Lesson 6 must attach it to
                 // the tool response so the provider can match result to request.
                 println!("    request id (correlation ID): {}", request.id);
@@ -201,21 +227,27 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
                         }
                     }
                     Err(error) => {
-                        println!("    unparseable call (reported without panicking): {error}");
+                        println!(
+                            "    unparseable call (reported without panicking): {}",
+                            error
+                        );
                     }
                 }
-                println!("++++++++++\n");
+                print_delimiter();
             } else if let Some(thinking) = block.as_thinking() {
-                println!("  {label} Thinking block — Not ground truth\n++++++++\n");
+                println!("  {} Thinking block — Not ground truth", label);
+                print_delimiter();
                 print_indented(&thinking.thinking, "             ");
-                println!("++++++++++\n");
+                print_delimiter();
             } else if let Some(text) = block.as_text() {
                 if !text.trim().is_empty() {
-                    println!("  {label} Text");
+                    println!("  {} Text", label);
+                    print_delimiter();
                     print_indented(text, "    ");
+                    print_delimiter();
                 }
             } else {
-                println!("  {label} other non-text block: {block}");
+                println!("  {} other non-text block: {}", label, block);
             }
         }
     }
@@ -223,12 +255,22 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
     Ok(saw_tool_request)
 }
 
+/// Print one payload delimiter line. Every payload block opens and closes
+/// with it, so a reader can see exactly where commentary ends and provider
+/// payload begins. The line printed immediately before each block names the
+/// sender and the receiver of that message: the round trip has multiple
+/// actors (this application and the provider), so every message must show
+/// both of its ends.
+fn print_delimiter() {
+    println!("{}", PAYLOAD_DELIMITER);
+}
+
 /// Print multi-line text with a fixed indent so outbound prompts, streamed
 /// prose, private reasoning, advertised schemas, and structured arguments
 /// stay visually inside their labeled block.
 fn print_indented(text: &str, indent: &str) {
     for line in text.lines() {
-        println!("{indent}{line}");
+        println!("{}{}", indent, line);
     }
 }
 
@@ -295,14 +337,22 @@ fn provider_config_path() -> Result<PathBuf, Box<dyn Error>> {
 }
 
 fn first_configured_model(provider_config: &Value) -> Result<String, Box<dyn Error>> {
-    provider_config
-        .get("models")
-        .and_then(Value::as_array)
-        .and_then(|models| models.first())
-        .and_then(|model| model.get("name"))
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| "Provider JSON has no configured model".into())
+    let missing = "Provider JSON has no configured model";
+
+    let models = match provider_config.get("models").and_then(Value::as_array) {
+        Some(models) => models,
+        None => return Err(missing.into()),
+    };
+    let first_model = match models.first() {
+        Some(first_model) => first_model,
+        None => return Err(missing.into()),
+    };
+    let name = match first_model.get("name").and_then(Value::as_str) {
+        Some(name) => name,
+        None => return Err(missing.into()),
+    };
+
+    Ok(name.to_owned())
 }
 
 #[cfg(test)]
@@ -321,11 +371,14 @@ mod tests {
             "unknown fields must be rejected"
         );
 
-        let required: Vec<&str> = schema
-            .get("required")
-            .and_then(Value::as_array)
-            .map(|array| array.iter().filter_map(Value::as_str).collect::<Vec<_>>())
-            .unwrap_or_default();
+        let mut required: Vec<&str> = Vec::new();
+        if let Some(array) = schema.get("required").and_then(Value::as_array) {
+            for entry in array {
+                if let Some(name) = entry.as_str() {
+                    required.push(name);
+                }
+            }
+        }
         assert!(required.contains(&"entry_price"));
         assert!(required.contains(&"stop_price"));
         assert!(required.contains(&"share_count"));

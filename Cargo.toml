@@ -10,5 +10,7 @@ dotenvy = "0.15.7"
 futures = "0.3"
 goose-providers = { version = "=0.1.0-alpha.11", features = ["rustls-tls"] }
 rmcp = "=3.4.1"
+rust_decimal = "1.43.0"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

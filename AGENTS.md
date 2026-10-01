@@ -58,6 +58,28 @@ Apply these rules to every lesson and to curriculum changes:
 
 Use concise source comments to point out what code is doing and why it is needed at that point. Keep the longer explanation, terminology, diagrams, and instructor discussion in the lesson prose and `instructor-notes/`, rather than turning source comments into the lesson.
 
+### Lesson-code Rust style: unwrap in the open
+
+Attendees are not assumed to be proficient in Rust, and neither is the instructor. Reference solutions, lesson snippets, and tests favor explicit, verbose Rust over idiomatic compactness whenever the compact form hides what the type system is doing:
+
+1. **Destructure in the open.** Unwrap a `Result` or `Option` with an explicit `match` whose only job is "extract the value or bail out": give the extracted value a named `let`, and bail with an early `return Err(...)`.
+2. **No match guards** (`Ok(call) if cond`). Extract first into a named binding, then branch with plain `if`/`else`.
+3. **No `|_|` closures and no `.map_err(...)?` chains.** Converting an error is its own named step: `let failure = format!(...)` followed by `return Err(failure);`.
+4. **Keep `?` for the one obvious thing.** Propagating an already-formed error is the sanctioned single-concept use: `let entry = parse_price("entry_price", &args.entry_price)?;`.
+5. **Name every intermediate value** (`parse_result`, `parsed_call`, `requested_name`) so each line teaches one thing.
+6. **Positional format arguments.** Prefer `format!("{} ...", field, raw)` over inline captures (`{field}`) so formatting reads like the `String.format` style attendees already know from other languages.
+7. One-line comments label each boundary or step; longer explanations stay in lesson prose and `instructor-notes/`, per the editorial rules above.
+
+Behavior never changes under these rules; only structure and naming do.
+
+### Lesson terminal output: payload delimiter and actor labels
+
+Lesson terminal output mixes the application's explanatory text with **protocol payload** — the actual values that traveled to or from the provider. Two output conventions make that boundary visible; Lessons 5 and 6 already follow them, and new lessons that print provider interaction must reuse them.
+
+1. **Payload delimiter.** Every block of payload is printed between two identical `++++++++` lines through the `PAYLOAD_DELIMITER` constant and `print_delimiter()` helper; everything outside those lines is the application's own commentary. Streamed model output is payload even though individual deltas cannot each carry a fence: open the delimiter at the first text delta and close it after the stream ends. Define "payload delimiter" in lesson prose before the code that shows it, per the editorial rules above.
+2. **Actor labels.** The line immediately before each payload block names the sender and the receiver — `application → provider` on outbound payloads, `provider → application` on streamed and reconstructed output, and `application, as the tool → provider` on dispatched tool responses (the tool execution boundary lives inside the application). With multiple actors in the round trip, every message must show who sent it and who receives it.
+3. **Keep them uniform.** Use identical fences, labels, and phrasing across lesson code, `LESSON.md` snippets, and sample-output blocks, so learners see one convention. Fence and label any new payload site when a lesson introduces one.
+
 ## Accepted post-Lesson 4 sequence
 
 Isolated technical validation supported the direction recorded in `post-lesson4-plan.md`. Preserve these decisions unless the instructor explicitly revises them:

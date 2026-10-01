@@ -162,6 +162,8 @@ Tool names and arguments are untrusted model output even when they appear to mat
 
 ## Step 5.4: Advertise the tool in the existing stream call
 
+A **payload delimiter** separates explanatory text from **protocol payload** — the actual values that traveled to or from the provider. Every block of payload is printed between two identical `++++++++` lines, and everything outside them is this application's own commentary. The line immediately before each block also names the **sender and the receiver** of that message — `application → provider` on the way out, `provider → application` on the way back — because every message in the round trip must show both of its ends. The delimiter matters because model output is untrusted data: the terminal must make visible exactly which lines are the provider's, so a learner can point at the boundary between the application's words and the model's. Lesson 6 reuses the same delimiter for the tool responses sent back.
+
 At the provider call site, the new input from Lesson 4 is a non-empty `tools` slice:
 
 ```rust
@@ -169,27 +171,29 @@ let tools = [tool_definition()];
 let messages = vec![Message::user().with_text(USER_PROMPT)];
 
 println!("── Sending ─────────────────────────────────────────────");
-println!("1 user message; advertising 1 tool: {TOOL_NAME}");
+println!("1 user message; advertising 1 tool: {}", TOOL_NAME);
 println!("  (the model may now request it)");
 
 // The full outbound payload is these prompts plus the advertised tool
 // definition: the entire context the model sees in the first call.
 // Printing all of it makes it visible — the model answers only what this
 // call contains, and nothing here executes anything.
-println!("\nOutbound payload sent with this call, quoted in full:");
+println!("\nOutbound payload sent with this call (application → provider), quoted in full:");
+print_delimiter();
 println!("  system instruction:");
 print_indented(SYSTEM_INSTRUCTION, "    > ");
 println!("  user message:");
 print_indented(USER_PROMPT, "    > ");
 print_tool_definition(&tools[0])?;
+print_delimiter();
 
-println!("\n── Streaming response deltas ───────────────────────────");
+println!("\n── Streaming response deltas (provider → application) ──");
 let (conversation, usage) =
     stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
 //  └── the four inputs are unchanged: provider, model, system+user history, tools
 print_usage_summary(&usage);
 
-println!("\n── Reconstructed messages (after Conversation::push) ───");
+println!("\n── All the response messages (provider → application, after Conversation::push) ──");
 let saw_tool_request = inspect_reconstructed(&conversation)?;
 ```
 
@@ -278,7 +282,13 @@ async fn stream_and_collect(
         if let Some(message) = message {
             let text = message.as_concat_text();
             if !text.is_empty() {
-                print!("{text}");
+                // Streamed text is the model's output, not commentary. Open the
+                // delimiter at the first delta and close it after the stream ends;
+                // individual deltas cannot each carry a fence of their own.
+                if !streamed_text {
+                    print_delimiter();
+                }
+                print!("{}", text);
                 streamed_text = true;
             }
             // Text alone is enough for Lessons 3 and 4, but a tool-capable model
@@ -291,7 +301,12 @@ async fn stream_and_collect(
         }
     }
 
-    if !streamed_text {
+    if streamed_text {
+        // Streamed deltas do not guarantee a trailing newline, so start the
+        // closing delimiter on a fresh line.
+        println!();
+        print_delimiter();
+    } else {
         println!(
             "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
         );
@@ -314,20 +329,20 @@ fn print_usage_summary(usage: &Option<ProviderUsage>) {
         println!("(no usage telemetry was provided by the provider)");
         return;
     };
+    let input_tokens = match usage.usage.input_tokens {
+        Some(count) => count.to_string(),
+        None => "-".to_string(),
+    };
+    let output_tokens = match usage.usage.output_tokens {
+        Some(count) => count.to_string(),
+        None => "-".to_string(),
+    };
     println!(
         "model={}  tokens in={} out={}",
-        usage.model,
-        usage
-            .usage
-            .input_tokens
-            .map_or("-".to_string(), |n| n.to_string()),
-        usage
-            .usage
-            .output_tokens
-            .map_or("-".to_string(), |n| n.to_string()),
+        usage.model, input_tokens, output_tokens
     );
     if let Some(reasons) = &usage.finish_reasons {
-        println!("finish_reasons={reasons:?}");
+        println!("finish_reasons={:?}", reasons);
         if reasons.iter().any(|reason| reason == "tool_calls") {
             println!("  ← the model ended its turn expecting a tool result.");
             println!("    The application, not the finish reason, decides what happens next.");
@@ -358,7 +373,11 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
 
             if let Some(request) = block.as_tool_request() {
                 saw_tool_request = true;
-                println!("  {label} ToolRequest — the model asks the application to run a tool");
+                println!(
+                    "  {} ToolRequest — the model asks the application to run a tool",
+                    label
+                );
+                print_delimiter();
                 // The request ID is the correlation ID: Lesson 6 must attach it to
                 // the tool response so the provider can match result to request.
                 println!("    request id (correlation ID): {}", request.id);
@@ -378,22 +397,27 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
                         }
                     }
                     Err(error) => {
-                        println!("    unparseable call (reported without panicking): {error}");
+                        println!(
+                            "    unparseable call (reported without panicking): {}",
+                            error
+                        );
                     }
                 }
+                print_delimiter();
             } else if let Some(thinking) = block.as_thinking() {
-                println!("  {label} Thinking — the model's private reasoning. It may narrate");
-                println!(
-                    "             tool calls and results that never happened. Not ground truth."
-                );
+                println!("  {} Thinking block — Not ground truth", label);
+                print_delimiter();
                 print_indented(&thinking.thinking, "             ");
+                print_delimiter();
             } else if let Some(text) = block.as_text() {
                 if !text.trim().is_empty() {
-                    println!("  {label} Text");
+                    println!("  {} Text", label);
+                    print_delimiter();
                     print_indented(text, "    ");
+                    print_delimiter();
                 }
             } else {
-                println!("  {label} other non-text block: {block}");
+                println!("  {} other non-text block: {}", label, block);
             }
         }
     }
@@ -405,7 +429,7 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
 /// reasoning, and structured arguments stay visually inside their labeled block.
 fn print_indented(text: &str, indent: &str) {
     for line in text.lines() {
-        println!("{indent}{line}");
+        println!("{}{}", indent, line);
     }
 }
 ```

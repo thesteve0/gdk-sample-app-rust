@@ -25,8 +25,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Application-owned conversation history begins with one user turn. It is
     // explicitly sent with each inference request.
-    let mut messages = vec![Message::user()
-        .with_text("What is the capital of France?")];
+    let mut messages = vec![Message::user().with_text("What is the capital of France?")];
 
     println!("Model response (assistant role, turn 1):");
     // The model generates the first assistant-role turn from the system instruction
@@ -37,7 +36,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // The application, not the provider, maintains this ordered history.
     messages.extend([
         Message::assistant().with_text(first_response),
-        Message::user().with_text("Tell me the historical origin of this city. Write no more than 2 sentences"),
+        Message::user().with_text(
+            "Tell me the historical origin of this city. Write no more than 2 sentences",
+        ),
     ]);
 
     println!("\nModel response (assistant role, turn 2):");
@@ -53,7 +54,9 @@ async fn stream_response(
 ) -> Result<String, Box<dyn Error>> {
     // Each inference call receives the same system instruction plus the complete
     // history the application wants the model to use.
-    let mut stream = provider.stream(model, SYSTEM_INSTRUCTION, messages, &[]).await?;
+    let mut stream = provider
+        .stream(model, SYSTEM_INSTRUCTION, messages, &[])
+        .await?;
 
     let mut text_parts = Vec::new();
     let mut saw_completion = false;
@@ -61,13 +64,13 @@ async fn stream_response(
         if let Some(message) = message {
             let text = message.as_concat_text();
             if !text.is_empty() {
-                print!("{text}");
+                print!("{}", text);
                 text_parts.push(text);
             }
         }
         if let Some(usage) = usage {
             saw_completion = true;
-            eprintln!("\nusage: {usage:#?}");
+            eprintln!("\nusage: {:#?}", usage);
         }
     }
 

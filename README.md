@@ -44,8 +44,8 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 2 | Provider configuration and model discovery smoke test | **Complete** | [`lessons/02-provider-smoke-test/`](lessons/02-provider-smoke-test/) |
 | 3 | First streaming model call | **Complete** | [`lessons/03-streaming-call/`](lessons/03-streaming-call/) |
 | 4 | System instructions, message roles, and multi-turn conversation | **Complete** | [`lessons/04-conversation/`](lessons/04-conversation/) |
-| 5 | Define a deterministic trading calculator tool and inspect its raw request | **Active** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
-| 6 | Execute the tool and return its result through the raw provider protocol | Planned | — |
+| 5 | Define a deterministic trading calculator tool and inspect its raw request | **Complete** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
+| 6 | Execute the tool and return its result through the raw provider protocol | **Active** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
 | 7 | Introduce state-machine operations, effects, sessions, and a minimal runtime | Planned | — |
 | 8 | Assemble provider inference and the typed tool operation | Planned | — |
 | 9 | Add domain instructions and application-enforced safety boundaries | Planned | — |
@@ -63,9 +63,9 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 
 The post-Lesson 4 roadmap is accepted based on isolated technical validation with the configured local provider. That validation confirmed native structured tool calls, a complete raw request/result round trip, the equivalent typed tool through `goose-agent`, a two-lesson state-machine transition, and decimal-string prices parsed into exact decimal arithmetic. [`post-lesson4-plan.md`](post-lesson4-plan.md) is the durable architecture and curriculum record.
 
-### Immediate Lesson 5 boundary
+### Immediate Lesson 6 boundary
 
-Lesson 5 introduces exactly one domain-specific deterministic tool: maximum planned loss for a hypothetical long position. Its example uses entry `51.20`, stop `50.70`, and 200 shares, producing `100.00` before fees, slippage, or a gap through the stop. Learners define its name, description, and JSON input schema; pass that definition to raw provider inference; inspect all returned content blocks; and identify a structured tool request, including its future correlation ID. They do **not** execute the tool or return a result until Lesson 6; the reconstructed request is retained only in memory during the current run. Early tool lessons continue selecting the first configured model; explicit model selection remains deferred.
+Lesson 6 completes the raw tool-request/tool-result round trip begun in Lesson 5. It keeps exactly one domain-specific deterministic tool: maximum planned loss for a hypothetical long position, with entry `51.20`, stop `50.70`, and 200 shares producing `100.00` before fees, slippage, or a gap through the stop. Learners deserialize untrusted model arguments into a domain struct, validate them with exact decimal arithmetic (`rust_decimal`, at most four decimal places, dollar results formatted to two places), dispatch only the allowlisted tool, return one correlated user-role tool response per request, and ask the stateless provider for a follow-up educational explanation over the resent full history. The program performs exactly two inference rounds and dispatches only the requests received in the first; it does not loop, and it does not introduce the state machine, sessions, or effects until Lessons 7 and 8. Early tool lessons continue selecting the first configured model; explicit model selection remains deferred.
 
 ## Repository organization
 
@@ -87,7 +87,7 @@ Lesson 5 introduces exactly one domain-specific deterministic tool: maximum plan
 
 ### Root source
 
-Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 5 tool-request checkpoint: it advertises one deterministic `maximum_planned_loss` tool to a single inference call, inspects every reconstructed content block, and recognizes a structured request while retaining its id, name, and arguments in the in-memory `Conversation`. It stops before execution — advertising or receiving a request does not run the tool — and does not persist history across program runs.
+Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 6 tool-execution checkpoint: it advertises one deterministic `maximum_planned_loss` tool, validates untrusted model arguments through deserialization and exact-decimal domain validation, dispatches only the allowlisted tool, returns one correlated user-role tool response per request, and asks the stateless provider for a follow-up educational explanation over the resent full history. It performs exactly two inference rounds by construction — not an open agent loop — and does not persist history across program runs.
 
 ### Lesson directories
 
@@ -108,7 +108,7 @@ From the repository root, let Cargo fetch and build the exact dependency resolut
 cargo check
 ```
 
-The manifest pins `goose-providers` to `0.1.0-alpha.11`; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. Each lesson that adds a new requirement instructs adding it to the root manifest. `goose-agent`, which supplies the GDK state-machine agent loop and typed tool operations introduced after learners understand the raw protocol, is added to the manifest when the course reaches those lessons. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
+The manifest pins `goose-providers` to `0.1.0-alpha.11`; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. `serde`'s derive feature deserializes untrusted tool arguments into domain structs, and `rust_decimal` supplies exact decimal arithmetic for money-related tool arguments (both added with Lesson 6). Each lesson that adds a new requirement instructs adding it to the root manifest. `goose-agent`, which supplies the GDK state-machine agent loop and typed tool operations introduced after learners understand the raw protocol, is added to the manifest when the course reaches those lessons. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
 
 ## Provider configuration
 
@@ -161,13 +161,13 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Run the active exercise
 
-Run the current Lesson 5 tool-request exercise from the repository root:
+Run the current Lesson 6 tool-execution exercise from the repository root:
 
 ```bash
 cargo run
 ```
 
-It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a single streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For a parseable structured request, it prints the id, name, and arguments; it reports an unparseable request safely. It stops before execution — advertising or receiving a request does not run the tool — and retains the reconstructed assistant-role message only in memory for the current run. Lessons 6 onward are planned. Provider-calling lessons are validated live here; marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
+It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a first streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For each pending structured request it validates untrusted arguments (deserialization plus exact-decimal domain validation), dispatches only the allowlisted tool, and returns one correlated user-role tool response per request; failures become protocol-valid error results with a reason. It then resends the entire history to the stateless provider for one follow-up round and prints the streamed educational explanation. The program performs exactly two inference rounds by construction, stops at that bound if the model re-requests, and retains history only in memory for the current run. Lessons 7 onward are planned. Provider-calling lessons are validated live here; marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
 ## Validation philosophy
 

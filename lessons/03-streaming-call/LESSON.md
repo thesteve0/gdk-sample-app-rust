@@ -67,7 +67,7 @@ if available_models.is_empty() {
 println!("Connected to provider: {}", provider.get_name());
 println!("Available models:");
 for model_name in &available_models {
-    println!("- {model_name}");
+    println!("- {}", model_name);
 }
 ```
 
@@ -117,7 +117,7 @@ while let Some((message, usage)) = stream.next().await.transpose()? {
         // The streamed usage reports the model the server actually used to
         // answer, which can differ from the one we requested.
         println!("\nThe model that answered: {}", usage.model);
-        eprintln!("usage: {usage:#?}");
+        eprintln!("usage: {:#?}", usage);
     }
 }
 ```

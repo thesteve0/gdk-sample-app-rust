@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Connected to provider: {}", provider.get_name());
     println!("Available models:");
     for model_name in &available_models {
-        println!("- {model_name}");
+        println!("- {}", model_name);
     }
 
     // Select the first configured model for this request. Whether the server
@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let text = message.as_concat_text();
             if !text.is_empty() {
                 saw_text = true;
-                print!("{text}");
+                print!("{}", text);
             }
         }
         if let Some(usage) = usage {
@@ -65,8 +65,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // The streamed usage reports the model the server actually used to
             // answer — the ground truth. A provider can ignore the model you
             // requested, so prefer this over the requested model.
-            println!("\n-------------------------\nThe model that answered: {}", usage.model);
-            eprintln!("-------------------------\nFull usage metadata response: {usage:#?}");
+            println!(
+                "\n-------------------------\nThe model that answered: {}",
+                usage.model
+            );
+            eprintln!(
+                "-------------------------\nFull usage metadata response: {:#?}",
+                usage
+            );
         }
     }
 

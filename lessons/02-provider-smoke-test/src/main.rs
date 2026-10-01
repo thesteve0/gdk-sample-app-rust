@@ -28,19 +28,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Connected to provider: {}", provider.get_name());
     println!("Available models:");
     for model_name in &available_models {
-        println!("- {model_name}");
+        println!("- {}", model_name);
     }
 
     // The server told us what it serves. Check whether the model the JSON
     // configured is among them; if not, surface the mismatch.
     if let Some(configured_model) = first_configured_model(&provider_config)? {
-        if available_models.iter().any(|model| model == &configured_model) {
-            println!("The configured model '{configured_model}' is available.");
+        if available_models
+            .iter()
+            .any(|model| model == &configured_model)
+        {
+            println!("The configured model '{}' is available.", configured_model);
         } else {
             println!(
-                "Your model is not available: the JSON asks for '{configured_model}', \
-                 but the provider advertised {available_models:#?}.\n\
-                 We will address this in the next exercise"
+                "Your model is not available: the JSON asks for '{}', \
+                 but the provider advertised {:#?}.\n\
+                 We will address this in the next exercise",
+                configured_model, available_models
             );
         }
     }
