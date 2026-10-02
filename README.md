@@ -45,27 +45,30 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 3 | First streaming model call | **Complete** | [`lessons/03-streaming-call/`](lessons/03-streaming-call/) |
 | 4 | System instructions, message roles, and multi-turn conversation | **Complete** | [`lessons/04-conversation/`](lessons/04-conversation/) |
 | 5 | Define a deterministic trading calculator tool and inspect its raw request | **Complete** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
-| 6 | Execute the tool and return its result through the raw provider protocol | **Active** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
-| 7 | Introduce state-machine operations, effects, sessions, and a minimal runtime | Planned | — |
-| 8 | Assemble provider inference and the typed tool operation | Planned | — |
-| 9 | Add domain instructions and application-enforced safety boundaries | Planned | — |
-| 10 | Establish an evaluation baseline for tool use and grounded conclusions | Planned | — |
-| 11 | Define fixture-backed read-only market observations | Planned | — |
-| 12 | Combine observations and deterministic calculations in trade analysis | Planned | — |
-| 13 | Ingest private educational documents while preserving provenance | Planned | — |
-| 14 | Add educational retrieval as a read-only tool with citations | Planned | — |
-| 15 | Evaluate retrieval quality, citations, and untrusted document content | Planned | — |
-| 16 | Combine teaching, retrieval, market observations, and trade analysis | Planned | — |
-| 17 | Command-line workflow, explicit model selection, and operational errors | Planned | — |
+| 6 | Execute the tool and return its result through the raw provider protocol | **Complete** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
+| 7 | Introduce state-machine operations, effects, sessions, and a minimal runtime | **Complete** | [`lessons/07-state-machine-runtime/`](lessons/07-state-machine-runtime/) |
+| 8 | One request and one response through the GDK state machine | **Active** | [`lessons/08-machine-request-response/`](lessons/08-machine-request-response/) |
+| 9 | Assemble provider inference and the typed tool operation | Planned | — |
+| 10 | Add domain instructions and application-enforced safety boundaries | Planned | — |
+| 11 | Establish an evaluation baseline for tool use and grounded conclusions | Planned | — |
+| 12 | Define fixture-backed read-only market observations | Planned | — |
+| 13 | Combine observations and deterministic calculations in trade analysis | Planned | — |
+| 14 | Ingest private educational documents while preserving provenance | Planned | — |
+| 15 | Add educational retrieval as a read-only tool with citations | Planned | — |
+| 16 | Evaluate retrieval quality, citations, and untrusted document content | Planned | — |
+| 17 | Combine teaching, retrieval, market observations, and trade analysis | Planned | — |
+| 18 | Command-line workflow, explicit model selection, and operational errors | Planned | — |
 | Optional capstone | Open-weights model comparison or fine-tuning experiment | Planned | — |
 
 **Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only.
 
 The post-Lesson 4 roadmap is accepted based on isolated technical validation with the configured local provider. That validation confirmed native structured tool calls, a complete raw request/result round trip, the equivalent typed tool through `goose-agent`, a two-lesson state-machine transition, and decimal-string prices parsed into exact decimal arithmetic. [`post-lesson4-plan.md`](post-lesson4-plan.md) is the durable architecture and curriculum record.
 
-### Immediate Lesson 6 boundary
+On 2026-10-01 the instructor ordered a renumbering: a new Lesson 8 — one request and one response through the GDK state machine, the introductory walkthrough for the machine — was inserted before the former Lesson 8, and every lesson from the former Lesson 8 onward shifted by one (former 8→9 through former 17→18). [`post-lesson4-plan.md`](post-lesson4-plan.md) records this as the explicit instructor decision the plan's stability clause requires.
 
-Lesson 6 completes the raw tool-request/tool-result round trip begun in Lesson 5. It keeps exactly one domain-specific deterministic tool: maximum planned loss for a hypothetical long position, with entry `51.20`, stop `50.70`, and 200 shares producing `100.00` before fees, slippage, or a gap through the stop. Learners deserialize untrusted model arguments into a domain struct, validate them with exact decimal arithmetic (`rust_decimal`, at most four decimal places, dollar results formatted to two places), dispatch only the allowlisted tool, return one correlated user-role tool response per request, and ask the stateless provider for a follow-up educational explanation over the resent full history. The program performs exactly two inference rounds and dispatches only the requests received in the first; it does not loop, and it does not introduce the state machine, sessions, or effects until Lessons 7 and 8. Early tool lessons continue selecting the first configured model; explicit model selection remains deferred.
+### Immediate Lesson 8 boundary
+
+Lesson 7 completed the state-machine vocabulary over a deterministic, provider-free seed: it seeds the conversation Lesson 6 reconstructed (`call_seed_001`, entry `51.20`, stop `50.70`, 200 shares producing `100.00`), assembles the machine over two hand-written operations, and stops via `yield_to_client`. Lesson 8 — the active exercise — walks the machine through one request and one response with a real provider call inside `machine.step`: the seed is exactly one user question ("What is the capital of France?"), the sole registered step is the GDK-shipped `InferenceRunner` registered as `Step::Inference`, and the pass loop is written by hand with an explicit state-step bound (`MAX_STATE_STEPS = 4`). The effect vocabulary is the lesson-owned `ChatEffect` (`AppendMessage`, `RecordUsage`) because the GDK's default `ConversationEffect` has no `InferenceEffect` implementation in the pinned release. The machine calls the provider on pass 1 only; pass 2 re-derives from the persisted reply and stops with "no step applies". There are no tool calls or tool definitions, no system instruction, and no `StateMachine::run` — the typed tool, the ordered step list alongside inference, and the crate's run loop return in Lesson 9, and a multi-turn follow-up (letting the user ask another question) is deliberately deferred.
 
 ## Repository organization
 
@@ -87,7 +90,7 @@ Lesson 6 completes the raw tool-request/tool-result round trip begun in Lesson 5
 
 ### Root source
 
-Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 6 tool-execution checkpoint: it advertises one deterministic `maximum_planned_loss` tool, validates untrusted model arguments through deserialization and exact-decimal domain validation, dispatches only the allowlisted tool, returns one correlated user-role tool response per request, and asks the stateless provider for a follow-up educational explanation over the resent full history. It performs exactly two inference rounds by construction — not an open agent loop — and does not persist history across program runs.
+Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 8 machine request/response exercise: it seeds an in-memory store with one user question ("What is the capital of France?"), assembles the GDK state machine over exactly one step — the GDK-shipped `InferenceRunner` registered as `Step::Inference` — implements `SessionLoader` and `EffectHandler` as the machine's persistence interface, and drives a hand-written pass loop with an explicit state-step bound. Pass 1 calls the provider and persists the streamed reply as effects (usage, then the message); pass 2 re-derives from the persisted reply and stops with "no step applies". It reads `.env` and the provider JSON as every provider lesson does, and defines the lesson-owned `ChatEffect` effect vocabulary because the GDK's default `ConversationEffect` has no `InferenceEffect` implementation in the pinned release.
 
 ### Lesson directories
 
@@ -108,7 +111,7 @@ From the repository root, let Cargo fetch and build the exact dependency resolut
 cargo check
 ```
 
-The manifest pins `goose-providers` to `0.1.0-alpha.11`; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. `serde`'s derive feature deserializes untrusted tool arguments into domain structs, and `rust_decimal` supplies exact decimal arithmetic for money-related tool arguments (both added with Lesson 6). Each lesson that adds a new requirement instructs adding it to the root manifest. `goose-agent`, which supplies the GDK state-machine agent loop and typed tool operations introduced after learners understand the raw protocol, is added to the manifest when the course reaches those lessons. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
+The manifest pins `goose-providers` and `goose-agent` to exact `0.1.0-alpha.11` releases; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. `goose-agent` supplies the GDK state machine, operations, effects, emitter, and the session/effect traits (added with Lesson 7, after learners understand the raw protocol it coordinates). `serde`'s derive feature deserializes untrusted tool arguments into domain structs, and `rust_decimal` supplies exact decimal arithmetic for money-related tool arguments (both added with Lesson 6). `anyhow`, `async-trait`, and `tokio-util` support the state machine's error type, async traits, and cancellation token (added with Lesson 7). Each lesson that adds a new requirement instructs adding it to the root manifest. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
 
 ## Provider configuration
 
@@ -161,13 +164,13 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Run the active exercise
 
-Run the current Lesson 6 tool-execution exercise from the repository root:
+Run the current Lesson 8 machine request/response exercise from the repository root:
 
 ```bash
 cargo run
 ```
 
-It loads an optional local `.env` through `dotenvy`, advertises one deterministic `maximum_planned_loss` tool to a first streaming request against the first configured model, prints text blocks to stdout, prints completion usage metadata to stderr, and inspects every reconstructed content block. For each pending structured request it validates untrusted arguments (deserialization plus exact-decimal domain validation), dispatches only the allowlisted tool, and returns one correlated user-role tool response per request; failures become protocol-valid error results with a reason. It then resends the entire history to the stateless provider for one follow-up round and prints the streamed educational explanation. The program performs exactly two inference rounds by construction, stops at that bound if the model re-requests, and retains history only in memory for the current run. Lessons 7 onward are planned. Provider-calling lessons are validated live here; marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
+It contacts the provider: the store is seeded in code with one user question ("What is the capital of France?"), the GDK state machine runs over exactly one step — the GDK-shipped `InferenceRunner` — and the pass loop carries an explicit state-step bound. Pass 1 reloads the session, the inference step re-derives that the conversation ends in a provider turn, calls the provider with the whole conversation (no system prompt, no tools), and the streamed reply prints between payload delimiters; the effects persist in order (record usage, then append message). Pass 2 reloads the persisted state, the same step declines because the conversation now ends in the assistant's reply, and the run reports "no step applies" and prints the final persisted conversation (2 messages). The lesson also validates deterministically with `cargo test` (seed, loader, effects, a declining step, the state-step bound). Provider-calling lessons are validated live against a configured provider; if the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
 ## Validation philosophy
 
@@ -217,6 +220,7 @@ Read [`AGENTS.md`](AGENTS.md) before changing the repository. Preserve the instr
 - [Configure LLM Provider](https://goose-docs.ai/docs/getting-started/providers)
 - [`goose-providers` 0.1.0-alpha.11](https://crates.io/crates/goose-providers/0.1.0-alpha.11)
 - [`goose-agent` 0.1.0-alpha.11](https://crates.io/crates/goose-agent/0.1.0-alpha.11)
+- [GDK state machine: `goose-agent` crate README](https://github.com/block/goose/blob/main/crates/goose-agent/README.md) — the canonical description of the state-machine approach ("the whole agent's behavior is a function of the persisted conversation, not of in-memory loop state"); the goose-docs.ai pages currently cover the provider layer only.
 
 ## License
 

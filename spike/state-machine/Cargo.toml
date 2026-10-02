@@ -1,20 +1,15 @@
 [package]
-name = "gdk-hello"
+name = "spike-state-machine"
 version = "0.1.0"
-description = "GDK Rust hello-world tutorial"
+description = "Research spike: the GDK state machine, one runnable experiment at a time"
 edition = "2021"
-rust-version = "1.94.1"
 
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
 dotenvy = "0.15.7"
-futures = "0.3"
 goose-agent = "=0.1.0-alpha.11"
 goose-providers = { version = "=0.1.0-alpha.11", features = ["rustls-tls"] }
-rmcp = "=3.4.1"
-rust_decimal = "1.43.0"
-serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 tokio-util = "0.7"

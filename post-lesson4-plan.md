@@ -6,6 +6,10 @@ This document records the accepted direction for the course after Lesson 4. It i
 
 The post-Lesson 4 technical spike is complete and supports the sequence below. The instructor accepted the outline on 2026-09-29. Lesson numbers and boundaries should now remain stable unless later implementation evidence or an explicit instructor decision requires a change. The instructor still owns curriculum sequencing and release decisions.
 
+On 2026-10-01 the instructor ordered exactly such a change: a new Lesson 8 — one request and one response through the GDK state machine, the introductory walkthrough for the machine — was inserted before the former Lesson 8, and every lesson from the former Lesson 8 onward was renumbered by one (former 8→9 through former 17→18). The sequence below reflects that renumbering; this paragraph is the explicit instructor decision the stability clause above requires.
+
+Later on 2026-10-01, after Lesson 8 was written, the instructor judged Lessons 7 and 8 to be in reverse order and a mess as they now stand. Both lessons must be revisited and fixed, but not yet: the fix is deferred until a research spike on teaching the state-machine approach in the GDK concludes. The spike lives in `spike/state-machine/` and is explicitly research-only — none of its material may modify `lessons/`, `instructor-notes/`, `README.md`, this plan, or the root source until the instructor declares the spike complete and orders the teaching material updated.
+
 ## Course application goal
 
 The course incrementally builds a **day-trading teaching assistant that can also analyze trades**.
@@ -64,6 +68,8 @@ The existing Lesson 4 application was validated after the upgrade with:
 The two-turn Lesson 4 conversation continued to work after the upgrade.
 
 Before teaching the course, review the current public GDK release and perform another coordinated dependency/source/documentation review rather than changing one GDK crate independently.
+
+Local checkout note (recorded during the Lesson 7 session): the working copy at `/var/home/stpousty/git/goose` (branch `main` @ `1ce7de7a3`) was diffed against published `goose-agent = 0.1.0-alpha.11` and `goose-provider-types = 0.1.0-alpha.11`. All differences are a wasm32-compatibility refactor (`MaybeSend`/`MaybeSync` bounds, conditional `async_trait(?Send)`), transparent on native Linux targets, plus one behavioral change noted in the Lesson 9 section below: typed `SyncTool` invocation now goes through `tokio::task::spawn_blocking`. The provider-types conversation module, `events.rs`, and `lib.rs` are identical to alpha.11.
 
 ## Relevant GDK findings
 
@@ -206,7 +212,7 @@ The spike also validated an explicit failure/termination policy for raw-protocol
 
 ## Accepted post-Lesson 4 sequence
 
-The completed spike established that the state-machine transition should be split across two lessons. The sequence below is accepted; do not collapse Lessons 7 and 8 merely to shorten the roadmap.
+The completed spike established that the state-machine transition should be split across two lessons. The instructor later inserted a third (the new Lesson 8) so the machine is walked through a single provider request and response before tools re-enter. The sequence below is accepted; do not collapse the state-machine lessons (7, 8, and 9) merely to shorten the roadmap.
 
 ### Lesson 5: Define a deterministic trading tool and inspect its raw request
 
@@ -250,7 +256,20 @@ Use the manual implementation to motivate:
 
 Build only the smallest in-memory session/runtime needed for the existing deterministic scenario. Do not introduce production storage or multiple tools.
 
-### Lesson 8: Assemble inference and the typed tool operation
+### Lesson 8: One request and one response through the state machine
+
+Inserted by explicit instructor decision on 2026-10-01. The instructor asked for a walkthrough of the state machine with the simplest possible scenario before tools re-enter:
+
+- one seeded user question ("What is the capital of France?"), no tool calls;
+- the GDK-shipped `InferenceRunner` registered as the sole `Step::Inference`;
+- the machine's pass shape — reload, ask `applies()`, provider call, effects, stop checks — narrated end to end;
+- the lesson-owned effect vocabulary the machine and the shipped runner require (`MachineEffect`, `From<Message>`, `InferenceEffect`), since `ConversationEffect` has no `InferenceEffect` implementation in pinned alpha.11;
+- the hand-written bounded pass loop kept from Lesson 7, so the state-step bound stays explicit;
+- the provider called on pass 1 only; pass 2 re-derives from the persisted reply and stops with "no step applies".
+
+This lesson is the introductory discussion home for the state machine: the full pass loop, the state-machine diagrams, and the payload-delimiter conventions (including the streamed fence) are established here. The instructor explicitly deferred a multi-turn follow-up (letting the user ask another question) — the lesson stays one request and one response.
+
+### Lesson 9: Assemble inference and the typed tool operation
 
 Refactor the same scenario using:
 
@@ -263,7 +282,9 @@ Refactor the same scenario using:
 
 The pedagogical point is to map each manual protocol responsibility to the GDK abstraction that now coordinates it.
 
-### Lesson 9: Domain instructions and capability boundary
+A behavioral note observed while reviewing the local goose checkout against pinned alpha.11: the wasm32-compatibility refactor changed how a typed `SyncTool` is invoked. In `goose-agent = 0.1.0-alpha.11` the sync tool runs inline; in the updated checkout `invoke_sync` runs the tool through `tokio::task::spawn_blocking` (with an inline fallback under wasm32). On native targets the `MaybeSend`/`MaybeSync` bounds are identical to `Send`/`Sync`, so the lesson's behavior is otherwise unchanged, but the invocation is now off the async executor thread. Lesson 9 material should describe the spawn_blocking invocation when it presents the typed tool, and re-verify against the exact pinned source before teaching.
+
+### Lesson 10: Domain instructions and capability boundary
 
 Define the actual assistant contract:
 
@@ -277,7 +298,7 @@ Define the actual assistant contract:
 
 Teach that prompts influence behavior while capability design limits possible actions.
 
-### Lesson 10: Evaluation baseline
+### Lesson 11: Evaluation baseline
 
 Create scenario-based checks before introducing live external data. Evaluate:
 
@@ -296,13 +317,13 @@ Create scenario-based checks before introducing live external data. Evaluate:
 
 Prefer structural assertions and rubrics over exact generated prose. Maintain development and holdout scenarios to reduce prompt overfitting.
 
-### Lesson 11: Fixture-backed read-only market data
+### Lesson 12: Fixture-backed read-only market data
 
 Define a stable market-observation contract using historical fixtures first. This keeps the class reproducible and isolates the tool contract from provider selection.
 
 Do not select a live source until its licensing, delayed/real-time semantics, API stability, authentication, rate limits, symbol identity, timestamps, caching terms, historical availability, and cost are researched.
 
-### Lesson 12: Evidence-based trade analysis
+### Lesson 13: Evidence-based trade analysis
 
 Combine:
 
@@ -314,7 +335,7 @@ Combine:
 
 Evaluate visible evidence and conclusions, not private chain-of-thought.
 
-### Lesson 13: Private educational document ingestion
+### Lesson 14: Private educational document ingestion
 
 Introduce local, private document handling separately from retrieval:
 
@@ -327,11 +348,11 @@ Introduce local, private document handling separately from retrieval:
 
 PDF page references and EPUB chapter/location references need deliberate source-location modeling rather than arbitrary chunk IDs.
 
-### Lesson 14: Retrieval tool and citations
+### Lesson 15: Retrieval tool and citations
 
 Expose educational retrieval as a read-only tool. Return passages with provenance and allow an insufficient-evidence result.
 
-### Lesson 15: Retrieval evaluation and hostile content
+### Lesson 16: Retrieval evaluation and hostile content
 
 Test:
 
@@ -345,7 +366,7 @@ Test:
 
 Retrieved text is untrusted data and must not override system/application policy.
 
-### Lesson 16: Combined teaching and trade analysis
+### Lesson 17: Combined teaching and trade analysis
 
 Bring together:
 
@@ -357,7 +378,7 @@ Bring together:
 - alternatives;
 - a final evidence-based conclusion.
 
-### Lesson 17: CLI, model selection, and operational errors
+### Lesson 18: CLI, model selection, and operational errors
 
 Move explicit model selection later so it serves a meaningful purpose. Compare models based on:
 
