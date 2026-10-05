@@ -1,0 +1,40 @@
+digraph Spike {
+  graph [rankdir=TB, bgcolor="white", pad="0.35", nodesep="0.45", ranksep="0.5", fontname="DejaVu Sans", fontsize=20, labelloc=t, label="One question, one answer: the state-machine spike\nNormal successful path • arrows show calls or data flow", compound=true];
+  node [shape=box, style="rounded,filled", fillcolor="#f1f5f9", color="#64748b", fontname="DejaVu Sans", fontsize=13, margin="0.18,0.12", penwidth=1.3];
+  edge [fontname="DejaVu Sans", fontsize=11, color="#475569", fontcolor="#334155", arrowsize=0.8, penwidth=1.5];
+
+  subgraph cluster_application {
+    label="ONE RUST APPLICATION — these are objects, not separate services";
+    fontsize=15; color="#cbd5e1"; style="rounded"; margin=20;
+
+    start [label="main seeds the store with a user question\nthen awaits machine.run(&store, SESSION_ID, &emit)\nmain waits; it is not displaying events yet", fillcolor="#fef3c7", color="#d97706"];
+    load [label="run calls store.load(SESSION_ID)\nChatSession = a snapshot of the stored conversation"];
+    decide [shape=diamond, label="machine.step asks\nrunner.applies(...)\nIs a model reply needed?", fillcolor="#e2e8f0", margin="0.08,0.05"];
+    infer [label="InferenceRunner.infer(...)\ncalls provider.stream(...) through the local adapter\nand reads the response fragments", fillcolor="#ede9fe", color="#7c3aed"];
+    event [label="EVENT: presentation path\nEmitter queues a COPY of each fragment\nThe queue is inside this process", fillcolor="#dbeafe", color="#2563eb"];
+    accum [label="EFFECT: state-change path\nRunner accumulates fragments\ninto assembled response message(s)", fillcolor="#dcfce7", color="#16a34a"];
+    effects [label="Runner returns ChatEffect instructions\nRecordUsage, if supplied; then AppendMessage(s)", fillcolor="#dcfce7", color="#16a34a"];
+    apply [label="machine.apply → store.apply_effects\nAppendMessage: SAVE answer in the map\nRecordUsage: only PRINT metadata in this spike", fillcolor="#dcfce7", color="#16a34a"];
+    stop [label="No step applies: STOP the loop\nrun reloads and returns the final ChatSession", fillcolor="#fef3c7", color="#d97706"];
+    display [label="Only AFTER run returns: main resumes\ndrain_and_print_events prints queued fragments\nmain also prints final_session as a diagnostic", fillcolor="#dbeafe", color="#2563eb"];
+
+    start -> load;
+    load -> decide;
+    decide -> infer [label="Pass 1: YES\nlast message is the user question"];
+    decide -> stop [label="Pass 2: NO\nlast message is the saved assistant answer"];
+    infer -> event [color="#2563eb", fontcolor="#1d4ed8", label="display copy"];
+    infer -> accum [color="#16a34a", fontcolor="#15803d", label="accumulate"];
+    accum -> effects [color="#16a34a"];
+    effects -> apply [color="#16a34a"];
+    apply -> load [style=dashed, color="#15803d", fontcolor="#15803d", label="NEXT PASS\nreload changed store", constraint=false];
+    stop -> display [label="return to main"];
+    event -> display [style=dashed, color="#2563eb", fontcolor="#1d4ed8", label="buffered until run finishes"];
+
+    {rank=same; event; accum;}
+    {rank=same; apply; display;}
+  }
+
+  model [label="EXTERNAL MODEL SERVICE\nOnly this box is outside the Rust app", fillcolor="#ffe4e6", color="#e11d48"];
+  infer -> model [label="inference request", color="#7c3aed", fontcolor="#6d28d9"];
+  model -> infer [label="streamed fragments", color="#7c3aed", fontcolor="#6d28d9", constraint=false];
+}
