@@ -22,7 +22,7 @@ The instructor subsequently authorized writing a detailed replacement plan for r
 
 The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
 
-Root `src/main.rs` and dependencies remain unchanged and still contain the withdrawn Lesson 8 exercise. On 2026-10-05 the instructor subsequently authorized **Lesson 7 implementation only**, with README and the Working Mental Model as authoritative sources. The replacement no-code lesson, instructor notes, and editable SVG/PNG lecture frames are now authored and source/asset-reviewed; instructor-led trace validation, projector review, and release approval remain pending. Lessons 8–9 implementation and any root reset still require separate authorization. Archived drafts stay unchanged.
+On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; instructor classroom review and release remain pending. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root now contains replacement Lesson 8; dependencies, provider configuration, and archived drafts remain unchanged. Lesson 9 still requires separate authorization.
 
 ## Course application goal
 
@@ -222,7 +222,7 @@ The spike compared integer minor units with decimal strings parsed by `rust_deci
 
 Integer minor units remain a valid internal design when a fixed scale has already been established, but cents are less natural in a first tool schema and cannot represent sub-cent prices without selecting another scale. Do not use binary floating point for Lesson 5 currency calculations.
 
-The spike also validated an explicit failure/termination policy for raw-protocol exploration: at most 3 raw inference rounds, 4 tool requests, and 6 state-machine steps per run. The principle — imposing explicit round/request or state-step bounds — carries into every tool and state-machine lesson; exact limits may be retuned per lesson.
+The spike also validated an explicit failure/termination policy for raw-protocol exploration: at most 3 raw inference rounds, 4 tool requests, and 6 state-machine steps per run. Explicit round/request or state-step bounds remain a tool-lesson requirement; exact limits may be retuned per lesson. The instructor exempted the simple Lesson 8 exchange on 2026-10-05: no loop safeguard, only a production-caution comment beside the run call.
 
 ## Post-Lesson 4 sequence — supporting context
 
@@ -264,10 +264,11 @@ Lesson 7's diagrams and images are required lecture deliverables, not optional s
 
 Supporting technical cautions:
 
+- Lesson 8 output follows the instructor's 2026-10-05 revision: no payload fences or verbose commentary; show complete Session field names/values including metadata, with two blank lines after each raw Rust Session dump, an `application → provider:` label before the exchange, and one short label for live streaming.
 - `StateMachine::run` reloads between passes and returns a final loaded Session on success; the application can separately load the initial Session for comparison.
 - `Emitter` sends Events to the application; inference separately accumulates complete messages into Effects. Concurrent consumption is required for honest live display and avoids blocking a producer on a full channel.
 - The application supplies its own Session, loader, effect handler, and an effect vocabulary compatible with the pinned inference runner. All required implementations belong in the supplied code, not learner fill-ins.
-- The pinned run loop has no application-specific step-limit parameter. Agree on a minimal source-verified safeguard while retaining the GDK-owned run loop; do not silently copy the old manual loop. State limits and tool-request limits must be explicit and validated.
+- The pinned run loop has no application-specific step-limit parameter. Instructor decision (2026-10-05): Lesson 8 uses `StateMachine::run` without a loop safeguard, with a concise source comment that production users may want a safeguard to prevent a runaway loop. Do not add a load budget or copy the old manual loop. Resolve and validate execution/tool-request bounds separately for Lesson 9.
 - Inspect the exact tool adapter for unknown names, malformed arguments, correlated results, and multiple requests; do not assume registering a typed tool alone provides every Lesson 6 safety requirement.
 - Operations may contribute tools and prompt parts before inference and may read live external inputs as well as recorded state. The custom application does not need Goose's entire operation assembly.
 
@@ -499,7 +500,7 @@ The spike demonstrated:
 3. Final answers consistently used the deterministic `100.00` result and identified fees, slippage, and gap-through-stop risk.
 4. The same capability worked as a typed RMCP `SyncTool` registered through `goose-agent::tool::ToolOperation`.
 5. A minimal in-memory `MachineSession`, `SessionLoader`, and `EffectHandler` supported provider-backed `InferenceRunner` and the state machine. Two recorded runs applied `llm -> tools -> llm` and then stopped when no operation applied.
-6. Application-specific bounds must remain explicit. Historically, the spike limited raw rounds and aggregate requests and wrapped `StateMachine::step`/`apply` with a maximum applied-step count because alpha.11 `StateMachine::run` has no application-specific step-limit parameter. That wrapper is evidence, not the replacement lesson design: the README requires the GDK run loop and an instructor-agreed safeguard.
+6. Application-specific bounds must remain explicit. Historically, the spike limited raw rounds and aggregate requests and wrapped `StateMachine::step`/`apply` with a maximum applied-step count because alpha.11 `StateMachine::run` has no application-specific step-limit parameter. That wrapper is evidence, not the replacement lesson design: the README requires the GDK run loop. The instructor has chosen no loop safeguard for Lesson 8, only a production-caution source comment; Lesson 9 bounds remain a separate decision.
 7. Streamed raw messages must be reconstructed with GDK merge semantics. An initial implementation that retained deltas independently read only the final `.`; accumulating through `Conversation::push`, as `InferenceRunner` does, fixed it.
 8. Decimal strings parsed into `rust_decimal` are the accepted Lesson 5 representation.
 9. Historical recommendation, superseded by the README replacement plan: split the transition rather than introduce all infrastructure at once. The enduring finding is cognitive load; the new plan uses one no-code lesson followed by two complete-code lessons, with run/read/tweak rather than scaffold-writing activities.
@@ -558,6 +559,6 @@ Read Git status/diffs, manifests/lock/toolchain/provider JSON, root source, and 
 
 Review exact pinned `goose-agent` sources (`README.md`, `src/machine.rs`, `src/operation.rs`, `src/inference.rs`, `src/events.rs`, `src/tool.rs`), the provider/conversation/message types, RMCP typed tool interfaces, and official documentation before asserting behavior. Upstream source in the mental-model document is not necessarily identical to the pinned release. Do not upgrade dependencies as part of this planning change or without a separate decision.
 
-Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. For Lesson 8, confirm the root update and settle minimal runtime/effect compatibility, concurrent event consumption/shutdown, and bounds while keeping `StateMachine::run`. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Script two user turns; do not add an interactive CLI prematurely.
+Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. The Lesson 8 root update is authorized and implemented, with minimal runtime/effect compatibility and concurrent event consumption/shutdown while keeping `StateMachine::run`. Follow the instructor decision to omit a Lesson 8 loop safeguard and add only the production-caution source comment. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Script two user turns; do not add an interactive CLI prematurely.
 
 Complete coding-lesson source must be available from the outset. Document the shared-manifest/root run workflow, structural expected output, and small predict/run/tweak activity. After code changes run formatting, checking, linting, tests, and the lesson's live-provider command. Specifically validate live streaming in Lesson 8 and both selective tool-use outcomes in Lesson 9. Report unexpected or missing tool calls honestly. Unit tests and builds do not establish live-provider behavior, and successful validation does not replace instructor release approval.

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+<title id="title">04 • Simple exchange — after saving</title><desc id="desc">1 • user What is the capital of France?  2 • assistant Paris is the capital of France.. The reply is now recorded, not just displayed.  Same Session; additional message. No “Inference completed” status is stored.  Next pass reloads this Session. Inference checks the updated history.. A saved assistant answer changes the input to the next check.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#0f172a"/></marker></defs>
+<rect width="1600" height="900" fill="white"/><g font-family="DejaVu Sans, sans-serif" fill="#0f172a">
+<text x="48" y="62" font-size="38" font-weight="bold">04 • Simple exchange — after saving</text>
+<text x="48" y="108" font-size="26" font-weight="normal">Narrated conceptual example • not a runtime trace or provider transcript</text>
+<rect x="48" y="155" width="725" height="490" rx="12" fill="#f1f5f9" stroke="#334155" stroke-width="3"/><text x="72" y="199" font-size="30" font-weight="bold">Session loaded at this boundary</text><text x="72" y="249" font-size="28" font-weight="normal">1 • user</text>
+<text x="72" y="289" font-size="28" font-weight="normal">What is the capital of France?</text>
+<text x="72" y="329" font-size="28" font-weight="normal"></text>
+<text x="72" y="369" font-size="28" font-weight="normal">2 • assistant</text>
+<text x="72" y="409" font-size="28" font-weight="normal">Paris is the capital of France.</text><rect x="825" y="155" width="727" height="490" rx="12" fill="#eff6ff" stroke="#334155" stroke-width="3"/><text x="849" y="199" font-size="30" font-weight="bold">Operation / proposed Effect / store</text><text x="849" y="249" font-size="28" font-weight="normal">The reply is now recorded, not just displayed.</text>
+<text x="849" y="289" font-size="28" font-weight="normal"></text>
+<text x="849" y="329" font-size="28" font-weight="normal">Same Session; additional message.</text>
+<text x="849" y="369" font-size="28" font-weight="normal">No “Inference completed” status is stored.</text>
+<text x="849" y="409" font-size="28" font-weight="normal"></text>
+<text x="849" y="449" font-size="28" font-weight="normal">Next pass reloads this Session.</text>
+<text x="849" y="489" font-size="28" font-weight="normal">Inference checks the updated history.</text><rect x="48" y="690" width="1504" height="100" rx="12" fill="#fff7ed" stroke="#334155" stroke-width="3"/><text x="72" y="734" font-size="30" font-weight="bold">Why the next decision differs</text><text x="72" y="784" font-size="28" font-weight="normal">A saved assistant answer changes the input to the next check.</text>
+<line x1="48" y1="810" x2="1552" y2="810" stroke="#64748b" stroke-width="2"/>
+<text x="48" y="852" font-size="26" font-weight="normal">Legend: solid arrow = labeled flow • dashed arrow = live input • boxes = data or actors</text>
+</g></svg>

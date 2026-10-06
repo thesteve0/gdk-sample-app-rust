@@ -61,4 +61,4 @@ Learners validate untrusted arguments through deserialization and domain validat
 
 ## Transition to Lesson 7
 
-Lesson 7 motivates the GDK state machine from this manual implementation without code: define Session, Operation, StateMachine, Effect, and re-evaluation, then narrate one simple question/answer exchange. Defer the correlated tool trace to Lesson 9. Do not build a runtime or promise an automatic state-step bound. Lesson 8 supplies an inference-only in-memory runtime after the instructor settles a source-verified safeguard; Lesson 9 adds continuing conversation and tools.
+Lesson 7 motivates the GDK state machine from this manual implementation without code: define Session, Operation, StateMachine, Effect, and re-evaluation, then narrate one simple question/answer exchange. Defer the correlated tool trace to Lesson 9. Do not build a runtime or promise an automatic state-step bound. Lesson 8 supplies an inference-only in-memory runtime with the instructor-approved production-caution comment rather than a loop safeguard; Lesson 9 adds continuing conversation and tools.

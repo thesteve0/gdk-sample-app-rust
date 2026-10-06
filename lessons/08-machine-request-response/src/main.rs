@@ -45,7 +45,6 @@ async fn main() -> anyhow::Result<()> {
     let steps: Vec<Step<'_, ChatSession, ChatEffect>> = vec![Step::Inference(Arc::new(runner))];
     // The GDK-provided InferenceRunner hard-codes its Operation name as "llm".
     // Show the configured order before moving the steps into the machine.
-
     println!("State-machine operations (in order):");
     for (index, step) in steps.iter().enumerate() {
         let name = match step {
@@ -57,9 +56,8 @@ async fn main() -> anyhow::Result<()> {
     let cancel = CancellationToken::new();
     let machine = StateMachine::new(steps, cancel.clone());
     let before = runtime.load(SESSION_ID).await?;
-    println!("\napplication → provider:");
     display_session("BEFORE", &before);
-
+    println!("application → provider:");
     let (event_tx, event_rx) = mpsc::channel::<AgentEvent>(32);
     let emit = Emitter::new(event_tx, cancel);
 
