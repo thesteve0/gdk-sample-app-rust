@@ -67,4 +67,4 @@ The [versioned machine API](https://docs.rs/goose-agent/0.1.0-alpha.11/goose_age
 
 Lesson 8 supplies the complete inference-only runtime, streamed Events, and saved Effects. Its supplied implementation consumes Events concurrently and drains on normal channel closure. The instructor chose no loop safeguard, only a production-caution comment beside the machine run call. Lesson 9 introduces the correlated tool trace and its validation/limits. Do not implement either here or reset root Rust.
 
-Instructor-led trace validation, actual projector review, and release approval remain pending.
+On 2026-10-06 the instructor confirmed Lesson 7 complete and ready to teach. This approval does not add an independently observed classroom or projector-test result to the technical validation record.

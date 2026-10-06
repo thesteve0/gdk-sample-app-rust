@@ -22,7 +22,7 @@ The instructor subsequently authorized writing a detailed replacement plan for r
 
 The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
 
-On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; instructor classroom review and release remain pending. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root now contains replacement Lesson 8; dependencies, provider configuration, and archived drafts remain unchanged. Lesson 9 still requires separate authorization.
+On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; on 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root now contains replacement Lesson 8; dependencies, provider configuration, and archived drafts remain unchanged. Lesson 9 still requires separate authorization.
 
 ## Course application goal
 
@@ -553,7 +553,7 @@ The public `goose-agent` source and tests currently provide important implementa
 
 ## Replacement lesson implementation handoff
 
-Lessons 1–6 are complete; **do not begin by implementing Lesson 5 again**. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
+Lessons 1–8 are complete; **do not reimplement completed lessons**. Lesson 9 still requires separate instructor authorization. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
 
 Read Git status/diffs, manifests/lock/toolchain/provider JSON, root source, and complete Lessons 3–6 plus instructor notes. Preserve unrelated changes. Archived Lessons 7–8 and `spike/state-machine/` are research/history only. Keep numeric prefixes and do not restore drafts wholesale.
 

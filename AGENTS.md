@@ -100,7 +100,7 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 - Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–6 are complete; replacement Lessons 7–8 are implemented pending instructor classroom review and release. The root now contains the authorized replacement Lesson 8. Do not advance it to Lesson 9 without instructor approval.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–8 are complete; the instructor confirmed replacement Lessons 7–8 complete on 2026-10-06. The root now contains the authorized replacement Lesson 8. Do not advance it to Lesson 9 without instructor approval.
 
 ## Lesson requirements
 
