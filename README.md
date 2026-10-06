@@ -46,7 +46,7 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 4 | System instructions, message roles, and multi-turn conversation | **Complete** | [`lessons/04-conversation/`](lessons/04-conversation/) |
 | 5 | Define a deterministic trading calculator tool and inspect its raw request | **Complete** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
 | 6 | Execute the tool and return its result through the raw provider protocol | **Complete** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
-| 7 | GDK state-machine mental model — no code | **Planned; review pending** | Plan below |
+| 7 | GDK state-machine mental model — no code | **Implemented; instructor review pending** | [`lessons/07-state-machine-mental-model/`](lessons/07-state-machine-mental-model/) |
 | 8 | One streamed request/response through the state machine | **Planned; review pending** | Plan below |
 | 9 | One Session, successive user turns, and selective tool use | **Planned; review pending** | Plan below |
 | 10 | Add domain instructions and application-enforced safety boundaries | Planned | — |
@@ -60,11 +60,11 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 18 | Command-line workflow, explicit model selection, and operational errors | Planned | — |
 | Optional capstone | Open-weights model comparison or fine-tuning experiment | Planned | — |
 
-**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only; **Draft** is withdrawn material, not part of the teaching sequence.
+**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only; **Draft** is withdrawn material, not part of the teaching sequence; **Implemented; instructor review pending** means authored and source/asset-reviewed, but classroom validation and release approval remain.
 
 Lessons 1–6 are complete. On 2026-10-05 the instructor withdrew the previous Lessons 7 and 8 for complete rework; their unchanged prose, reference source, and instructor notes are preserved under [`drafts/`](drafts/). They are not part of the teaching sequence.
 
-**This README is the authoritative curriculum plan.** The replacement plan below records the subsequent instructor discussion and is ready for review, not yet implemented or released. It replaces the old state-machine boundaries, including the former planned Lesson 9. Lessons 10 onward retain their existing numbers and direction; this three-lesson replacement needs no further renumbering. [`post-lesson4-plan.md`](post-lesson4-plan.md) supplies supporting architecture context and implementation handoff guidance, not a competing curriculum sequence. If the two disagree, follow this README and reconcile the supporting document.
+**This README is the authoritative curriculum plan.** The replacement plan below records the subsequent instructor discussion. The instructor authorized Lesson 7 implementation on 2026-10-05; its no-code lesson, instructor notes, and editable/rendered visuals are now authored and source/asset-reviewed, pending instructor classroom review and release. Lessons 8–9 remain planned, not implemented or released. This replacement plan supersedes the old state-machine boundaries, including the former planned Lesson 9. Lessons 10 onward retain their existing numbers and direction; this three-lesson replacement needs no further renumbering. [`post-lesson4-plan.md`](post-lesson4-plan.md) supplies supporting architecture context and implementation handoff guidance, not a competing curriculum sequence. If the two disagree, follow this README and reconcile the supporting document.
 
 ## Replacement state-machine lesson plan
 
@@ -92,7 +92,7 @@ The primary conceptual reference is [`Goose GDK State Machine — Working Mental
 4. **Effect:** a proposed change to recorded data. An Operation returns Effects; the application's effect handler applies them to its store. An Effect is not an Operation-status update.
 5. **Re-evaluation:** each pass reloads the Session and decides what applies now. The newly recorded messages change the work that applies; the machine is not advancing a remembered program counter through Operations. Live external inputs can also change the next decision.
 
-**Teaching sequence:** motivate coordination from Lesson 6; establish the five ideas; walk a simple question/answer story; then walk the familiar planned-loss tool round trip. Use plain-language diagrams and message/state tables, **not Rust or pseudocode**. Distinguish one user turn, one machine run, and the multiple passes that may occur within a run. Explain that no applicable step or an explicit yield returns control to the application; acknowledge cancellation/errors and application limits without a deep failure-path lesson. A finished run does not itself wait for new user input.
+**Teaching sequence (revised by the instructor on 2026-10-05):** briefly motivate coordination; establish the five ideas; briefly distinguish **Types (shared vocabulary), Protocol (reusable engine), and Assembly (our application choices)**; walk **one simple question/answer round trip only**. Keep the prose concise. Defer the planned-loss tool trace and correlation discussion to Lesson 9. Use plain-language diagrams and message/state tables, **not Rust or pseudocode**. Distinguish one user turn, one machine run, and the multiple passes that may occur within a run. Explain that no applicable step or an explicit yield returns control to the application; acknowledge cancellation/errors and application limits without a deep failure-path lesson. A finished run does not itself wait for new user input.
 
 Explain store lifetime honestly: in-memory state can survive passes and successive runs in the same process, but is not durable across process exit. Recorded history is not necessarily the complete input needed to reproduce future decisions; do not claim crash recovery replays external actions exactly once.
 
@@ -101,7 +101,6 @@ Explain store lifetime honestly: in-memory state can survive passes and successi
 - **Who owns what:** show the application's store, a loaded Session, the StateMachine, Operations, and Effects. Draw a separate external-input path into an Operation so the Session is not pictured as its only possible input; use Steer's live queue as a clearly labeled Goose example.
 - **One pass and re-evaluation:** show loading the Session, checking Operations in order, stopping at the first applicable step, applying its Effects, and returning to the top with newly loaded state. Include the no-applicable-step/yield exits without depicting Operations as queued tasks with completion statuses.
 - **Simple exchange, frame by frame:** show the initial user message, inference's proposed reply Effect, the updated recorded conversation, and why the next pass has no work. Keep the Session before/after beside the relevant pass rather than hiding state inside an abstract loop.
-- **Planned-loss round trip, frame by frame:** show inference → tool execution → inference, with Session/message snapshots at each boundary. Visually connect the tool request and response by the same correlation ID and show the deterministic `100.00` result. Label this as a narrated conceptual example, not observed model output or a guarantee of tool selection.
 
 Use consistent GDK names, actor labels, arrow meanings, and a small visual legend across the images. Make them readable on a classroom projector; do not rely on color alone. Each image needs a caption/text equivalent, and instructor notes should specify its reveal order, what to point at, and a prediction question for learners. Supply editable diagram sources plus rendered images that can be viewed without a diagram-rendering plugin (for example SVG with PNG exports) under the lesson's `diagrams/` directory. Choose the simplest maintainable rendering tool during implementation; diagrams are conceptual illustrations, not Rust or pseudocode exercises. Do not copy the existing research diagrams wholesale or alter unrelated instructor artwork.
 
@@ -153,6 +152,8 @@ Use two scripted user turns initially; an interactive input loop and input CLI a
 
 **Safety and protocol continuity:** retain one allowlisted calculation, strict argument shape/unknown-field rejection, decimal strings parsed immediately with exact arithmetic, at most four decimal places, positive prices/share count, entry above stop, two-place dollar output, unchanged request/result IDs, handling of all blocks and requests, and explicit execution bounds. A typed adapter may organize these responsibilities but must not erase validation or observability. No trading, shell, arbitrary-network, market-data, or retrieval capability.
 
+Introduce the conceptual planned-loss trace deferred from Lesson 7: inference → tool execution → inference, with Session snapshots and the same correlation ID on request and response. Supply editable and rendered frames with captions and instructor prediction prompts. Label the trace as a narrated example, not a guarantee of model behavior.
+
 Map the manual responsibilities from Lessons 5–6 to the GDK assembly: advertise a definition, inspect/request, validate/execute, return a correlated response, save history, and infer again. Explain how Operations can contribute tools and prompt parts before inference as well as perform work. Carry forward the familiar educational instruction as needed, explaining how it reaches inference; reserve the fuller assistant contract for Lesson 10.
 
 **Tweak:** change `200` shares to `100`, predict `$50.00`, and compare the deterministic result and final explanation while checking that correlation and conversation continuity still hold.
@@ -163,7 +164,7 @@ Map the manual responsibilities from Lessons 5–6 to the GDK assembly: advertis
 
 ### Implementation handoff and review gates
 
-**Current authorization:** write/update this plan and supporting guidance only. No new lesson directories, Rust implementation, dependency changes, or root-source reset are authorized by the planning request. The instructor will review this plan before implementation begins.
+**Current authorization (2026-10-05):** the instructor authorized implementing **Lesson 7 only**, using this README and the Working Mental Model as authoritative sources. Its prose, instructor notes, and required SVG/PNG visuals are implemented, with pinned-source and asset review recorded in the lesson materials. Instructor-led trace validation, actual projector review, and release approval remain pending. Lessons 8–9 implementation, Rust/dependency changes, and any root-source reset are not authorized by this request.
 
 For a new implementation chat:
 
@@ -199,7 +200,7 @@ For a new implementation chat:
 
 ### Root source
 
-The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The root currently retains the **withdrawn Lesson 8 implementation**; it has not been reset to Lesson 6 or advanced to a replacement lesson. It is draft code, not the active teaching checkpoint. Source and dependencies remain unchanged pending plan review and authorization to implement a coding lesson.
+The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The root currently retains the **withdrawn Lesson 8 implementation**; it has not been reset to Lesson 6 or advanced to a replacement lesson. It is draft code, not the active teaching checkpoint. Source and dependencies remain unchanged pending authorization to implement a coding lesson. Lesson 7 is no-code and does not use or reset this working copy.
 
 ### Lesson directories
 
@@ -275,7 +276,7 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-There is no active replacement state-machine exercise yet. `cargo run` still runs the withdrawn Lesson 8 code and contacts the configured provider; it does not run the completed Lesson 6 reference. Consult [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) for the last completed lesson. Resetting the root exercise is a separate instructor decision.
+Lesson 7 is available as a no-code conceptual lesson pending instructor review; there is no replacement coding exercise yet. `cargo run` still runs the withdrawn Lesson 8 code and contacts the configured provider; it does not run the completed Lesson 6 reference. Consult [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) for the last completed lesson. Resetting the root exercise is a separate instructor decision.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 

@@ -92,7 +92,7 @@ That is why this lesson's history is built in three stages:
 3. one user-role tool-response message per request  (created in this lesson)
 ```
 
-The program performs this cycle **twice as two inference rounds** and then stops. There is no loop that keeps dispatching new requests; if the model asks again in round 2, the run reports the bound and stops. Lesson 7 replaces this fixed structure with a state machine, and the raw work done here is what that machine will coordinate.
+The program performs this cycle **twice as two inference rounds** and then stops. There is no loop that keeps dispatching new requests; if the model asks again in round 2, the run reports the bound and stops. Lesson 7 introduces the state-machine mental model through one simple exchange; Lesson 9 will show how it coordinates this raw tool work.
 
 ## Step 6.2: Model arguments are untrusted input, twice over
 
@@ -291,7 +291,7 @@ A **round bound** is an explicit limit on how many inference rounds and requests
 - dispatches **only the requests received in round 1**;
 - never loops, even if round 2's response contains another tool request. That case is detected and reported as the bound doing its job.
 
-Lesson 7 replaces this fixed two-round structure with the GDK state machine, but the responsibilities are the same ones this lesson performs by hand.
+Lesson 9 will coordinate these same responsibilities through the GDK state machine; Lesson 7 first introduces its mental model without tools.
 
 ## Step 6.7: The final educational answer
 
@@ -369,4 +369,4 @@ A text-only round 1 remains a provider/model outcome to record, not automaticall
 
 ## Next
 
-Lesson 7 uses this manual implementation as motivation for the GDK state machine: repeated inference/tool cycles, persisted conversation state, operations, effects, session loading, and yielding — introduced concept by concept, starting with the smallest in-memory session and runtime for this same deterministic scenario.
+[Lesson 7](../07-state-machine-mental-model/LESSON.md) uses this manual implementation as motivation for the GDK state machine, with no code: Session, Operation, StateMachine, Effect, and re-evaluation, narrated through one simple question/answer exchange. The planned-loss state-machine trace is deferred to Lesson 9. Lesson 8 supplies the smallest inference-only in-memory runtime; Lesson 9 combines continuing conversation and tools.

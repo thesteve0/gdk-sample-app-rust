@@ -32,7 +32,7 @@ Carry the Lesson 5 pending request through its complete raw round trip. Define d
 - Why does a tool response ride on a user-role message? What effective role does the provider serialize it with, and how does the `tool_call_id` get populated?
 - Why must the response carry the request's own ID rather than the tool name or the response order?
 - Why does the follow-up call resend the entire history, and what would the model see if the application sent only the tool response?
-- Why is the fixed two-round structure a round bound rather than an agent loop, and what replaces it in Lesson 7?
+- Why is the fixed two-round structure a round bound rather than an agent loop, and how will Lesson 7 explain a different coordination model?
 - Why is the deterministic result in the tool response the reason the final explanation can be trusted over model-computed arithmetic?
 - Why does the program still advertise the tool in round 2, and what does it do if the model requests the tool again?
 
@@ -44,7 +44,7 @@ Carry the Lesson 5 pending request through its complete raw round trip. Define d
 - The outbound-history view prints roles, effective roles, and blocks — point at the message whose effective role is `tool`; that is the Lesson 6 response in the provider's terms.
 - The run prints the full outbound payload and two reconstructed views; streamed text and reconstructed text repeat intentionally. Point at the labeled headers first, and at the `++++++++` payload delimiters: everything between two delimiter lines is a value that traveled to or from the provider, and everything outside them is this application's commentary. Each fence-adjacent line also names the sender and the receiver — `application → provider` on the outbound payload, `provider → application` on the streamed and reconstructed views, and `application, as the tool → provider` in the dispatch phase — because the tool execution boundary lives inside this program and every message must show both of its ends.
 - Usage metadata appears twice, once per round; token counts differ.
-- The `Conversation` remains in-memory state for one run only. Nothing persists across program runs; persistence arrives with Lesson 7's sessions.
+- The `Conversation` remains in-memory state for one run only. Nothing persists across process exit. Lesson 7 explains Sessions and store lifetime conceptually; Lesson 8 supplies an in-memory store, not disk durability.
 
 ## What this lesson must not do
 
@@ -61,4 +61,4 @@ Learners validate untrusted arguments through deserialization and domain validat
 
 ## Transition to Lesson 7
 
-Lesson 7 motivates the GDK state machine from this manual implementation: repeated inference/tool cycles become ordered operations, the in-memory history becomes persisted conversation state loaded from a session, the fixed two-round structure becomes apply-until-no-operation-applies, and the explicit round bound becomes a state-step bound. Build only the smallest in-memory session and runtime for this same deterministic scenario.
+Lesson 7 motivates the GDK state machine from this manual implementation without code: define Session, Operation, StateMachine, Effect, and re-evaluation, then narrate one simple question/answer exchange. Defer the correlated tool trace to Lesson 9. Do not build a runtime or promise an automatic state-step bound. Lesson 8 supplies an inference-only in-memory runtime after the instructor settles a source-verified safeguard; Lesson 9 adds continuing conversation and tools.

@@ -16,13 +16,13 @@ Lessons 1–6 are complete. The instructor withdrew the existing Lessons 7 and 8
 
 The instructor subsequently authorized writing a detailed replacement plan for review. The previous conversation-only restriction is superseded for **planning documentation only**, not lesson implementation. The [replacement plan in README.md](README.md#replacement-state-machine-lesson-plan) is authoritative:
 
-- **Lesson 7:** no-code grounding in Session, Operation, StateMachine, Effect, and re-evaluation. Operations may also use information outside the Session; Steer is the explanatory example, not a feature to implement.
+- **Lesson 7:** concise no-code grounding in Session, Operation, StateMachine, Effect, and re-evaluation through one simple question/answer round trip only. The instructor deferred the planned-loss trace to Lesson 9 on 2026-10-05. Operations may also use information outside the Session; Steer is the explanatory example, not a feature to implement.
 - **Lesson 8:** complete supplied application for one streamed request/response using the GDK run loop. Show the Session before/after and distinguish Events sent through the Emitter for display from Effects applied to recorded state. Consume Events during execution, not after buffering an entire run.
 - **Lesson 9:** reuse the foundation for two turns in one Session with the same planned-loss tool available throughout. First ask what stop-loss means and expect no tool call; then ask for maximum planned loss for entry `51.20`, stop `50.70`, and `200` shares, observing a correlated tool round trip and `100.00` result. Unexpected first-turn tool use must be observed and reported, not concealed.
 
 The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
 
-Root `src/main.rs` and dependencies remain unchanged and still contain the withdrawn Lesson 8 exercise. Do not create replacement lesson material or reset root source until the instructor reviews the plan and authorizes implementation. Archived drafts stay unchanged.
+Root `src/main.rs` and dependencies remain unchanged and still contain the withdrawn Lesson 8 exercise. On 2026-10-05 the instructor subsequently authorized **Lesson 7 implementation only**, with README and the Working Mental Model as authoritative sources. The replacement no-code lesson, instructor notes, and editable SVG/PNG lecture frames are now authored and source/asset-reviewed; instructor-led trace validation, projector review, and release approval remain pending. Lessons 8–9 implementation and any root reset still require separate authorization. Archived drafts stay unchanged.
 
 ## Course application goal
 
@@ -260,7 +260,7 @@ The final explanation should identify what the calculation excludes, such as fee
 
 See [README.md — Replacement state-machine lesson plan](README.md#replacement-state-machine-lesson-plan) for the complete goals, scenarios, teaching boundaries, planned paths, success criteria, implementation questions, and review gates. Do not reconstruct these lessons from the archived draft or historical spike summaries.
 
-Lesson 7's diagrams and images are required lecture deliverables, not optional supplements. The README specifies the progressive visual sequence, Session snapshots, external-input distinction, correlation-ID illustration, editable/rendered assets, accessibility, and instructor walkthrough requirements. Create those assets only when lesson implementation is authorized; preserve unrelated research artwork.
+Lesson 7's diagrams and images are required lecture deliverables, not optional supplements. The README specifies ownership, ordered passes, and one simple exchange with Session snapshots, the external-input distinction, editable/rendered assets, accessibility, and instructor walkthrough requirements. The planned-loss/correlation trace is deferred to Lesson 9. Create those assets only when lesson implementation is authorized; preserve unrelated research artwork.
 
 Supporting technical cautions:
 
