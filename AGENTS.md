@@ -24,7 +24,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 - `src/main.rs` is the exercise currently being developed and may be incomplete.
 - `lessons/` contains numbered instructional units.
 - A lesson's `LESSON.md` contains explanations and important snippets.
-- A lesson's `src/main.rs` is its complete reference solution from the outset. It is not an independently packaged application.
+- A coding lesson's `src/main.rs` is its complete reference solution from the outset. It is not an independently packaged application. Replacement Lesson 7 is intentionally no-code and has no `src/main.rs`.
 - Do **not** copy root source into a lesson directory at lesson completion.
 - `instructor-notes/` contains one instructor guide per implemented lesson.
 - Keep numeric prefixes on lesson directories.
@@ -40,7 +40,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 - Ask the instructor before making uncertain curriculum, sequencing, or architecture decisions.
 - Keep the roadmap in `README.md` current when lesson state or order changes.
 
-The accepted post-Lesson 4 direction is recorded in `post-lesson4-plan.md`. It prioritizes the raw tool protocol, then the GDK state machine, before later market data, evaluation, retrieval, and CLI/model-selection work. The roadmap is not constrained to a fixed number of lessons.
+**`README.md` is the authoritative curriculum plan**, including replacement Lessons 7–9 and their implementation handoff. `post-lesson4-plan.md` supplies supporting architecture context and historical evidence; it must not override the README. It prioritizes the raw tool protocol, then the GDK state machine, before later market data, evaluation, retrieval, and CLI/model-selection work. The roadmap is not constrained to a fixed number of lessons.
 
 ### Progressive conceptual foundation and editorial rules
 
@@ -86,17 +86,23 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 
 - Lesson 5 defines one deterministic maximum-planned-loss tool, advertises it to raw provider inference, and inspects structured request content. It stops before dispatch or a tool response.
 - Lesson 6 validates and executes that request, returns a correlated user-role tool response, and asks the provider for a final educational explanation.
-- Lessons 7 and 8 split the state-machine transition: first operations/effects/sessions/minimal runtime, then provider-backed inference plus the typed `ToolOperation`.
+- On 2026-10-05 the instructor withdrew old Lessons 7–8; unchanged material is in `drafts/lessons/` and `drafts/instructor-notes/`. The README now records the replacement plan for instructor review. Planning documentation is authorized; lesson implementation and root-source changes still require authorization. The old state-machine sequence is not binding.
+- Replacement Lesson 7 establishes Session, Operation, StateMachine, Effect, and re-evaluation without code or pseudocode. An Operation may consult inputs outside the Session (Steer is an example). Do not equate recorded history with all live decision inputs or teach Goose's full assembly as required GDK infrastructure.
+- Lesson 7 requires progressive lecture diagrams/images: ownership and external inputs, ordered pass/re-evaluation, simple exchange, and correlated planned-loss round trip with Session snapshots. Supply editable sources and projector-readable rendered images with captions/text equivalents; instructor notes explain reveal order and prediction prompts. Follow the README visual requirements, not a dense diagram of Goose's full assembly.
+- Replacement Lesson 8 supplies complete code for one streamed exchange via `StateMachine::run`, displays the Session before/after, and distinguishes Events/Emitter from Effects/effect handler. Consume Events while the run executes, not after buffering a full run. Runtime traits and concurrency code are supplied and explained, not fill-ins.
+- Replacement Lesson 9 combines successive user turns and tool use in one Session: the planned-loss tool is available on both turns; first ask “What is stop-loss referring to in day trading?” (expect no tool request), then request maximum planned loss for entry `51.20`, stop `50.70`, and `200` shares (expect a correlated tool round trip and `100.00`). Inspect and report incorrect tool selection; never hide it or force the expected outcome. Use “maximum planned loss,” not “maximum expected loss.”
+- Give learners the entire coding-lesson implementation from the outset. Classroom rhythm is predict → run → explain → tweak → run again; do not assign missing Rust scaffolding. Approved tweaks are changing Lesson 8's question and changing Lesson 9's share count to `100` (planned loss `50.00`).
+- Keep the GDK-owned run loop in the replacement lessons. Because pinned `run` has no step-limit parameter, settle an explicit source-verified safeguard with the instructor rather than silently dropping limits or restoring the manual loop. Also verify unknown-name handling and all-request/request-limit behavior in the tool adapter.
 - Price arguments at the model/tool boundary are decimal strings. When execution begins in Lesson 6, parse and validate them immediately using exact decimal arithmetic. Do not teach binary floating point for currency. Validation used `rust_decimal`: at most four decimal places, dollar results formatted to two places.
 - Keep tool names allowlisted, treat names and arguments as untrusted model output, reject unknown fields, preserve request IDs, handle all content blocks/tool requests, and impose explicit round/request or state-step bounds.
 - Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Preserve the root Lesson 4 checkpoint until the instructor approves advancing the active exercise.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–6 are complete. The root currently retains withdrawn Lesson 8 draft code; do not reset or advance it without instructor approval.
 
 ## Lesson requirements
 
-Every implemented `LESSON.md` should include a goal, concepts introduced, prerequisites, incremental instructions, focused snippets, a run or validation command, expected structural behavior, success criteria, and the conceptual next step.
+Every implemented coding `LESSON.md` should include a goal, concepts introduced, prerequisites, incremental walkthrough instructions, focused snippets, a run or validation command, expected structural behavior, success criteria, and the conceptual next step. Lesson 7 instead uses narrated traces/diagrams and instructor-led conceptual validation; no Rust snippets, source file, or Cargo run requirement. Consult the README for planned paths and handoff gates before implementation.
 
 Keep lesson prose, reference source, root workflow, and instructor notes consistent. If code behavior changes, update every affected explanation in the same change. Do not add deliberate failure-path exercises without instructor approval.
 

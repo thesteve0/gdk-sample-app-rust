@@ -3,13 +3,13 @@ digraph PlainEnglish {
   node [shape=box, style="rounded,filled", fillcolor="#f1f5f9", color="#64748b", fontname="DejaVu Sans", fontsize=14, margin="0.18,0.14"];
   edge [fontname="DejaVu Sans", fontsize=12, color="#475569", fontcolor="#334155", penwidth=1.5];
   prepare [label="Prepare the pieces.\nKeep the question."];
-  start [label="Tell the coordinator to start."];
-  read [label="Read the saved messages."];
-  check [shape=diamond, label="Try the available helpers in order.\nDoes any helper have work to do?", fillcolor="#fef3c7", color="#d97706"];
-  work [label="Let that helper finish.\nSave its returned changes.", fillcolor="#dcfce7", color="#16a34a"];
+  start [label="Tell the State-Machine to start."];
+  read [label="Read the Session."];
+  check [shape=diamond, label="Try the available Operators in order.\nDoes any Operator have work to do?", fillcolor="#fef3c7", color="#d97706"];
+  work [label="Let that Operator finish.\nSave its returned changes.", fillcolor="#dcfce7", color="#16a34a"];
   done [label="Return to the program.\nThe program shows the answer.", fillcolor="#dbeafe", color="#2563eb"];
   prepare -> start -> read -> check;
   check -> work [label="YES\nThe question needs a reply."];
   work -> read [label="Read again after saving.", color="#16a34a", fontcolor="#15803d"];
-  check -> done [label="NO\nEvery helper declines."];
+  check -> done [label="NO\nEvery Operator declines."];
 }

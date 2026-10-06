@@ -46,9 +46,9 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 4 | System instructions, message roles, and multi-turn conversation | **Complete** | [`lessons/04-conversation/`](lessons/04-conversation/) |
 | 5 | Define a deterministic trading calculator tool and inspect its raw request | **Complete** | [`lessons/05-deterministic-tool-request/`](lessons/05-deterministic-tool-request/) |
 | 6 | Execute the tool and return its result through the raw provider protocol | **Complete** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
-| 7 | Introduce state-machine operations, effects, sessions, and a minimal runtime | **Complete** | [`lessons/07-state-machine-runtime/`](lessons/07-state-machine-runtime/) |
-| 8 | One request and one response through the GDK state machine | **Active** | [`lessons/08-machine-request-response/`](lessons/08-machine-request-response/) |
-| 9 | Assemble provider inference and the typed tool operation | Planned | — |
+| 7 | GDK state-machine mental model — no code | **Planned; review pending** | Plan below |
+| 8 | One streamed request/response through the state machine | **Planned; review pending** | Plan below |
+| 9 | One Session, successive user turns, and selective tool use | **Planned; review pending** | Plan below |
 | 10 | Add domain instructions and application-enforced safety boundaries | Planned | — |
 | 11 | Establish an evaluation baseline for tool use and grounded conclusions | Planned | — |
 | 12 | Define fixture-backed read-only market observations | Planned | — |
@@ -60,15 +60,122 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 18 | Command-line workflow, explicit model selection, and operational errors | Planned | — |
 | Optional capstone | Open-weights model comparison or fine-tuning experiment | Planned | — |
 
-**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only.
+**Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only; **Draft** is withdrawn material, not part of the teaching sequence.
 
-The post-Lesson 4 roadmap is accepted based on isolated technical validation with the configured local provider. That validation confirmed native structured tool calls, a complete raw request/result round trip, the equivalent typed tool through `goose-agent`, a two-lesson state-machine transition, and decimal-string prices parsed into exact decimal arithmetic. [`post-lesson4-plan.md`](post-lesson4-plan.md) is the durable architecture and curriculum record.
+Lessons 1–6 are complete. On 2026-10-05 the instructor withdrew the previous Lessons 7 and 8 for complete rework; their unchanged prose, reference source, and instructor notes are preserved under [`drafts/`](drafts/). They are not part of the teaching sequence.
 
-On 2026-10-01 the instructor ordered a renumbering: a new Lesson 8 — one request and one response through the GDK state machine, the introductory walkthrough for the machine — was inserted before the former Lesson 8, and every lesson from the former Lesson 8 onward shifted by one (former 8→9 through former 17→18). [`post-lesson4-plan.md`](post-lesson4-plan.md) records this as the explicit instructor decision the plan's stability clause requires.
+**This README is the authoritative curriculum plan.** The replacement plan below records the subsequent instructor discussion and is ready for review, not yet implemented or released. It replaces the old state-machine boundaries, including the former planned Lesson 9. Lessons 10 onward retain their existing numbers and direction; this three-lesson replacement needs no further renumbering. [`post-lesson4-plan.md`](post-lesson4-plan.md) supplies supporting architecture context and implementation handoff guidance, not a competing curriculum sequence. If the two disagree, follow this README and reconcile the supporting document.
 
-### Immediate Lesson 8 boundary
+## Replacement state-machine lesson plan
 
-Lesson 7 completed the state-machine vocabulary over a deterministic, provider-free seed: it seeds the conversation Lesson 6 reconstructed (`call_seed_001`, entry `51.20`, stop `50.70`, 200 shares producing `100.00`), assembles the machine over two hand-written operations, and stops via `yield_to_client`. Lesson 8 — the active exercise — walks the machine through one request and one response with a real provider call inside `machine.step`: the seed is exactly one user question ("What is the capital of France?"), the sole registered step is the GDK-shipped `InferenceRunner` registered as `Step::Inference`, and the pass loop is written by hand with an explicit state-step bound (`MAX_STATE_STEPS = 4`). The effect vocabulary is the lesson-owned `ChatEffect` (`AppendMessage`, `RecordUsage`) because the GDK's default `ConversationEffect` has no `InferenceEffect` implementation in the pinned release. The machine calls the provider on pass 1 only; pass 2 re-derives from the persisted reply and stops with "no step applies". There are no tool calls or tool definitions, no system instruction, and no `StateMachine::run` — the typed tool, the ordered step list alongside inference, and the crate's run loop return in Lesson 9, and a multi-turn follow-up (letting the user ask another question) is deliberately deferred.
+### Teaching approach and common requirements
+
+The progression is **mental model → one streamed exchange → a continuing conversation with tools**. Cover the conceptual ground of Lessons 3–6 through the state machine without forcing a one-to-one correspondence.
+
+Class time and Rust familiarity are limited. Coding lessons supply the **entire implementation** in their `src/main.rs` from the outset, including all supporting Session, store, loader, effect-handler, effect-type, event-consumer, and safety code. There are no missing-code exercises or requirements to reconstruct Rust scaffolding. The classroom rhythm is **predict → run → explain → tweak → run again**. Success means learners can explain and change behavior, not reproduce the Rust implementation from memory.
+
+Use the GDK's terms consistently; its names are part of the mental model. Define each concept and its purpose before showing its code-level form. Explain the supporting infrastructure, but do not turn these lessons into a Rust traits, generics, ownership, locking, or async-concurrency course. Keep source comments concise and put extended discussion in lesson prose and instructor notes.
+
+The primary conceptual reference is [`Goose GDK State Machine — Working Mental Model`](reference-material/Goose%20GDK%20State%20Machine%20%E2%80%94%20Working%20Mental%20Model.md). It describes upstream Goose as of 2026-10-05, including explicitly unverified points. Distinguish the reusable GDK engine from Goose's full application assembly; verify any implementation claim against the exact pinned SDK. Do not teach Goose's full operation list as something this application must implement.
+
+### Lesson 7 — GDK state-machine mental model (no code)
+
+**Goal:** learners can narrate how the machine decides what work happens next, where recorded state lives, and why saving a result changes the next decision.
+
+**Prerequisite:** completed Lessons 1–6, especially the raw request/result round trip. No provider or Rust execution is required for this lesson.
+
+**Five ideas, using the GDK terms:**
+
+1. **Session:** recorded conversation and relevant session information, loaded from a store owned by the application. It is not a registry of Operations and their completion statuses.
+2. **Operation:** a rule that examines the Session **and any other information it has access to**, then declines or performs work. Checking and acting belong to the Operation. Steer illustrates the qualification: Goose's Steer Operation also consults a live queue of user guidance outside the Session. Do not implement Steer here.
+3. **StateMachine:** evaluates an ordered list of steps. The first applicable step acts; after its Effects are applied, checking begins again from the top. In our teaching assembly, inference is the final fallback step.
+4. **Effect:** a proposed change to recorded data. An Operation returns Effects; the application's effect handler applies them to its store. An Effect is not an Operation-status update.
+5. **Re-evaluation:** each pass reloads the Session and decides what applies now. The newly recorded messages change the work that applies; the machine is not advancing a remembered program counter through Operations. Live external inputs can also change the next decision.
+
+**Teaching sequence:** motivate coordination from Lesson 6; establish the five ideas; walk a simple question/answer story; then walk the familiar planned-loss tool round trip. Use plain-language diagrams and message/state tables, **not Rust or pseudocode**. Distinguish one user turn, one machine run, and the multiple passes that may occur within a run. Explain that no applicable step or an explicit yield returns control to the application; acknowledge cancellation/errors and application limits without a deep failure-path lesson. A finished run does not itself wait for new user input.
+
+Explain store lifetime honestly: in-memory state can survive passes and successive runs in the same process, but is not durable across process exit. Recorded history is not necessarily the complete input needed to reproduce future decisions; do not claim crash recovery replays external actions exactly once.
+
+**Required lecture visuals:** diagrams and rendered images are core teaching material, not optional decoration. Introduce them progressively rather than opening with one dense architecture diagram:
+
+- **Who owns what:** show the application's store, a loaded Session, the StateMachine, Operations, and Effects. Draw a separate external-input path into an Operation so the Session is not pictured as its only possible input; use Steer's live queue as a clearly labeled Goose example.
+- **One pass and re-evaluation:** show loading the Session, checking Operations in order, stopping at the first applicable step, applying its Effects, and returning to the top with newly loaded state. Include the no-applicable-step/yield exits without depicting Operations as queued tasks with completion statuses.
+- **Simple exchange, frame by frame:** show the initial user message, inference's proposed reply Effect, the updated recorded conversation, and why the next pass has no work. Keep the Session before/after beside the relevant pass rather than hiding state inside an abstract loop.
+- **Planned-loss round trip, frame by frame:** show inference → tool execution → inference, with Session/message snapshots at each boundary. Visually connect the tool request and response by the same correlation ID and show the deterministic `100.00` result. Label this as a narrated conceptual example, not observed model output or a guarantee of tool selection.
+
+Use consistent GDK names, actor labels, arrow meanings, and a small visual legend across the images. Make them readable on a classroom projector; do not rely on color alone. Each image needs a caption/text equivalent, and instructor notes should specify its reveal order, what to point at, and a prediction question for learners. Supply editable diagram sources plus rendered images that can be viewed without a diagram-rendering plugin (for example SVG with PNG exports) under the lesson's `diagrams/` directory. Choose the simplest maintainable rendering tool during implementation; diagrams are conceptual illustrations, not Rust or pseudocode exercises. Do not copy the existing research diagrams wholesale or alter unrelated instructor artwork.
+
+**Observable checkpoint:** given a narrated trace, learners identify the Session, applicable Operation, proposed Effect, store update, and reason the next pass differs. They explain why the first applicable step wins and why an Operation may read beyond the Session.
+
+**Deliverables when authorized:** `lessons/07-state-machine-mental-model/LESSON.md` and `instructor-notes/07-state-machine-mental-model.md`; editable diagram sources and rendered lecture images in `lessons/07-state-machine-mental-model/diagrams/` are required alongside them. This no-code lesson intentionally has **no `src/main.rs`**, code snippets, or Cargo run requirement. Its validation is an instructor-led trace walkthrough and terminology/source review.
+
+### Lesson 8 — One streamed request/response through the state machine
+
+**Goal:** connect Lesson 7's mental model to a complete running application, with one provider exchange and two visible paths back to the application: display Events and saved Effects.
+
+**Prerequisite:** Lesson 7 and the working provider setup from Lessons 2–6.
+
+**Scenario and teaching sequence:**
+
+1. Load provider configuration as before: `.env`, default JSON path with optional positional override, first configured model. Seed one Session with one simple user question. A default such as “What is the capital of France?” is sufficient; no tools, follow-up input, or new domain-policy layer.
+2. Load and display the Session **before** the run: its ID and deliberately selected conversation fields, not a sprawling Rust debug dump.
+3. Assemble the smallest inference-only machine using the shipped `InferenceRunner` and call `StateMachine::run`. Let the GDK own the pass loop; do not reintroduce the old learner-facing hand-written loop.
+4. Receive and display Events **while the run is executing**. The inference step uses the **Emitter** to send **Events** to the application; the application owns their presentation. Explain this path before the channel/task code that supports it.
+5. Explain the other path: the inference step reconstructs complete response messages and returns **Effects**, which the application applies to recorded state. Displaying streamed fragments does not save the response, and a streamed Event need not be a complete message.
+6. Display the final Session returned by the successful run. In the ordinary text-only case, the before view has the user question and the after view has the user question plus the saved assistant reply. Explain why inference no longer applies and control returns to the application.
+
+**Implementation requirements:** provide all code, including the small in-memory runtime and SDK-required effect implementations. Consume Events concurrently with the machine, not by draining a large buffer only after inference/run completes. Establish clean consumer shutdown and drain remaining Events before the final Session view. Keep persisted-state snapshots visually distinct from provider traffic; reuse `++++++++` payload delimiters and actor labels at actual payload sites. Do not falsely label a Session snapshot as the exact provider request or a later buffer drain as live streaming.
+
+**Tweak:** change the user question, predict the new answer, and observe that the machine structure and before/after relationship remain the same. Do not require learners to implement loader/handler traits, message-ID plumbing, or concurrency machinery.
+
+**Success criteria:** one successful provider exchange; visible response Events consumed during the run; complete reply retained in the store; understandable Session views before and after; normal run completion. Learners distinguish Events/Emitter (presentation) from Effects/effect handler (recorded state) and explain the stop. Validate structure, not exact model wording or token counts.
+
+**Out of scope:** tools, multi-turn input, production storage, a general CLI, model selection, Goose's full assembly, or deliberate cancellation/failure exercises.
+
+**Deliverables when authorized:** `lessons/08-machine-request-response/LESSON.md`, complete `lessons/08-machine-request-response/src/main.rs`, and matching `instructor-notes/08-machine-request-response.md`. The withdrawn draft with the same directory name remains under `drafts/`; it is reference only, not the implementation to restore wholesale.
+
+### Lesson 9 — One Session, successive user turns, and selective tool use
+
+**Goal:** demonstrate conversation continuity and tool selection through the same state-machine foundation, preserving the protocol and safety boundaries established in Lessons 5–6.
+
+**Prerequisite:** Lesson 8. Reuse its Session/runtime, event-display path, and effect vocabulary wherever possible; explain any required changes instead of claiming only the step list changed.
+
+**Scenario and teaching sequence:**
+
+1. Register the existing `maximum_planned_loss` capability **from the first turn**, through the GDK tool operation alongside inference. The same capability remains available on both turns.
+2. Ask: **“What is stop-loss referring to in day trading?”** Run the machine and display the answer and saved conversation. Expected behavior is a conceptual explanation **without a tool request**: there is no calculation to perform.
+3. Append a follow-up to the **same Session** asking for the **maximum planned loss** for a hypothetical long position with entry price `$51.20`, stop price `$50.70`, and `200` shares. Start another machine run; do not discard the first exchange or start a new Session.
+4. Observe the saved assistant tool request (name, arguments, correlation ID), validated deterministic execution, correlated tool response, and final educational explanation using `$100.00`. Identify fees, slippage, and gaps through the stop as exclusions; planned loss is not expected statistical loss or a guaranteed realized-loss ceiling.
+
+Use two scripted user turns initially; an interactive input loop and input CLI are not needed. The application appends each new user message and starts a run. Inside the calculation run, the expected inference → tool execution → inference progression happens through multiple passes. Availability does not imply necessity: the model chooses whether to request the tool, while the application controls executable capabilities.
+
+**Observation, not a guarantee:** explicitly inspect whether the model incorrectly requests the calculator for turn 1, and whether it correctly requests it for turn 2. Report unexpected behavior as a provider/model outcome; do not hide it, force tool selection, remove the tool on turn 1, silently substitute a mock, or claim the machine prevents unnecessary calls. Invalid or incomplete arguments must still be rejected safely. A run with the wrong tool-selection pattern is not evidence that the intended classroom scenario validated successfully.
+
+**Safety and protocol continuity:** retain one allowlisted calculation, strict argument shape/unknown-field rejection, decimal strings parsed immediately with exact arithmetic, at most four decimal places, positive prices/share count, entry above stop, two-place dollar output, unchanged request/result IDs, handling of all blocks and requests, and explicit execution bounds. A typed adapter may organize these responsibilities but must not erase validation or observability. No trading, shell, arbitrary-network, market-data, or retrieval capability.
+
+Map the manual responsibilities from Lessons 5–6 to the GDK assembly: advertise a definition, inspect/request, validate/execute, return a correlated response, save history, and infer again. Explain how Operations can contribute tools and prompt parts before inference as well as perform work. Carry forward the familiar educational instruction as needed, explaining how it reaches inference; reserve the fuller assistant contract for Lesson 10.
+
+**Tweak:** change `200` shares to `100`, predict `$50.00`, and compare the deterministic result and final explanation while checking that correlation and conversation continuity still hold.
+
+**Success criteria:** both runs use the same Session and retain the first exchange; turn 1 makes no tool request; turn 2 produces a valid request, matching response, exact `$100.00` result, and grounded explanation; Events and saved state remain distinguishable; runs terminate under explicit safeguards. Learners distinguish a new user turn/new run from another pass within the current run. Record actual structure rather than asserting an exact message count or generated wording.
+
+**Deliverables when authorized:** `lessons/09-machine-conversation-tools/LESSON.md`, its complete `src/main.rs`, and matching `instructor-notes/09-machine-conversation-tools.md`.
+
+### Implementation handoff and review gates
+
+**Current authorization:** write/update this plan and supporting guidance only. No new lesson directories, Rust implementation, dependency changes, or root-source reset are authorized by the planning request. The instructor will review this plan before implementation begins.
+
+For a new implementation chat:
+
+1. Read this README first, then `AGENTS.md`, the current-decision/handoff sections of `post-lesson4-plan.md`, and the mental-model reference. Inspect Git status/diffs and preserve unrelated work.
+2. Read the manifest, lockfile, toolchain, provider JSON, root source, and complete Lessons 3–6 with their instructor notes. Read archived drafts only to identify useful evidence and pitfalls, not as accepted curriculum.
+3. Verify the exact pinned GDK/RMCP sources and official documentation: machine loading/run/application, inference streaming, Events/Emitter, effect requirements, tool registration/dispatch and correlation. The mental-model reference's upstream claims and open questions are not substitutes for this verification.
+4. Implement **one authorized lesson at a time**, beginning with Lesson 7 unless the instructor chooses otherwise. Do not scaffold future lessons. Lesson 7 does not change root Rust; confirm the root update when starting a coding lesson, because the root currently contains the withdrawn Lesson 8 draft.
+5. Before coding Lesson 8, resolve the streaming-consumer lifecycle and explicit execution-limit design. Pinned `StateMachine::run` has no application-specific step-limit argument. Keep the GDK run loop and choose the smallest source-verified safeguard; bring uncertain design/tradeoffs to the instructor rather than silently reinstating the old bounded manual loop or dropping bounds. Before Lesson 9, verify safe unknown-name handling, all-request handling, and request limits in the chosen tool adapter. Exact limit values are implementation decisions to document, not inherited guarantees from old spikes.
+6. Supply complete source, explanations, expected traces, instructor pacing, and the small predict/run/tweak activities together. Publish a precise root-based run workflow for the shared manifest; lesson sources are not independent Cargo packages. Keep sample output honest about streamed versus persisted data.
+7. For coding changes run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test`, and the documented live-provider run. Unit tests cover deterministic validation, effect application, state continuity, and safeguards; they do not replace live streaming/tool-selection validation. If the provider is unavailable, ask the instructor to start or supply one. Record what passed, failed, or remains unvalidated before changing lesson status.
+
+**Still to resolve during implementation:** exact minimal runtime/effect shapes, SDK-compatible typed tool adapter, event-task shutdown, source-verified bounds, and the final prompt wording for the numeric follow-up. These are not reasons to redesign the agreed teaching progression. Ask before changing scope or adding deliberate failure-path activities. Instructor review and release remain separate from a successful build or provider run.
 
 ## Repository organization
 
@@ -77,7 +184,9 @@ Lesson 7 completed the state-machine vocabulary over a deterministic, provider-f
 ├── src/main.rs                 # current exercise; changes as the course advances
 ├── lessons/                    # explanation plus complete reference source
 ├── instructor-notes/           # instructor-only pacing and teaching guidance
-├── post-lesson4-plan.md        # accepted post-Lesson 4 curriculum/architecture context
+├── drafts/                     # withdrawn lessons and their instructor notes
+├── post-lesson4-plan.md        # supporting architecture context and implementation handoff
+├── reference-material/         # durable background references; not instructor-only (state machine mental model)
 ├── AGENTS.md                   # guidance for coding agents and Goose-assisted self-study
 ├── Cargo.toml
 ├── Cargo.lock
@@ -90,14 +199,16 @@ Lesson 7 completed the state-machine vocabulary over a deterministic, provider-f
 
 ### Root source
 
-Students write code in `src/main.rs`. It represents the lesson currently being developed, not a stable or production-ready application. The root is currently at the Lesson 8 machine request/response exercise: it seeds an in-memory store with one user question ("What is the capital of France?"), assembles the GDK state machine over exactly one step — the GDK-shipped `InferenceRunner` registered as `Step::Inference` — implements `SessionLoader` and `EffectHandler` as the machine's persistence interface, and drives a hand-written pass loop with an explicit state-step bound. Pass 1 calls the provider and persists the streamed reply as effects (usage, then the message); pass 2 re-derives from the persisted reply and stops with "no step applies". It reads `.env` and the provider JSON as every provider lesson does, and defines the lesson-owned `ChatEffect` effect vocabulary because the GDK's default `ConversationEffect` has no `InferenceEffect` implementation in the pinned release.
+The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The root currently retains the **withdrawn Lesson 8 implementation**; it has not been reset to Lesson 6 or advanced to a replacement lesson. It is draft code, not the active teaching checkpoint. Source and dependencies remain unchanged pending plan review and authorization to implement a coding lesson.
 
 ### Lesson directories
 
-Each numbered lesson is both an instructional reference and a solution:
+Coding lessons are instructional references with complete supplied applications:
 
 - `LESSON.md` explains the lesson and highlights important code snippets.
-- `src/main.rs` contains the complete reference implementation for that lesson.
+- `src/main.rs` contains the entire reference implementation from the outset, ready to run and tweak.
+
+Lesson 7 is intentionally conceptual: it has prose, diagrams, and instructor notes, but no Rust source.
 
 Lesson source is reference material, not an independently packaged application. The root manifest and locked dependencies are shared. The complete solution is already present in each lesson directory; it is not copied from the root at the end of class.
 
@@ -111,7 +222,7 @@ From the repository root, let Cargo fetch and build the exact dependency resolut
 cargo check
 ```
 
-The manifest pins `goose-providers` and `goose-agent` to exact `0.1.0-alpha.11` releases; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. `goose-agent` supplies the GDK state machine, operations, effects, emitter, and the session/effect traits (added with Lesson 7, after learners understand the raw protocol it coordinates). `serde`'s derive feature deserializes untrusted tool arguments into domain structs, and `rust_decimal` supplies exact decimal arithmetic for money-related tool arguments (both added with Lesson 6). `anyhow`, `async-trait`, and `tokio-util` support the state machine's error type, async traits, and cancellation token (added with Lesson 7). Each lesson that adds a new requirement instructs adding it to the root manifest. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
+The manifest pins `goose-providers` and `goose-agent` to exact `0.1.0-alpha.11` releases; the provider crate enables its `rustls-tls` transport feature. `goose-providers` supplies native provider construction, messages, streaming, and the raw tool protocol, and `rmcp` supplies the MCP tool type used to advertise deterministic tools. `goose-agent` supplies the GDK state machine, operations, effects, emitter, and the session/effect traits (retained from the withdrawn state-machine drafts). `serde`'s derive feature deserializes untrusted tool arguments into domain structs, and `rust_decimal` supplies exact decimal arithmetic for money-related tool arguments (both added with Lesson 6). `anyhow`, `async-trait`, and `tokio-util` support the state machine's error type, async traits, and cancellation token (retained from the withdrawn state-machine drafts). Each lesson that adds a new requirement instructs adding it to the root manifest. The application does **not** use the `goose-sdk` foreign-language binding surface. `futures` supplies stream consumption and `dotenvy` loads a local `.env` before a provider is constructed.
 
 ## Provider configuration
 
@@ -162,15 +273,11 @@ The bundled local provider requires no key. For a provider that does:
 2. place that variable in a local `.env` file copied from `.env.example`;
 3. never commit `.env` or real credentials.
 
-## Run the active exercise
+## Current root workflow
 
-Run the current Lesson 8 machine request/response exercise from the repository root:
+There is no active replacement state-machine exercise yet. `cargo run` still runs the withdrawn Lesson 8 code and contacts the configured provider; it does not run the completed Lesson 6 reference. Consult [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) for the last completed lesson. Resetting the root exercise is a separate instructor decision.
 
-```bash
-cargo run
-```
-
-It contacts the provider: the store is seeded in code with one user question ("What is the capital of France?"), the GDK state machine runs over exactly one step — the GDK-shipped `InferenceRunner` — and the pass loop carries an explicit state-step bound. Pass 1 reloads the session, the inference step re-derives that the conversation ends in a provider turn, calls the provider with the whole conversation (no system prompt, no tools), and the streamed reply prints between payload delimiters; the effects persist in order (record usage, then append message). Pass 2 reloads the persisted state, the same step declines because the conversation now ends in the assistant's reply, and the run reports "no step applies" and prints the final persisted conversation (2 messages). The lesson also validates deterministically with `cargo test` (seed, loader, effects, a declining step, the state-step bound). Provider-calling lessons are validated live against a configured provider; if the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
+Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
 ## Validation philosophy
 

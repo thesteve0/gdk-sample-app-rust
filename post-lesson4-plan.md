@@ -2,13 +2,27 @@
 
 ## Status of this document
 
-This document records the accepted direction for the course after Lesson 4. It is durable context for future curriculum discussions and implementation work, not a released lesson.
+**README.md is the authoritative curriculum plan**, including the replacement Lessons 7–9 and their implementation handoff. This document supplies supporting architecture context and historical validation evidence, not a competing sequence or a released lesson. Where older evidence conflicts with the README or exact pinned source, follow the README for curriculum and pinned source for API behavior.
 
 The post-Lesson 4 technical spike is complete and supports the sequence below. The instructor accepted the outline on 2026-09-29. Lesson numbers and boundaries should now remain stable unless later implementation evidence or an explicit instructor decision requires a change. The instructor still owns curriculum sequencing and release decisions.
 
-On 2026-10-01 the instructor ordered exactly such a change: a new Lesson 8 — one request and one response through the GDK state machine, the introductory walkthrough for the machine — was inserted before the former Lesson 8, and every lesson from the former Lesson 8 onward was renumbered by one (former 8→9 through former 17→18). The sequence below reflects that renumbering; this paragraph is the explicit instructor decision the stability clause above requires.
+On 2026-10-01 the instructor ordered exactly such a change: a new Lesson 8 — one request and one response through the GDK state machine, the introductory walkthrough for the machine — was inserted before the former Lesson 8, and every lesson from the former Lesson 8 onward was renumbered by one (former 8→9 through former 17→18). That numbering was used before the 2026-10-05 replacement decision below; this paragraph preserves its provenance.
 
 Later on 2026-10-01, after Lesson 8 was written, the instructor judged Lessons 7 and 8 to be in reverse order and a mess as they now stand. Both lessons must be revisited and fixed, but not yet: the fix is deferred until a research spike on teaching the state-machine approach in the GDK concludes. The spike lives in `spike/state-machine/` and is explicitly research-only — none of its material may modify `lessons/`, `instructor-notes/`, `README.md`, this plan, or the root source until the instructor declares the spike complete and orders the teaching material updated.
+
+## Superseding instructor decision — 2026-10-05
+
+Lessons 1–6 are complete. The instructor withdrew the existing Lessons 7 and 8 and requested a complete rework. Their material is now preserved in `drafts/lessons/` and `drafts/instructor-notes/`, unchanged. The earlier deferral no longer prevents this explicitly requested archival move and status update; it does not authorize promoting spike material into new lessons.
+
+The instructor subsequently authorized writing a detailed replacement plan for review. The previous conversation-only restriction is superseded for **planning documentation only**, not lesson implementation. The [replacement plan in README.md](README.md#replacement-state-machine-lesson-plan) is authoritative:
+
+- **Lesson 7:** no-code grounding in Session, Operation, StateMachine, Effect, and re-evaluation. Operations may also use information outside the Session; Steer is the explanatory example, not a feature to implement.
+- **Lesson 8:** complete supplied application for one streamed request/response using the GDK run loop. Show the Session before/after and distinguish Events sent through the Emitter for display from Effects applied to recorded state. Consume Events during execution, not after buffering an entire run.
+- **Lesson 9:** reuse the foundation for two turns in one Session with the same planned-loss tool available throughout. First ask what stop-loss means and expect no tool call; then ask for maximum planned loss for entry `51.20`, stop `50.70`, and `200` shares, observing a correlated tool round trip and `100.00` result. Unexpected first-turn tool use must be observed and reported, not concealed.
+
+The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
+
+Root `src/main.rs` and dependencies remain unchanged and still contain the withdrawn Lesson 8 exercise. Do not create replacement lesson material or reset root source until the instructor reviews the plan and authorizes implementation. Archived drafts stay unchanged.
 
 ## Course application goal
 
@@ -69,7 +83,7 @@ The two-turn Lesson 4 conversation continued to work after the upgrade.
 
 Before teaching the course, review the current public GDK release and perform another coordinated dependency/source/documentation review rather than changing one GDK crate independently.
 
-Local checkout note (recorded during the Lesson 7 session): the working copy at `/var/home/stpousty/git/goose` (branch `main` @ `1ce7de7a3`) was diffed against published `goose-agent = 0.1.0-alpha.11` and `goose-provider-types = 0.1.0-alpha.11`. All differences are a wasm32-compatibility refactor (`MaybeSend`/`MaybeSync` bounds, conditional `async_trait(?Send)`), transparent on native Linux targets, plus one behavioral change noted in the Lesson 9 section below: typed `SyncTool` invocation now goes through `tokio::task::spawn_blocking`. The provider-types conversation module, `events.rs`, and `lib.rs` are identical to alpha.11.
+Local checkout note (recorded during the Lesson 7 session): the working copy at `/var/home/stpousty/git/goose` (branch `main` @ `1ce7de7a3`) was diffed against published `goose-agent = 0.1.0-alpha.11` and `goose-provider-types = 0.1.0-alpha.11`. All differences are a wasm32-compatibility refactor (`MaybeSend`/`MaybeSync` bounds, conditional `async_trait(?Send)`), transparent on native Linux targets, plus a historical reported difference in typed `SyncTool` invocation. That comparison is not a reliable description of the current pinned implementation: the installed alpha.11 `src/tool.rs` reviewed on 2026-10-05 itself uses `tokio::task::spawn_blocking` in `with_sync_tool`. Recheck the exact source when implementing; do not teach a claimed inline-versus-spawn difference based on this historical note. The provider-types conversation module, `events.rs`, and `lib.rs` are identical to alpha.11.
 
 ## Relevant GDK findings
 
@@ -210,9 +224,9 @@ Integer minor units remain a valid internal design when a fixed scale has alread
 
 The spike also validated an explicit failure/termination policy for raw-protocol exploration: at most 3 raw inference rounds, 4 tool requests, and 6 state-machine steps per run. The principle — imposing explicit round/request or state-step bounds — carries into every tool and state-machine lesson; exact limits may be retuned per lesson.
 
-## Accepted post-Lesson 4 sequence
+## Post-Lesson 4 sequence — supporting context
 
-The completed spike established that the state-machine transition should be split across two lessons. The instructor later inserted a third (the new Lesson 8) so the machine is walked through a single provider request and response before tools re-enter. The sequence below is accepted; do not collapse the state-machine lessons (7, 8, and 9) merely to shorten the roadmap.
+Lessons 5–6 below retain their completed boundaries. The replacement Lessons 7–9 are governed by the README plan; earlier constraints requiring a provider-free runtime lesson or a hand-written pass loop are withdrawn. Later lesson descriptions retain their direction and numbering.
 
 ### Lesson 5: Define a deterministic trading tool and inspect its raw request
 
@@ -242,47 +256,20 @@ Introduce:
 
 The final explanation should identify what the calculation excludes, such as fees, slippage, and gaps through the planned stop.
 
-### Lesson 7: State-machine concepts and minimal runtime
+### Lessons 7–9: Replacement state-machine progression
 
-Use the manual implementation to motivate:
+See [README.md — Replacement state-machine lesson plan](README.md#replacement-state-machine-lesson-plan) for the complete goals, scenarios, teaching boundaries, planned paths, success criteria, implementation questions, and review gates. Do not reconstruct these lessons from the archived draft or historical spike summaries.
 
-- repeated inference/tool cycles;
-- persisted conversation state;
-- operations;
-- effects;
-- session loading;
-- effect application;
-- yielding and termination.
+Lesson 7's diagrams and images are required lecture deliverables, not optional supplements. The README specifies the progressive visual sequence, Session snapshots, external-input distinction, correlation-ID illustration, editable/rendered assets, accessibility, and instructor walkthrough requirements. Create those assets only when lesson implementation is authorized; preserve unrelated research artwork.
 
-Build only the smallest in-memory session/runtime needed for the existing deterministic scenario. Do not introduce production storage or multiple tools.
+Supporting technical cautions:
 
-### Lesson 8: One request and one response through the state machine
-
-Inserted by explicit instructor decision on 2026-10-01. The instructor asked for a walkthrough of the state machine with the simplest possible scenario before tools re-enter:
-
-- one seeded user question ("What is the capital of France?"), no tool calls;
-- the GDK-shipped `InferenceRunner` registered as the sole `Step::Inference`;
-- the machine's pass shape — reload, ask `applies()`, provider call, effects, stop checks — narrated end to end;
-- the lesson-owned effect vocabulary the machine and the shipped runner require (`MachineEffect`, `From<Message>`, `InferenceEffect`), since `ConversationEffect` has no `InferenceEffect` implementation in pinned alpha.11;
-- the hand-written bounded pass loop kept from Lesson 7, so the state-step bound stays explicit;
-- the provider called on pass 1 only; pass 2 re-derives from the persisted reply and stops with "no step applies".
-
-This lesson is the introductory discussion home for the state machine: the full pass loop, the state-machine diagrams, and the payload-delimiter conventions (including the streamed fence) are established here. The instructor explicitly deferred a multi-turn follow-up (letting the user ask another question) — the lesson stays one request and one response.
-
-### Lesson 9: Assemble inference and the typed tool operation
-
-Refactor the same scenario using:
-
-- provider-backed inference;
-- a typed deterministic tool;
-- `ToolOperation`;
-- the in-memory runtime;
-- ordered state-machine steps;
-- `StateMachine::run` or the narrowest suitable state-machine execution surface.
-
-The pedagogical point is to map each manual protocol responsibility to the GDK abstraction that now coordinates it.
-
-A behavioral note observed while reviewing the local goose checkout against pinned alpha.11: the wasm32-compatibility refactor changed how a typed `SyncTool` is invoked. In `goose-agent = 0.1.0-alpha.11` the sync tool runs inline; in the updated checkout `invoke_sync` runs the tool through `tokio::task::spawn_blocking` (with an inline fallback under wasm32). On native targets the `MaybeSend`/`MaybeSync` bounds are identical to `Send`/`Sync`, so the lesson's behavior is otherwise unchanged, but the invocation is now off the async executor thread. Lesson 9 material should describe the spawn_blocking invocation when it presents the typed tool, and re-verify against the exact pinned source before teaching.
+- `StateMachine::run` reloads between passes and returns a final loaded Session on success; the application can separately load the initial Session for comparison.
+- `Emitter` sends Events to the application; inference separately accumulates complete messages into Effects. Concurrent consumption is required for honest live display and avoids blocking a producer on a full channel.
+- The application supplies its own Session, loader, effect handler, and an effect vocabulary compatible with the pinned inference runner. All required implementations belong in the supplied code, not learner fill-ins.
+- The pinned run loop has no application-specific step-limit parameter. Agree on a minimal source-verified safeguard while retaining the GDK-owned run loop; do not silently copy the old manual loop. State limits and tool-request limits must be explicit and validated.
+- Inspect the exact tool adapter for unknown names, malformed arguments, correlated results, and multiple requests; do not assume registering a typed tool alone provides every Lesson 6 safety requirement.
+- Operations may contribute tools and prompt parts before inference and may read live external inputs as well as recorded state. The custom application does not need Goose's entire operation assembly.
 
 ### Lesson 10: Domain instructions and capability boundary
 
@@ -512,10 +499,10 @@ The spike demonstrated:
 3. Final answers consistently used the deterministic `100.00` result and identified fees, slippage, and gap-through-stop risk.
 4. The same capability worked as a typed RMCP `SyncTool` registered through `goose-agent::tool::ToolOperation`.
 5. A minimal in-memory `MachineSession`, `SessionLoader`, and `EffectHandler` supported provider-backed `InferenceRunner` and the state machine. Two recorded runs applied `llm -> tools -> llm` and then stopped when no operation applied.
-6. Application-specific bounds must remain explicit. The spike limits raw rounds and aggregate requests, and wraps `StateMachine::step`/`apply` with a maximum applied-step count because alpha.11 `StateMachine::run` has no application-specific step-limit parameter.
+6. Application-specific bounds must remain explicit. Historically, the spike limited raw rounds and aggregate requests and wrapped `StateMachine::step`/`apply` with a maximum applied-step count because alpha.11 `StateMachine::run` has no application-specific step-limit parameter. That wrapper is evidence, not the replacement lesson design: the README requires the GDK run loop and an instructor-agreed safeguard.
 7. Streamed raw messages must be reconstructed with GDK merge semantics. An initial implementation that retained deltas independently read only the final `.`; accumulating through `Conversation::push`, as `InferenceRunner` does, fixed it.
 8. Decimal strings parsed into `rust_decimal` are the accepted Lesson 5 representation.
-9. The state-machine transition requires two lessons. Typed tools, schemas, effects, usage effects, sessions, loader/handler traits, events, cancellation, and termination are too much for one focused unit. Keep most runtime scaffolding instructor-provided when first introduced.
+9. Historical recommendation, superseded by the README replacement plan: split the transition rather than introduce all infrastructure at once. The enduring finding is cognitive load; the new plan uses one no-code lesson followed by two complete-code lessons, with run/read/tweak rather than scaffold-writing activities.
 10. Structural tests can cover exact calculations and malformed/unknown arguments, while live-provider runs remain necessary for native structured-call behavior.
 
 These runs establish compatibility and encouraging repeatability, not broad reliability across models and servers. Revalidate against the exact classroom provider before release. Do not turn spike code directly into a lesson without removing exploratory complexity.
@@ -563,30 +550,14 @@ Source/API research consulted:
 
 The public `goose-agent` source and tests currently provide important implementation detail beyond the high-level official documentation, so future work must continue to verify behavior against the exact pinned crate source.
 
-## Lesson 5 handoff for the next Goose session
+## Replacement lesson implementation handoff
 
-Do not begin by redesigning the roadmap or promoting the spike wholesale. The next task is to design and implement the smallest teachable Lesson 5 that matches the accepted boundary.
+Lessons 1–6 are complete; **do not begin by implementing Lesson 5 again**. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
 
-Start by reading, in order:
+Read Git status/diffs, manifests/lock/toolchain/provider JSON, root source, and complete Lessons 3–6 plus instructor notes. Preserve unrelated changes. Archived Lessons 7–8 and `spike/state-machine/` are research/history only. Keep numeric prefixes and do not restore drafts wholesale.
 
-1. `AGENTS.md`, `README.md`, and this document;
-2. `git status` and diffs, because the working tree intentionally contains instructor work;
-3. `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, and the provider JSON;
-4. root `src/main.rs` plus all Lesson 4 prose, source, and instructor notes;
-5. exact pinned `goose-providers`, `goose-provider-types`, RMCP, and (for later lessons) `goose-agent` source.
+Review exact pinned `goose-agent` sources (`README.md`, `src/machine.rs`, `src/operation.rs`, `src/inference.rs`, `src/events.rs`, `src/tool.rs`), the provider/conversation/message types, RMCP typed tool interfaces, and official documentation before asserting behavior. Upstream source in the mental-model document is not necessarily identical to the pinned release. Do not upgrade dependencies as part of this planning change or without a separate decision.
 
-Lesson 5's required endpoint is an assistant response containing a structured request for `maximum_planned_loss`, not a completed calculation. Use the hypothetical long-position scenario with decimal-string entry `51.20`, decimal-string stop `50.70`, and integer share count `200`. Define one narrowly described tool with a strict object schema, pass it as the provider call's tools slice, inspect all streamed message/content blocks, print or otherwise expose the request name/arguments/ID, and preserve enough complete assistant state for Lesson 6. Reconstruct streaming deltas with GDK message merge semantics; do not assume one stream item is a complete response or one response has only one block/request.
+Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. For Lesson 8, confirm the root update and settle minimal runtime/effect compatibility, concurrent event consumption/shutdown, and bounds while keeping `StateMachine::run`. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Script two user turns; do not add an interactive CLI prematurely.
 
-Lesson 5 must explain:
-
-- deterministic computation versus probabilistic model reasoning;
-- tool name, description, and JSON input schema;
-- decimal strings as an untrusted wire representation, with exact parsing deferred to execution in Lesson 6;
-- advertising a tool versus authorizing/executing it;
-- request IDs as future correlation keys;
-- why every content block is inspected;
-- the provider/model may fail to request a tool and that this is a structural behavior to validate live.
-
-Lesson 5 must not yet introduce `rust_decimal` calculation code, dispatch, `CallToolResult`, tool responses, repeated agent loops, typed `SyncTool`, `ToolOperation`, sessions/effects, market data, retrieval, or model-selection CLI work. Add only dependencies genuinely required by Lesson 5; the spike's dependencies do not all belong in learner-facing code yet. Update root source, a new `lessons/05-.../LESSON.md` and complete reference `src/main.rs`, the matching instructor note, README status/root description, and affected documentation together. Include the required raw sequence diagram in Lesson 5, focused through the pending request boundary while previewing Lesson 6's result path.
-
-Before calling Lesson 5 ready, run the repository checks and its documented live-provider command. Assert structure rather than exact prose, and report whether a native structured request was actually observed.
+Complete coding-lesson source must be available from the outset. Document the shared-manifest/root run workflow, structural expected output, and small predict/run/tweak activity. After code changes run formatting, checking, linting, tests, and the lesson's live-provider command. Specifically validate live streaming in Lesson 8 and both selective tool-use outcomes in Lesson 9. Report unexpected or missing tool calls honestly. Unit tests and builds do not establish live-provider behavior, and successful validation does not replace instructor release approval.
