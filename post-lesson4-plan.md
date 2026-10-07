@@ -22,7 +22,7 @@ The instructor subsequently authorized writing a detailed replacement plan for r
 
 The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
 
-On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; on 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root now contains replacement Lesson 8; dependencies, provider configuration, and archived drafts remain unchanged. Lesson 9 still requires separate authorization.
+On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; on 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root then contained replacement Lesson 8; dependencies, provider configuration, and archived drafts remained unchanged. The instructor authorized Lesson 9 implementation on 2026-10-06. Root now contains its two-turn continuation; live-provider validation and instructor review are pending.
 
 ## Course application goal
 
@@ -553,7 +553,7 @@ The public `goose-agent` source and tests currently provide important implementa
 
 ## Replacement lesson implementation handoff
 
-Lessons 1–8 are complete; **do not reimplement completed lessons**. Lesson 9 still requires separate instructor authorization. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
+Lessons 1–8 are complete; **do not reimplement completed lessons**. Lesson 9 was authorized on 2026-10-06 and is implemented; live-provider validation and instructor review remain pending. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
 
 Read Git status/diffs, manifests/lock/toolchain/provider JSON, root source, and complete Lessons 3–6 plus instructor notes. Preserve unrelated changes. Archived Lessons 7–8 and `spike/state-machine/` are research/history only. Keep numeric prefixes and do not restore drafts wholesale.
 
@@ -562,3 +562,17 @@ Review exact pinned `goose-agent` sources (`README.md`, `src/machine.rs`, `src/o
 Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. The Lesson 8 root update is authorized and implemented, with minimal runtime/effect compatibility and concurrent event consumption/shutdown while keeping `StateMachine::run`. Follow the instructor decision to omit a Lesson 8 loop safeguard and add only the production-caution source comment. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Script two user turns; do not add an interactive CLI prematurely.
 
 Complete coding-lesson source must be available from the outset. Document the shared-manifest/root run workflow, structural expected output, and small predict/run/tweak activity. After code changes run formatting, checking, linting, tests, and the lesson's live-provider command. Specifically validate live streaming in Lesson 8 and both selective tool-use outcomes in Lesson 9. Report unexpected or missing tool calls honestly. Unit tests and builds do not establish live-provider behavior, and successful validation does not replace instructor release approval.
+
+
+### Lesson 9 implementation record — 2026-10-06
+
+The instructor authorized implementation. Complete lesson source, prose, notes, and six editable/rendered narrated frames are supplied under `lessons/09-machine-conversation-tools/`; root now contains that continuation. Completed Lessons 7–8 and withdrawn drafts remain unchanged. README remains authoritative.
+
+The selected SDK-compatible adapter uses `ToolProvider` plus typed `LossArguments`, retaining Lesson 6 text dollar results and exact validation without new dependencies. `SafeTools` wraps the shipped `ToolOperation`: unknown names are filtered by the pinned SDK, so the wrapper returns correlated errors for unknown/excess requests before delegating recognized/parse-error calls on re-evaluation. All current-turn content blocks are scanned. Bounds: eight applied work passes plus a possible terminal halt batch; four aggregate requests per user turn; 180 seconds per run. Empty/duplicate IDs halt rather than fabricate correlation. These are application decisions, not SDK guarantees; timeout/pass limits can leave visible partial state. The GDK-owned `StateMachine::run` remains intact.
+
+Formatting, check, Clippy, eleven tests, and IDE build passed. The default live run failed to connect to `127.0.0.1:8080` on turn 1 and reported a saved inference diagnostic. No real first-turn selection, second-turn tool round trip, or live 100-share tweak was validated. Ask the instructor to start/supply a provider before release; do not replace missing validation with local test fixtures.
+
+
+### Lesson 9 output-order follow-up — 2026-10-06
+
+The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete or advance to Lesson 10.

@@ -88,7 +88,7 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 
 - Lesson 5 defines one deterministic maximum-planned-loss tool, advertises it to raw provider inference, and inspects structured request content. It stops before dispatch or a tool response.
 - Lesson 6 validates and executes that request, returns a correlated user-role tool response, and asks the provider for a final educational explanation.
-- On 2026-10-05 the instructor withdrew old Lessons 7–8; unchanged material is in `drafts/lessons/` and `drafts/instructor-notes/`. The README now records the replacement plan for instructor review. Lessons 7 and 8 implementation and the Lesson 8 root update were subsequently authorized; Lesson 9 still requires authorization. The old state-machine sequence is not binding.
+- On 2026-10-05 the instructor withdrew old Lessons 7–8; unchanged material is in `drafts/lessons/` and `drafts/instructor-notes/`. The README now records the replacement plan for instructor review. Lessons 7 and 8 implementation and the Lesson 8 root update were subsequently authorized; Lesson 9 was authorized on 2026-10-06 and is implemented; live-provider validation and instructor review remain pending. The old state-machine sequence is not binding.
 - Replacement Lesson 7 establishes Session, Operation, StateMachine, Effect, and re-evaluation without code or pseudocode. An Operation may consult inputs outside the Session (Steer is an example). Do not equate recorded history with all live decision inputs or teach Goose's full assembly as required GDK infrastructure.
 - The instructor narrowed Lesson 7 on 2026-10-05 to one simple question/answer round trip, with concise prose. Its progressive lecture diagrams/images cover ownership and external inputs, ordered pass/re-evaluation, and the simple exchange with Session snapshots. Defer the correlated planned-loss trace and its visuals to Lesson 9. Supply editable sources and projector-readable rendered images with captions/text equivalents; instructor notes explain reveal order and prediction prompts. Follow the README visual requirements, not a dense diagram of Goose's full assembly.
 - Replacement Lesson 8 supplies complete code for one streamed exchange via `StateMachine::run`, displays the Session before/after, and distinguishes Events/Emitter from Effects/effect handler. Consume Events while the run executes, not after buffering a full run. Runtime traits and concurrency code are supplied and explained, not fill-ins.
@@ -100,7 +100,7 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 - Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–8 are complete; the instructor confirmed replacement Lessons 7–8 complete on 2026-10-06. The root now contains the authorized replacement Lesson 8. Do not advance it to Lesson 9 without instructor approval.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–8 are complete; the instructor confirmed replacement Lessons 7–8 complete on 2026-10-06. The root previously contained the authorized replacement Lesson 8. The instructor authorized Lesson 9 on 2026-10-06; root now contains its two-turn continuation. Keep Lessons 7–8 unchanged. Lesson 9 still needs live validation and instructor review; do not advance to Lesson 10 without authorization.
 
 ## Lesson requirements
 
@@ -166,3 +166,27 @@ Use this mode only when a learner asks Goose to guide them through the course.
 ## Instructor authority
 
 The instructor owns curriculum scope, sequencing, and release decisions. When this file conflicts with an explicit instructor request, follow the request and update durable documentation when relevant.
+
+
+## Lesson 9 implementation handoff (2026-10-06)
+
+Lesson 9 source, prose, notes, and narrated SVG/PNG frames are supplied. Root matches its reference source. `SHARE_COUNT` is the approved 200→100 tweak, shared by the prompt and structural check. The application uses a `ToolProvider` with typed `LossArguments` and a safe wrapper around the pinned `ToolOperation`; the SDK alone filters unknown names and supplies no request cap. Keep correlated unknown/excess errors and all-block handling. Bounds are eight applied work passes plus a possible terminal halt batch, four aggregate requests per user turn, and a 180-second run timeout; the engine owns the loop. Full partial state is shown on failure.
+
+Eleven deterministic tests and build/lint checks passed; the local live endpoint was unavailable. Neither real selective-tool-use outcome nor the live 100-share tweak is validated. Start/supply a provider and record actual structure/explanation before requesting release review. Do not mark Lesson 9 Complete or implement future curriculum based on these tests.
+
+
+### Lesson 9 output-order follow-up — 2026-10-06
+
+The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete or advance to Lesson 10.
+
+### Lesson 9 terminal color follow-up — 2026-10-06
+
+Instructor approved bold cyan headings, blue current human input, magenta reconstructed requests, green tool responses/success checks, yellow warnings, and bold red errors. Model stream stays normal color. **Only Session `usage` is dimmed**; no other section may be dimmed. Preserve complete snapshots, actor labels, fences, and output order. ANSI styling is presentation-only and disabled for redirected streams, `NO_COLOR`, and `TERM=dumb`. Root/reference and lesson/notes match; 14 tests, checks, IDE build, and default live colored/plain/NO_COLOR runs passed. Live 100-share tweak and instructor release review remain pending; Lessons 7–8 unchanged.
+
+### Lesson 9 Session attribute styling — 2026-10-06
+
+Bold every Session attribute name (including nested metadata, usage fields, and quoted object keys); leave values unbolded. Only usage remains dimmed. Preserve complete Debug values, plain-output fallback, and existing color/order conventions. Root/reference match; 15 tests, checks, IDE build, and default colored live run passed. Live 100-share tweak and release review remain pending.
+
+### Gold Session attributes — 2026-10-06
+
+Instructor found bold difficult to see and replaced it with gold (`#FFD700`) for every Session attribute name, including nested fields and quoted object keys. Values use the default foreground and are unbolded; only usage remains dimmed. Foreground-only reset preserves usage dimming. Root/reference match; 15 tests, formatting/check/Clippy, IDE build, and default colored live run passed. Plain fallback and complete snapshots remain intact; Lessons 7–8 unchanged. Live 100-share tweak and release review remain pending.

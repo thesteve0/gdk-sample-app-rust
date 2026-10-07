@@ -48,7 +48,7 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 6 | Execute the tool and return its result through the raw provider protocol | **Complete** | [`lessons/06-deterministic-tool-response/`](lessons/06-deterministic-tool-response/) |
 | 7 | GDK state-machine mental model — no code | **Complete** | [`lessons/07-state-machine-mental-model/`](lessons/07-state-machine-mental-model/) |
 | 8 | One streamed request/response through the state machine | **Complete** | [`lessons/08-machine-request-response/`](lessons/08-machine-request-response/) |
-| 9 | One Session, successive user turns, and selective tool use | **Planned; review pending** | Plan below |
+| 9 | One Session, successive user turns, and selective tool use | **Implemented; live tweak and instructor review pending** | [`lessons/09-machine-conversation-tools/`](lessons/09-machine-conversation-tools/) |
 | 10 | Add domain instructions and application-enforced safety boundaries | Planned | — |
 | 11 | Establish an evaluation baseline for tool use and grounded conclusions | Planned | — |
 | 12 | Define fixture-backed read-only market observations | Planned | — |
@@ -64,7 +64,7 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 
 Lessons 1–8 are complete. On 2026-10-05 the instructor withdrew the previous Lessons 7 and 8 for complete rework; their unchanged prose, reference source, and instructor notes are preserved under [`drafts/`](drafts/). They are not part of the teaching sequence.
 
-**This README is the authoritative curriculum plan.** The replacement plan below records the subsequent instructor discussion. The instructor authorized Lesson 7 implementation on 2026-10-05; its no-code lesson, instructor notes, and editable/rendered visuals are supplied and source/asset-reviewed. The instructor also authorized Lesson 8 and its root working-copy update; its one-exchange implementation and teaching materials are now supplied. On 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. Lesson 9 remains planned and unimplemented. This replacement plan supersedes the old state-machine boundaries, including the former planned Lesson 9. Lessons 10 onward retain their existing numbers and direction; this three-lesson replacement needs no further renumbering. [`post-lesson4-plan.md`](post-lesson4-plan.md) supplies supporting architecture context and implementation handoff guidance, not a competing curriculum sequence. If the two disagree, follow this README and reconcile the supporting document.
+**This README is the authoritative curriculum plan.** The replacement plan below records the subsequent instructor discussion. The instructor authorized Lesson 7 implementation on 2026-10-05; its no-code lesson, instructor notes, and editable/rendered visuals are supplied and source/asset-reviewed. The instructor also authorized Lesson 8 and its root working-copy update; its one-exchange implementation and teaching materials are now supplied. On 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. On 2026-10-06 the instructor authorized Lesson 9 implementation. Its complete source, lesson, instructor notes, and narrated visuals are now supplied; live-provider validation and instructor review remain pending. This replacement plan supersedes the old state-machine boundaries, including the former planned Lesson 9. Lessons 10 onward retain their existing numbers and direction; this three-lesson replacement needs no further renumbering. [`post-lesson4-plan.md`](post-lesson4-plan.md) supplies supporting architecture context and implementation handoff guidance, not a competing curriculum sequence. If the two disagree, follow this README and reconcile the supporting document.
 
 ## Replacement state-machine lesson plan
 
@@ -160,23 +160,23 @@ Map the manual responsibilities from Lessons 5–6 to the GDK assembly: advertis
 
 **Success criteria:** both runs use the same Session and retain the first exchange; turn 1 makes no tool request; turn 2 produces a valid request, matching response, exact `$100.00` result, and grounded explanation; Events and saved state remain distinguishable; runs terminate under explicit safeguards. Learners distinguish a new user turn/new run from another pass within the current run. Record actual structure rather than asserting an exact message count or generated wording.
 
-**Deliverables when authorized:** `lessons/09-machine-conversation-tools/LESSON.md`, its complete `src/main.rs`, and matching `instructor-notes/09-machine-conversation-tools.md`.
+**Implemented deliverables:** [lesson](lessons/09-machine-conversation-tools/LESSON.md), complete [reference source](lessons/09-machine-conversation-tools/src/main.rs), [instructor notes](instructor-notes/09-machine-conversation-tools.md), and [editable/rendered narrated trace](lessons/09-machine-conversation-tools/diagrams/README.md).
 
 ### Implementation handoff and review gates
 
-**Current authorization and completion (2026-10-06):** the instructor authorized Lessons 7 and 8 using this README and the Working Mental Model, including replacing root `src/main.rs` with Lesson 8. The instructor has confirmed both lessons are complete and ready to teach. Lesson 8 uses `StateMachine::run` without a loop safeguard, with the agreed production-caution comment. Lesson 9 implementation remains unauthorized; dependencies, provider configuration, and archived drafts remain unchanged.
+**Current authorization and completion (2026-10-06):** the instructor authorized Lessons 7 and 8 using this README and the Working Mental Model, including replacing root `src/main.rs` with Lesson 8. The instructor has confirmed both lessons are complete and ready to teach. Lesson 8 uses `StateMachine::run` without a loop safeguard, with the agreed production-caution comment. The instructor subsequently authorized Lesson 9 on 2026-10-06. Root now contains its two-turn implementation. Dependencies, provider configuration, completed Lessons 7–8, and archived drafts remain unchanged. Lesson 9 is implemented, but live validation and instructor review are pending.
 
 For a new implementation chat:
 
 1. Read this README first, then `AGENTS.md`, the current-decision/handoff sections of `post-lesson4-plan.md`, and the mental-model reference. Inspect Git status/diffs and preserve unrelated work.
 2. Read the manifest, lockfile, toolchain, provider JSON, root source, and complete Lessons 3–6 with their instructor notes. Read archived drafts only to identify useful evidence and pitfalls, not as accepted curriculum.
 3. Verify the exact pinned GDK/RMCP sources and official documentation: machine loading/run/application, inference streaming, Events/Emitter, effect requirements, tool registration/dispatch and correlation. The mental-model reference's upstream claims and open questions are not substitutes for this verification.
-4. Lessons 7 and 8 are complete; do not reimplement them. Implement **one authorized lesson at a time**; Lesson 9 requires separate instructor authorization. Do not scaffold future lessons. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; root now contains the replacement lesson, not the withdrawn draft.
+4. Lessons 7 and 8 are complete; do not reimplement them. Implement **one authorized lesson at a time**; Lesson 9 has now been authorized and implemented; validate and review it before release. Do not scaffold future lessons. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; root now contains the authorized Lesson 9 continuation, not the withdrawn draft.
 5. Preserve Lesson 8’s concurrent streaming consumer and sender-closure/drain lifecycle. **Instructor decision (2026-10-05): do not add a loop safeguard to Lesson 8.** Keep `StateMachine::run` and add a concise source comment beside the call noting that production users may want a safeguard to prevent a runaway loop. Do not add a load budget or restore the old bounded manual loop. Before Lesson 9, separately resolve execution bounds and verify safe unknown-name handling, all-request handling, and request limits in the chosen tool adapter. Exact limit values are implementation decisions to document, not inherited guarantees from old spikes.
 6. Supply complete source, explanations, expected traces, instructor pacing, and the small predict/run/tweak activities together. Publish a precise root-based run workflow for the shared manifest; lesson sources are not independent Cargo packages. Keep sample output honest about streamed versus persisted data.
 7. For coding changes run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test`, and the documented live-provider run. Unit tests cover deterministic validation, effect application, state continuity, and safeguards; they do not replace live streaming/tool-selection validation. If the provider is unavailable, ask the instructor to start or supply one. Record what passed, failed, or remains unvalidated before changing lesson status.
 
-**Still to resolve for Lesson 9:** SDK-compatible typed tool adapter, any required runtime/effect changes, source-verified bounds, and the final prompt wording for the numeric follow-up. Lesson 8 uses the supplied runtime and concurrent receiver with sender closure/draining. These are not reasons to redesign the agreed teaching progression. Ask before changing scope or adding deliberate failure-path activities. Instructor review and release remain separate from a successful build or provider run.
+**Lesson 9 implementation decisions:** the application supplies a `ToolProvider` with typed `LossArguments` and Lesson 6 validation, wrapped around the shipped `ToolOperation` to answer unknown/excess calls. The pinned operation filters unknown names and has no built-in request cap. The runtime retains usage/messages plus a per-run applied-pass counter and halt reason. Limits are eight applied work passes (plus a terminal halt Effect batch when needed), four aggregate tool requests per user turn, and a 180-second run timeout; the GDK still owns the run loop. `SHARE_COUNT` drives the scripted follow-up and its checks, so the approved 100-share tweak needs one change. See the lesson for all-request/correlation behavior and partial-state limitations. The default live-provider attempt could not connect to `127.0.0.1:8080`; neither selective tool-use outcome nor the live tweak has validated. Start or supply a provider before release. Instructor review remains separate from successful builds/tests.
 
 ## Repository organization
 
@@ -200,7 +200,7 @@ For a new implementation chat:
 
 ### Root source
 
-The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The instructor authorized replacing the withdrawn draft with **replacement Lesson 8**. Root now supplies that complete one-exchange application; the withdrawn draft remains unchanged under `drafts/`. Dependencies and provider configuration are unchanged. Lesson 7 is no-code and does not run this working copy.
+The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The instructor authorized replacement Lessons 8 and 9. Root now supplies Lesson 9’s complete two-turn conversation/tool application; the withdrawn draft remains unchanged under `drafts/`. Dependencies and provider configuration are unchanged. Lesson 7 is no-code and does not run this working copy.
 
 ### Lesson directories
 
@@ -276,13 +276,13 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-Root `src/main.rs` now runs [Lesson 8](lessons/08-machine-request-response/LESSON.md): one streamed question/answer exchange through the GDK state machine, with Session views before and after. Lessons 7–8 are complete; Lesson 9 remains planned and requires separate authorization. From the repository root:
+Root `src/main.rs` now runs [Lesson 9](lessons/09-machine-conversation-tools/LESSON.md): two scripted user turns in one Session, with selective tool use, correlated exact calculation, live Events, and Session views. Lessons 1–8 are complete. Lesson 9 is implemented; live-provider validation and instructor review are pending. From the repository root:
 
 ```bash
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
 
-Use your own provider JSON path when needed. To restore the supplied reference after tweaking the root, save your edits first, then copy `lessons/08-machine-request-response/src/main.rs` to `src/main.rs`.
+Use your own provider JSON path when needed. To restore the supplied reference after tweaking the root, save your edits first, then copy `lessons/09-machine-conversation-tools/src/main.rs` to `src/main.rs`.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
@@ -339,3 +339,7 @@ Read [`AGENTS.md`](AGENTS.md) before changing the repository. Preserve the instr
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
+
+### Lesson 9 output-order follow-up — 2026-10-06
+
+The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete or advance to Lesson 10.

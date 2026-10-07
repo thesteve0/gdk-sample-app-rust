@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+<title id="title">Turn 2 · append, do not replace</title>
+<desc id="description">Turn 2 · append, do not replace. A new run starts against the same Session. Same Session across both turns. maximum_planned_loss remains available. user · conceptual question: What is stop-loss referring to; in day trading?. assistant · conceptual explanation: First exchange retained.. user · maximum planned loss: Hypothetical long position:; entry $51.20 · stop $50.70 · 200 shares. Application appends the follow-up. Run 2 loads the same Session. Tools Operation: no pending request yet. Inference asks the provider/model. Events support presentation; Effects and the effect handler save recorded state. Narrated example, not guaranteed model behavior.</desc>
+<rect width="1600" height="900" fill="#ffffff"/>
+<g font-family="DejaVu Sans, sans-serif">
+<text x="45" y="53" font-size="38" font-weight="bold" fill="#172b40">03  Turn 2 · append, do not replace</text>
+<text x="45" y="92" font-size="26" font-weight="normal" fill="#172b40">A new run starts against the same Session.</text>
+<text x="45" y="129" font-size="24" font-weight="bold" fill="#875000">NARRATED EXAMPLE · not guaranteed model behavior</text>
+<rect x="40" y="154" width="1520" height="54" rx="8" fill="#eaf0f5"/>
+<text x="60" y="190" font-size="25" font-weight="bold" fill="#172b40">SAME SESSION · tools checked before inference · maximum_planned_loss available on BOTH turns</text>
+<rect x="40" y="227" width="710" height="448" rx="12" fill="#f5f8fc" stroke="#203c58" stroke-width="2"/>
+<text x="60" y="265" font-size="26" font-weight="bold" fill="#172b40">Session snapshot · selected recorded data</text>
+<rect x="58" y="280" width="674" height="92" rx="5" fill="#ffffff" stroke="#8a9cab"/>
+<text x="72" y="308" font-size="23" font-weight="bold" fill="#172b40">user · conceptual question</text>
+<text x="72" y="337" font-size="23" font-weight="normal" fill="#172b40">What is stop-loss referring to</text>
+<text x="72" y="364" font-size="23" font-weight="normal" fill="#172b40">in day trading?</text>
+<rect x="58" y="380" width="674" height="65" rx="5" fill="#ffffff" stroke="#8a9cab"/>
+<text x="72" y="408" font-size="23" font-weight="bold" fill="#172b40">assistant · conceptual explanation</text>
+<text x="72" y="437" font-size="23" font-weight="normal" fill="#172b40">First exchange retained.</text>
+<rect x="58" y="453" width="674" height="92" rx="5" fill="#ffffff" stroke="#8a9cab"/>
+<text x="72" y="481" font-size="23" font-weight="bold" fill="#172b40">user · maximum planned loss</text>
+<text x="72" y="510" font-size="23" font-weight="normal" fill="#172b40">Hypothetical long position:</text>
+<text x="72" y="537" font-size="23" font-weight="normal" fill="#172b40">entry $51.20 · stop $50.70 · 200 shares</text>
+<text x="790" y="265" font-size="28" font-weight="bold" fill="#172b40">StateMachine · what happens now</text>
+<text x="795" y="310" font-size="25" font-weight="normal" fill="#172b40">Application appends the follow-up.</text>
+<text x="795" y="353" font-size="25" font-weight="normal" fill="#172b40">Run 2 loads the same Session.</text>
+<text x="795" y="396" font-size="25" font-weight="normal" fill="#172b40">Tools Operation: no pending request yet.</text>
+<text x="795" y="439" font-size="25" font-weight="normal" fill="#172b40">Inference asks the provider/model.</text>
+<text x="795" y="615" font-size="21" font-weight="bold" fill="#172b40">Application → provider: retained history + tool definition</text>
+<rect x="40" y="696" width="730" height="91" rx="9" fill="#fff7e8" stroke="#8d6723" stroke-width="2" stroke-dasharray="9 5"/>
+<text x="60" y="728" font-size="23" font-weight="bold" fill="#172b40">DISPLAY · Operation → Emitter → Events → application</text>
+<text x="60" y="764" font-size="23" font-weight="normal" fill="#172b40">Notifications / fragments; presentation does not save.</text>
+<rect x="790" y="696" width="770" height="91" rx="9" fill="#edf6ef" stroke="#2b6440" stroke-width="2"/>
+<text x="810" y="728" font-size="23" font-weight="bold" fill="#172b40">SAVE · Operation → Effects → effect handler → store</text>
+<text x="810" y="764" font-size="23" font-weight="normal" fill="#172b40">Complete messages; reload saved state for the next pass.</text>
+<text x="45" y="835" font-size="27" font-weight="bold" fill="#172b40">Predict: which structured output would justify execution?</text>
+<text x="45" y="877" font-size="20" font-weight="normal" fill="#172b40">Legend: dashed box = presentation path · solid box = recorded-state path · arrows = flow, not timing</text>
+</g></svg>
