@@ -82,6 +82,31 @@ Lesson terminal output mixes the application's explanatory text with **protocol 
 2. **Actor labels.** The line immediately before each payload block names the sender and the receiver — `application → provider` on outbound payloads, `provider → application` on streamed and reconstructed output, and `application, as the tool → provider` on dispatched tool responses (the tool execution boundary lives inside the application). With multiple actors in the round trip, every message must show who sent it and who receives it.
 3. **Keep them uniform.** Use identical fences, labels, and phrasing across lesson code, `LESSON.md` snippets, and sample-output blocks, so learners see one convention. Fence and label any new payload site when a lesson introduces one.
 
+### Terminal styling rule for all application code
+
+**Instructor decision (2026-10-06):** reuse Lesson 9's terminal color scheme whenever creating or modifying code that produces terminal output. This applies to every active coding exercise and future application code, not only Lesson 9. Earlier exercises (Lessons 1–6 and 8) now follow it; Lesson 7 has no terminal code. This presentation-only update supersedes earlier instructions to leave Lesson 8's styling unchanged; it does not authorize curriculum or behavior changes. Archived drafts remain historical.
+
+| Output role | Style |
+| --- | --- |
+| Headings and ordinary actor labels | Bold cyan (`1;36`) |
+| Current human input, when separately displayed | Blue (`34`) |
+| Reconstructed tool requests, including their actor labels | Magenta (`35`) |
+| Tool responses, including their actor labels, and success checks/status | Green (`32`) |
+| Warnings and nonfatal diagnostics | Yellow (`33`) |
+| Errors on stderr | Bold red (`1;31`) |
+| Live model-generated text | Default foreground, unbolded |
+| Every Session attribute name, including nested metadata/usage fields and quoted object keys | Gold `#FFD700` (`38;2;255;215;0`) |
+| Session attribute values | Default foreground, unbolded |
+| Only the top-level Session `usage` section | Dim (`2`), with its attribute names still gold |
+
+- Apply styles only when printing; never insert ANSI codes into messages, tool arguments/results, Events, Effects, recorded state, or provider input. Do not color the system instruction or entire history blue merely because it is outbound.
+- Use the Lesson 9 `TextStyle`, `styled`, and terminal-detection pattern, supplying only the helpers/styles each standalone lesson needs. Preserve self-contained reference sources and avoid a new styling dependency or premature shared abstraction.
+- Disable styling for a redirected/non-terminal stream, presence of `NO_COLOR` (even an empty value), or `TERM=dumb`. Check stdout and stderr independently with `IsTerminal`; plain transcripts must contain no application-added ANSI escapes.
+- Reset foreground after gold field names with `39`, not a full reset, so usage dimming survives. Reset the complete style after each colored block so the next label/value/model fragment does not inherit it. Do not bold Session attribute values.
+- **Do not dim any other output**, including raw-provider usage diagnostics, conversation/message metadata (even nested usage), instructions, or capability definitions.
+- Preserve complete Session Debug values, absent/default fields, existing actor labels, payload delimiters, spacing, output order, and Lesson 8's no-fence exception. Do not add payload sites solely to show a color. Text labels must still distinguish roles without color.
+- Keep lesson snippets, plain sample transcripts, and instructor notes consistent with the code. Supply and explain presentation helpers; do not turn them into Rust scaffolding exercises. Test style mappings, terminal gating, plain fallback, and complete Session rendering where applicable; validate live-provider output separately.
+
 ## Accepted post-Lesson 4 sequence
 
 Isolated technical validation supported the direction recorded in `post-lesson4-plan.md`. Preserve these decisions unless the instructor explicitly revises them:
@@ -100,7 +125,19 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 - Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–8 are complete; the instructor confirmed replacement Lessons 7–8 complete on 2026-10-06. The root previously contained the authorized replacement Lesson 8. The instructor authorized Lesson 9 on 2026-10-06; root now contains its two-turn continuation. Keep Lessons 7–8 unchanged. Lesson 9 still needs live validation and instructor review; do not advance to Lesson 10 without authorization.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–7 are complete. The instructor clarified on 2026-10-07 that Lessons 8 and 9 still need review, superseding earlier completion records for Lesson 8. The root previously contained the authorized replacement Lesson 8. The instructor authorized Lesson 9 on 2026-10-06; root now contains the separately authorized Lesson 10 learning partner. Keep Lesson 7 and Lesson 8’s workflow unchanged; Lesson 8’s terminal styling now follows the all-application rule above. Lessons 8 and 9 still need instructor review; Lesson 9’s default live scenario passed, but its live 100-share tweak is pending. Lesson 10 was authorized on 2026-10-07; its implementation does not release Lessons 8–9 or authorize Lesson 11.
+
+## Lesson 10 implementation — 2026-10-07
+
+The instructor authorized Lesson 10 and replacing root with its interactive day-trading learning partner. Follow README for scope and the complete `lessons/10-day-trading-learning-partner/` reference and notes. Only Getting started in day trading is available. Separate editable Markdown supplies common contract, educational material/priorities, and teaching guidance, loaded at selection and fixed for that Session. Arrow/Enter selection has a numbered fallback for redirection, NO_COLOR, and TERM=dumb; /finish returns to selection, /quit/EOF exit, blank replies are ignored. Selection creates a fresh Session; replies retain it. GDK owns the within-run loop. Preserve Lesson 9 calculator validation/correlation/all-block safeguards and per-turn limits. Calculator use is optional, not forced.
+
+Lesson 10's presentation exception: learner terminal shows brief activity, framed tool results, and framed tutor streams; complete Session snapshots and internal diagnostics move to root `session-output.md`. Truncate at launch, append every turn/selection, preserve all fields/defaults/nested metadata and available partial state with Rust Debug fences; record loaded context, correlated tools, assembled saved tutor answers, warnings/failures. Markdown contains no ANSI, no promise of gold syntax colors, and is never read as learner memory. Ignore /session-output.md; ignored is not secured and conversations can contain personal data. Log errors stop the application. Never deliberately dump provider configuration or credentials. Keep course terminal palette/gating for normal output; no Session formatting/color helpers are needed when not printing Sessions.
+
+Supplied crossterm 0.29.0 events-only supports selection; GDK/provider/RMCP/toolchain versions and provider JSON remain unchanged. Approved classroom tweak edits the guidance pacing sentence to use a short hypothetical example before a check-for-understanding question, then starts a fresh selection. Instructor content/teaching review remains pending. Lessons 8–9 review and Lesson 9's live 100-share tweak remain separate pending gates.
+
+Lesson 10 validation: 20 tests and format/check/Clippy passed; live conversation/reselection, optional correlated $100.00, arrow/color and plain/NO_COLOR/dumb modes, commands/EOF, complete Markdown diagnostics, and fatal logging/provider partial-state handling checked. Guidance tweak loaded but example-before-check ordering was inconclusive; default restored. Keep teaching/content/UI review pending. Exact evidence is in Lesson 10 and instructor notes.
+
+Lesson 11 now prioritizes a persistent learning record and learner-agreed to-do list, superseding evaluation-baseline-primary scope. Distinguish discussion, goals, demonstrated understanding, unresolved questions, and agreed next activities; do not infer mastery from tutor explanations. Storage/consent/corrections/tools remain undesigned. Do not scaffold Lesson 11 or any later lesson without authorization.
 
 ## Lesson requirements
 
@@ -170,14 +207,14 @@ The instructor owns curriculum scope, sequencing, and release decisions. When th
 
 ## Lesson 9 implementation handoff (2026-10-06)
 
-Lesson 9 source, prose, notes, and narrated SVG/PNG frames are supplied. Root matches its reference source. `SHARE_COUNT` is the approved 200→100 tweak, shared by the prompt and structural check. The application uses a `ToolProvider` with typed `LossArguments` and a safe wrapper around the pinned `ToolOperation`; the SDK alone filters unknown names and supplies no request cap. Keep correlated unknown/excess errors and all-block handling. Bounds are eight applied work passes plus a possible terminal halt batch, four aggregate requests per user turn, and a 180-second run timeout; the engine owns the loop. Full partial state is shown on failure.
+Lesson 9 source, prose, notes, and narrated SVG/PNG frames are supplied. At that handoff root matched its reference source; root now runs Lesson 10. `SHARE_COUNT` is the approved 200→100 tweak, shared by the prompt and structural check. The application uses a `ToolProvider` with typed `LossArguments` and a safe wrapper around the pinned `ToolOperation`; the SDK alone filters unknown names and supplies no request cap. Keep correlated unknown/excess errors and all-block handling. Bounds are eight applied work passes plus a possible terminal halt batch, four aggregate requests per user turn, and a 180-second run timeout; the engine owns the loop. Full partial state is shown on failure.
 
 Eleven deterministic tests and build/lint checks passed; the local live endpoint was unavailable. Neither real selective-tool-use outcome nor the live 100-share tweak is validated. Start/supply a provider and record actual structure/explanation before requesting release review. Do not mark Lesson 9 Complete or implement future curriculum based on these tests.
 
 
 ### Lesson 9 output-order follow-up — 2026-10-06
 
-The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete or advance to Lesson 10.
+The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete. Lesson 10 was separately authorized on 2026-10-07.
 
 ### Lesson 9 terminal color follow-up — 2026-10-06
 
@@ -190,3 +227,10 @@ Bold every Session attribute name (including nested metadata, usage fields, and 
 ### Gold Session attributes — 2026-10-06
 
 Instructor found bold difficult to see and replaced it with gold (`#FFD700`) for every Session attribute name, including nested fields and quoted object keys. Values use the default foreground and are unbolded; only usage remains dimmed. Foreground-only reset preserves usage dimming. Root/reference match; 15 tests, formatting/check/Clippy, IDE build, and default colored live run passed. Plain fallback and complete snapshots remain intact; Lessons 7–8 unchanged. Live 100-share tweak and release review remain pending.
+
+
+### Earlier-exercise terminal styling — 2026-10-06
+
+Instructor requested Lesson 9's scheme for all earlier active coding exercises and made it the rule for future terminal-output code. Lessons 1–6 and 8 now use self-contained presentation helpers; prose, snippets, instructor notes, and README agree. Lesson 7 has no terminal code; root, Lesson 9, archived drafts, dependencies, and provider JSON are unchanged. Behavior, payload delimiters/labels/order, full Session values, and Lesson 8's no-fence exception remain intact.
+
+Each earlier coding reference passed formatting, check, Clippy, tests (33 in aggregate), and its documented run using the shared pinned manifest in temporary staging. Provider-calling references passed against the live local model in colored, redirected/plain, and empty-NO_COLOR modes. TERM=dumb and independent stdout/stderr gating were also checked. Lesson 6 returned a correlated `$100.00` and grounded final explanation; Lesson 8 retained complete gold-field Session snapshots with only top-level usage dimmed. The unchanged root separately passed its 15 tests, build/lint checks, and default live two-turn scenario. Lesson 9's live 100-share tweak and instructor release review remain pending; this styling update does not change curriculum status.

@@ -8,6 +8,7 @@ rust-version = "1.94.1"
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
+crossterm = { version = "=0.29.0", default-features = false, features = ["events"] }
 dotenvy = "0.15.7"
 futures = "0.3"
 goose-agent = "=0.1.0-alpha.11"

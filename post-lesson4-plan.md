@@ -22,7 +22,7 @@ The instructor subsequently authorized writing a detailed replacement plan for r
 
 The class uses complete code, not fill-in exercises: predict, run, explain, tweak, and compare. Lesson 7 has no source file. Lessons 8 and 9 have complete source in their numbered lesson directories plus prose and instructor notes. The former planned Lesson 9 is replaced by the combined conversation/tool lesson; Lessons 10–18 keep their numbers and later scope.
 
-On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied; on 2026-10-06 the instructor confirmed Lessons 7 and 8 are complete and ready to teach. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root then contained replacement Lesson 8; dependencies, provider configuration, and archived drafts remained unchanged. The instructor authorized Lesson 9 implementation on 2026-10-06. Root now contains its two-turn continuation; live-provider validation and instructor review are pending.
+On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied. The instructor’s 2026-10-07 clarification supersedes the earlier completion record: Lesson 7 is complete; Lessons 8 and 9 still need review. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root then contained replacement Lesson 8; dependencies, provider configuration, and archived drafts remained unchanged. The instructor authorized Lesson 9 implementation on 2026-10-06. Root then contained its two-turn continuation; the separately authorized Lesson 10 now occupies root. The default live scenario passed; the live 100-share tweak remains pending. Lessons 8 and 9 both await instructor review.
 
 ## Course application goal
 
@@ -272,38 +272,24 @@ Supporting technical cautions:
 - Inspect the exact tool adapter for unknown names, malformed arguments, correlated results, and multiple requests; do not assume registering a typed tool alone provides every Lesson 6 safety requirement.
 - Operations may contribute tools and prompt parts before inference and may read live external inputs as well as recorded state. The custom application does not need Goose's entire operation assembly.
 
-### Lesson 10: Domain instructions and capability boundary
+### Lesson 10: A selectable day-trading learning partner
 
-Define the actual assistant contract:
+**Implementation authorized and supplied (2026-10-07); instructor review pending.** Follow [README.md — Lesson 10 plan](README.md#lesson-10-plan--from-gdk-pieces-to-a-custom-learning-partner) for authoritative scope. This is the pivot from understanding the GDK pieces to building a custom agentic application focused on teaching day trading.
 
-- teach before or while analyzing;
-- distinguish evidence, assumptions, and model judgment;
-- present alternatives and uncertainty;
-- reach a final conclusion when asked;
-- explain what would change the conclusion;
-- never imply current data exists without a tool result;
-- never imply that an order was placed.
+- Supply a terminal lesson chooser, with **Getting started in day trading** first and fully authored; do not expose unfinished choices.
+- Combine the chosen lesson's objectives, reviewed domain material, teaching guidance, and scope with common tutor instructions. Selection is learner-controlled; no skill-discovery tool or RAG database is required.
+- Support a focused, interactive conversation: ask about experience, explain a small concept, invite participation, and respond to questions/misconceptions. Do not infer guaranteed mastery from a few replies.
+- Keep one Session across learner turns; the application waits for replies between GDK-owned runs. Provide an explicit finish action and fresh Session when starting a different lesson.
+- Supply the selector and input machinery. Only this limited interactive UI moves forward from Lesson 18; the general parser, provider/model options, and operational workflow remain later.
+- Preserve the no-execution capability boundary and applicable tool validation/limits. Teach that prompts influence behavior while capabilities limit actions; supplied educational context is not RAG.
 
-Teach that prompts influence behavior while capability design limits possible actions.
+Use Goose's tutorial extension as a reference pattern for authored content plus teaching guidance, not as a dependency or a reason to add an MCP server. Domain material and its sources require review during implementation. Lessons 8 and 9 still await instructor review; Lesson 9's live 100-share tweak remains pending. The instructor authorized Lesson 10 and root replacement after settling content files, controls, and the guidance tweak. Learner UI uses concise activity/results; complete plain diagnostics move to ignored root session-output.md, overwritten each launch and never read as learner memory. crossterm 0.29.0 supplies terminal selection, with numbered fallback. Do not infer review approval for earlier lessons.
 
-### Lesson 11: Evaluation baseline
+### Lesson 11: Persistent learner memory and agreed to-do list
 
-Create scenario-based checks before introducing live external data. Evaluate:
+The instructor revised this primary direction on 2026-10-07. Make the tutor useful over time through deliberate learner records across launches and a learner-agreed list of next learning activities. Separate discussed topics and stated goals from evidence in learner answers, unresolved questions, and agreed activities. Do not equate tutor explanations with mastery or readiness to trade.
 
-- correct tool selection;
-- not calling a calculator for conceptual questions;
-- argument validation;
-- deterministic correctness;
-- consistency between tool output and prose;
-- evidence and assumptions being visibly separated;
-- alternatives accompanying conclusions;
-- abstention when required data is absent;
-- no invented prices or sources;
-- no claim of order execution;
-- boundary retention across multiple turns;
-- latency, usage, and local-model constraints where useful.
-
-Prefer structural assertions and rubrics over exact generated prose. Maintain development and holdout scenarios to reduce prompt overfitting.
+Storage, consent/permissions, corrections, tools, and resumption details are not yet designed. Lesson 10's overwritten diagnostic file is not this memory system. Do not scaffold persistence before design and authorization. Structural and qualitative evaluation still matter throughout development, but the former evaluation-baseline-primary lesson is superseded.
 
 ### Lesson 12: Fixture-backed read-only market data
 
@@ -553,20 +539,20 @@ The public `goose-agent` source and tests currently provide important implementa
 
 ## Replacement lesson implementation handoff
 
-Lessons 1–8 are complete; **do not reimplement completed lessons**. Lesson 9 was authorized on 2026-10-06 and is implemented; live-provider validation and instructor review remain pending. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
+Lessons 1–7 are complete; Lessons 8 and 9 are implemented and still need instructor review (clarified 2026-10-07). **Do not reimplement these lessons.** Lesson 9's default live scenario passed; its live 100-share tweak remains pending. Lesson 10 implementation/root update were separately authorized and supplied on 2026-10-07; this does not release Lessons 8–9. Start with the [README replacement plan and handoff](README.md#implementation-handoff-and-review-gates), then read `AGENTS.md` and the mental-model reference. Confirm instructor authorization and the target lesson before writing lesson material.
 
 Read Git status/diffs, manifests/lock/toolchain/provider JSON, root source, and complete Lessons 3–6 plus instructor notes. Preserve unrelated changes. Archived Lessons 7–8 and `spike/state-machine/` are research/history only. Keep numeric prefixes and do not restore drafts wholesale.
 
 Review exact pinned `goose-agent` sources (`README.md`, `src/machine.rs`, `src/operation.rs`, `src/inference.rs`, `src/events.rs`, `src/tool.rs`), the provider/conversation/message types, RMCP typed tool interfaces, and official documentation before asserting behavior. Upstream source in the mental-model document is not necessarily identical to the pinned release. Do not upgrade dependencies as part of this planning change or without a separate decision.
 
-Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. The Lesson 8 root update is authorized and implemented, with minimal runtime/effect compatibility and concurrent event consumption/shutdown while keeping `StateMachine::run`. Follow the instructor decision to omit a Lesson 8 loop safeguard and add only the production-caution source comment. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Script two user turns; do not add an interactive CLI prematurely.
+Implement one authorized lesson at a time. Lesson 7 is prose/diagrams/instructor notes only and leaves root Rust unchanged. The Lesson 8 root update is authorized and implemented, with minimal runtime/effect compatibility and concurrent event consumption/shutdown while keeping `StateMachine::run`. Follow the instructor decision to omit a Lesson 8 loop safeguard and add only the production-caution source comment. Lesson 9 reuses that foundation, adds successive user inputs and the existing planned-loss capability, and preserves argument validation/correlation/request bounds. Lesson 9 scripts two user turns; the limited interactive chooser/reply loop is now authorized in Lesson 10, not the full later CLI.
 
 Complete coding-lesson source must be available from the outset. Document the shared-manifest/root run workflow, structural expected output, and small predict/run/tweak activity. After code changes run formatting, checking, linting, tests, and the lesson's live-provider command. Specifically validate live streaming in Lesson 8 and both selective tool-use outcomes in Lesson 9. Report unexpected or missing tool calls honestly. Unit tests and builds do not establish live-provider behavior, and successful validation does not replace instructor release approval.
 
 
 ### Lesson 9 implementation record — 2026-10-06
 
-The instructor authorized implementation. Complete lesson source, prose, notes, and six editable/rendered narrated frames are supplied under `lessons/09-machine-conversation-tools/`; root now contains that continuation. Completed Lessons 7–8 and withdrawn drafts remain unchanged. README remains authoritative.
+The instructor authorized implementation. Complete lesson source, prose, notes, and six editable/rendered narrated frames are supplied under `lessons/09-machine-conversation-tools/`; root contained that continuation at this handoff and now runs the separately authorized Lesson 10. Lesson 7 is complete; Lessons 8–9 await review. Withdrawn drafts remain unchanged. README remains authoritative.
 
 The selected SDK-compatible adapter uses `ToolProvider` plus typed `LossArguments`, retaining Lesson 6 text dollar results and exact validation without new dependencies. `SafeTools` wraps the shipped `ToolOperation`: unknown names are filtered by the pinned SDK, so the wrapper returns correlated errors for unknown/excess requests before delegating recognized/parse-error calls on re-evaluation. All current-turn content blocks are scanned. Bounds: eight applied work passes plus a possible terminal halt batch; four aggregate requests per user turn; 180 seconds per run. Empty/duplicate IDs halt rather than fabricate correlation. These are application decisions, not SDK guarantees; timeout/pass limits can leave visible partial state. The GDK-owned `StateMachine::run` remains intact.
 
@@ -575,4 +561,9 @@ Formatting, check, Clippy, eleven tests, and IDE build passed. The default live 
 
 ### Lesson 9 output-order follow-up — 2026-10-06
 
-The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete or advance to Lesson 10.
+The reconstructed request now displays through the shared Event queue after saving and before the correlated tool result/final answer, rather than being reprinted by post-run validation. A presentation-only marker is never persisted or included in provider input. All 12 tests and build/lint checks pass. The provider became available and the default live two-turn scenario passed: no first-turn call; one correlated second-turn calculator request/result, `$100.00`, then a grounded final explanation with exclusions. Initial endpoint-unavailable records above are historical. The live 100-share tweak and instructor review remain pending; do not mark Lesson 9 Complete. Lesson 10 was separately authorized on 2026-10-07.
+
+
+### Lesson 10 implementation record — 2026-10-07
+
+Lesson 10/root and content/prose/instructor notes are supplied; README remains authoritative. Twenty tests and build/lint/format checks passed, with live continuing teaching conversation, optional correlated `$100.00` calculation, arrow/plain/NO_COLOR/dumb UI, commands/EOF, and complete plain Markdown diagnostics. The guidance tweak was loaded but example-before-check ordering remains inconclusive. Instructor review of content and teaching is pending. Earlier lesson review/live-tweak gates remain unchanged. See the Lesson 10 validation record for details; no learner persistence was implemented.

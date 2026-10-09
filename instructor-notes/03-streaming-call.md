@@ -44,6 +44,20 @@ Introduce the first inference request while connecting it to Lesson 1's applicat
 - A partial update is not a complete retained conversation message; this distinction becomes important in Lessons 4 and 5.
 - Do not introduce tool requests in detail yet.
 
+## Terminal presentation guidance
+
+- Point out bold cyan application headings and the green connection check; the actual streamed answer and metadata values stay normal. Usage is not dimmed.
+- Headings keep their existing destinations (including the streaming heading on stderr). The supplied `main` wrapper prints fatal errors once in bold red on stderr and exits 1.
+- stdout and stderr are gated independently by `IsTerminal`; redirected output, a present `NO_COLOR` (including empty), or `TERM=dumb` disables styling. Plain output has the same strings and layout.
+- Treat the local presentation helpers and error wrapper as supplied support, not a Rust fill-in exercise. There are no new printed user-input sites or payload fences; color is not protocol data or a validation criterion.
+
 ## Checkpoint
 
 Learners receive streamed text, observe completion metadata, and identify the provider, selected model, system instruction, user message, stream, and partial message values.
+
+
+## Terminal styling validation — 2026-10-06
+
+- Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (2 tests). Root source and dependencies were not replaced.
+- Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified with error-output probes; errors retained exit status 1 and terminal stderr was bold red.
+- The live exchange returned streamed text and complete undimmed usage metadata identifying the answering model.

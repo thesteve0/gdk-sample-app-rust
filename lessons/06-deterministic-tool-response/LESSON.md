@@ -78,6 +78,14 @@ The model may request a capability, but the application authorizes and executes 
 - The provider JSON declares the first model to select, as in Lessons 3–5.
 - The system instruction, user prompt, and advertised tool definition are unchanged from Lesson 5.
 
+## Supplied terminal presentation helpers
+
+**Terminal styling** makes the existing actor and payload roles easier to follow without changing the protocol. The complete reference supplies the same self-contained `TextStyle`, `styled`, `print_heading`, `print_status`, `print_warning`, and `print_indented_styled` helpers as Lesson 5; do not reconstruct them as an exercise. They style only printed copies, never messages, tool arguments/results, or provider input.
+
+Headings and ordinary actor labels are bold cyan; the separately displayed current human input is blue; reconstructed tool-request labels and payloads are magenta; correlated tool-response labels and payloads and success statuses are green; warnings/nonfatal diagnostics are yellow; fatal errors on stderr are bold red. An error returned to the model is still a correlated **tool response**, so its display is green rather than a fatal stderr error. Live model prose, reconstructed prose, the system instruction, advertised definition, and full outbound-history summary keep the default foreground. In particular, the assistant's earlier output does not become blue just because it is resubmitted. Raw-provider usage summaries are **not dimmed**; there is no Session usage section here.
+
+Stdout and stderr are checked independently with `IsTerminal`. Redirected streams, the presence of `NO_COLOR` (even an empty value), and `TERM=dumb` disable styling. Every styled line resets completely before the next label, value, or model fragment. The supplied `main` wrapper styles fatal errors using stderr's setting and keeps a nonzero exit status. Fences, actor labels, wording, spacing, and order still distinguish roles without color; plain transcripts contain no application-added ANSI escapes.
+
 ## Step 6.1: From a pending request to a result
 
 A **tool response** is the application's answer to one tool request. It carries the result the model needs and the request ID that links it to the request that caused it. Until this lesson, the application could only inspect a request; now it answers one.
@@ -262,6 +270,24 @@ Two facts matter here:
 1. **The role is user, but the effective role is tool.** **Effective role** is the role a message plays on the wire, as distinct from the role field stored on the message. The GDK convention is that tool results ride in user-role messages, and the provider serializes them as `role=tool` messages with a `tool_call_id`. The lesson's outbound view prints both roles so the convention is visible.
 2. **The request ID is the correlation key.** Lesson 5 defined the correlation ID as the request ID that links a later response to one specific request. The response attaches `request.id` unchanged. The provider matches results to requests through IDs — never by order, and never by tool name. That is why the program answers every request, in order, each with its own correlated response, and why a response must never be built from anything but the request's own ID.
 
+The supplied dispatch display uses the tool-response style only when printing, then saves the unchanged result:
+
+```rust
+print_styled(
+    &format!(
+        "  ✓ request {} → deterministic result (application, as the tool → provider)",
+        request.id
+    ),
+    TextStyle::Green,
+);
+print_delimiter();
+print_indented_styled(&text, "    ", TextStyle::Green);
+print_delimiter();
+history.push(Message::user().with_tool_response(request.id.clone(), result));
+```
+
+Here `text` is the display text collected from the successful response; `result` is still the original protocol value. The error-result branch uses the same green presentation without changing its reason or correlation ID.
+
 A successful response carries the deterministic text — `"$100.00"` — as its content. A failed request carries an error result with a reason. The main loop prints which happened for each request ID — labeled `application, as the tool → provider` — and prints the value itself between payload delimiters, so the dispatch and its direction are observable in the terminal.
 
 ## Step 6.6: The stateless follow-up call and the round bound
@@ -322,6 +348,8 @@ In `main.rs` the convention is one constant and one helper: `PAYLOAD_DELIMITER` 
 
 ## Expected structural behavior
 
+- Terminal colors follow the supplied role mapping above; plain output retains all fences, actor labels, and ordering. Usage is not dimmed.
+
 - The run prints seven labeled phases: sending, round 1 streaming, round 1 metadata, round 1 reconstructed messages, validate/dispatch/respond, round 2, and the closing where-the-run-ends summary.
 - The sending phase prints the same outbound payload view as Lesson 5 — system instruction, user message, and the advertised tool definition — between payload delimiters, labeled `application → provider`.
 - Round 1 streams and reconstructs exactly as in Lesson 5, including the compact usage line and full inspection of every content block, with each content block between payload delimiters, labeled `provider → application`.
@@ -342,7 +370,7 @@ In `main.rs` the convention is one constant and one helper: `PAYLOAD_DELIMITER` 
 - Each request receives exactly one user-role tool response carrying that request's ID; the provider can correlate result to request by ID alone.
 - The follow-up call resends the entire history — user message, assistant tool-request message(s), tool response(s) — to the stateless provider.
 - The program performs exactly two inference rounds and reports the bound when the model re-requests in round 2.
-- Unit tests cover the exact scenario result (`$100.00`), single-decimal inputs, unknown fields, non-string prices, more than four decimal places, entry at or below stop, non-positive prices and shares, non-allowlisted names, and calls with no arguments — all without a live provider.
+- Unit tests cover the exact scenario result (`$100.00`), single-decimal inputs, unknown fields, non-string prices, more than four decimal places, entry at or below stop, non-positive prices and shares, non-allowlisted names, and calls with no arguments — all without a live provider. Presentation tests also check exact style mappings/resets, plain fallback, and the terminal/`NO_COLOR`/`TERM=dumb` gating combinations.
 
 ## Live validation
 

@@ -22,6 +22,12 @@ Build on the application-owned workflow established in Lessons 1–4 and make th
 - Re-run the live scenario against the exact classroom provider/model. Native `maximum_planned_loss` requests have been observed with `entry_price="51.20"`, `stop_price="50.70"`, and `share_count=200`, but this is compatibility evidence rather than a guarantee for every provider/model/run.
 - Use the same hypothetical scenario. Lesson 6 will calculate `100.00` before fees, slippage, or a gap through the stop.
 
+## Terminal color guidance
+
+The reference supplies presentation helpers; do not turn them into a Rust scaffolding exercise. On a color-capable terminal, point out bold cyan headings/ordinary actor labels, blue current human input, magenta reconstructed tool requests, green success statuses, yellow warnings/nonfatal diagnostics, and bold red fatal errors on stderr. Live model text remains normal, as do the system instruction, advertised definition, and reconstructed prose. Raw-provider usage is never dimmed; these lessons have no Session usage section. The full history is not blue, and styling never enters protocol messages or arguments/results.
+
+Use the actor text and `++++++++` fences as the primary explanation; color is supplementary. Stdout and stderr have independent terminal checks. Redirected output, `NO_COLOR` presence (including an empty value), and `TERM=dumb` produce the same plain text without application-added ANSI escapes. Each styled line resets so later model fragments cannot inherit color. The supplied error wrapper retains failure exit status. Before class, validate both terminal-colored and plain/disabled-color output alongside the existing live structural checks; deterministic presentation tests cover mappings, resets, plain fallback, and gating, not live model behavior.
+
 ## Discussion prompts
 
 - Why is a deterministic Rust calculation preferable to trusting model-generated arithmetic?
@@ -67,3 +73,10 @@ Learners define one narrowly advertised deterministic tool schema, advertise it 
 ## Transition to Lesson 6
 
 Lesson 6 carries the assistant-role tool-request message forward, treats the model-generated name and arguments as untrusted input, validates and allowlists the call, parses decimal strings exactly, executes the deterministic calculation, sends a correlated user-role response using the request ID, and requests the final educational explanation with the fees, slippage, and gap-through-stop exclusions.
+
+
+## Terminal styling validation — 2026-10-06
+
+- Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (3 tests). Root source and dependencies were not replaced.
+- Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified with error-output probes; errors retained exit status 1 and terminal stderr was bold red.
+- The live provider produced a structured `maximum_planned_loss` request for decimal-string prices `51.20`/`50.70` and 200 shares. The program stopped before dispatch as intended.

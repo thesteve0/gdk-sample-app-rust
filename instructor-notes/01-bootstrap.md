@@ -41,6 +41,19 @@ Give learners a clean, understandable Rust project and a mental model before pro
 - Do not turn the lesson into a general Rust, package-management, linting, or async course.
 - The repository may be newer than this snapshot; verify pinned versions and commands before teaching.
 
+## Terminal presentation guidance
+
+- Point out the green greeting as a success cue, not a new application responsibility.
+- Supply the complete reference, including its small presentation helpers; do not teach or assign their implementation in bootstrap.
+- The greeting becomes identical plain text for redirected stdout, a present `NO_COLOR` (including an empty value), or `TERM=dumb`. Color must never be a success criterion.
+
 ## Checkpoint
 
 Learners can explain at a high level how the application, provider, model, conversation history, tools, and later agentic loop relate; identify the application's safety boundary; run the documented command; observe that it succeeds without a local `.env`; and explain why the bootstrap program calls `dotenvy::dotenv().ok()`. They can also explain `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `src/main.rs`, and `.env.example`.
+
+
+## Terminal styling validation — 2026-10-06
+
+- Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (2 tests). Root source and dependencies were not replaced.
+- Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified.
+- The bootstrap greeting remained identical in plain text and green on a terminal; no provider request is part of this exercise.

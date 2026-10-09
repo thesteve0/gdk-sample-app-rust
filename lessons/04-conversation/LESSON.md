@@ -34,6 +34,12 @@ For now, the program reconstructs only the first response's text because that is
 - Lessons 1–3 are complete.
 - The selected provider streams text and accepts ordinary user/assistant-role history.
 
+## Terminal presentation (supplied support)
+
+Supplied **terminal presentation helpers** color the two response headings bold cyan and errors bold red on stderr. Streamed model text and usage metadata remain normal; nothing is dimmed. Each output stream independently uses plain text when redirected, when `NO_COLOR` is present (even empty), or when `TERM=dumb`. Existing text, spacing, and stdout/stderr destinations are unchanged. These helpers are provided in the complete standalone reference; learners do not need to implement them.
+
+The supplied `main` wrapper displays a returned error once and exits with status 1; the lesson's fallible work remains in `run_application`. This keeps errors under application presentation control rather than Rust's default runtime formatting.
+
 ## Step 4.1: Name the system instruction
 
 ```rust
@@ -123,6 +129,7 @@ The `messages` vector is the application's in-memory conversation history. It st
 let mut messages = vec![Message::user()
     .with_text("What is the capital of France?")];
 
+print_heading("Model response (assistant role, turn 1):");
 let first_response = stream_response(provider.as_ref(), &model, &messages).await?;
 ```
 
@@ -135,6 +142,9 @@ messages.extend([
     Message::assistant().with_text(first_response),
     Message::user().with_text("Tell me the historical origin of this city. Write no more than 2 sentences"),
 ]);
+
+print_heading("\nModel response (assistant role, turn 2):");
+stream_response(provider.as_ref(), &model, &messages).await?;
 ```
 
 The second request receives all three entries, in order: original user question, assistant-role response, follow-up user question. The application owns this history; the provider object does not preserve it for later calls.

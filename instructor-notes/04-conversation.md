@@ -55,6 +55,13 @@ The lesson mentions prompt caching only in passing: some servers cache an identi
 
 This is a server-side optimization layered on top of a correct, simple contract: the application always re-sends the full instruction.
 
+## Terminal presentation guidance
+
+- The two response headings are bold cyan; streamed model text and usage metadata stay normal, with no dimming.
+- The supplied `main` wrapper prints fatal errors once in bold red on stderr and exits 1; history and streaming behavior are unchanged.
+- stdout and stderr are gated independently by `IsTerminal`; redirected output, a present `NO_COLOR` (including empty), or `TERM=dumb` disables styling. Plain output has the same strings and layout.
+- Treat the local presentation helpers and error wrapper as supplied support, not a Rust fill-in exercise. There are no new printed user-input sites or payload fences; color is not protocol data or a validation criterion.
+
 ## Checkpoint
 
 Learners distinguish system instructions from history, reconstruct the first response, append it as an assistant-role turn, and make a context-dependent follow-up call.
@@ -64,3 +71,10 @@ Learners distinguish system instructions from history, reconstruct the first res
 The next lesson does not add model-selection CLI plumbing. It changes to the day-trading teaching-assistant domain and introduces a deterministic maximum-planned-loss tool at the raw provider boundary. Use entry `51.20`, stop `50.70`, and 200 shares; the exact result is `100.00` before fees, slippage, or a gap through the stop.
 
 Keep Lesson 5 deliberately narrow: define and advertise the tool, inspect all returned content blocks, recognize a structured request, and preserve its ID. Do not execute it yet. That pause lets learners see that the model proposes a capability call while the application remains responsible for authorization and dispatch. Lesson 6 performs validation, execution, the correlated user-role response, and follow-up inference.
+
+
+## Terminal styling validation — 2026-10-06
+
+- Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (2 tests). Root source and dependencies were not replaced.
+- Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified with error-output probes; errors retained exit status 1 and terminal stderr was bold red.
+- Both live inference calls returned text and completion usage; the follow-up used the retained first exchange.

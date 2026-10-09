@@ -12,7 +12,7 @@ The [complete supplied implementation](src/main.rs) is ready from the outset. We
 - Use the repository's pinned Rust toolchain and shared root manifest. `goose-agent` and `goose-providers` are **0.1.0-alpha.11**; no dependency change is needed.
 - Have a live streaming provider. The bundled JSON is a replaceable default, not a required service.
 
-The root working copy now contains this lesson. To restore its reference after another exercise, run from the repository root (save any root edits first):
+The root working copy now contains Lesson 9. To run this earlier reference, use the shared root workflow (save any root edits first):
 
 ```bash
 cp lessons/08-machine-request-response/src/main.rs src/main.rs
@@ -40,6 +40,8 @@ The supplied `MachineSession` implementation exposes the ID and conversation. `S
 **Predict:** BEFORE contains one user question. What must AFTER contain for re-evaluation to stop? Run the program now and compare the two views.
 
 Before the first Session view, the application prints the configured operations in evaluation order. Names come from the actual steps supplied to the machine; this lesson has one inference step named `llm`. **That name is hard-wired by the GDK-provided `InferenceRunner`; we do not assign it.** It identifies the Operation, not the configured provider or model. The `Session before` and `Session after` headings identify recorded-state views. Each field name is followed by its value: `id`, `conversation`, and `usage`, including every nested message field and its metadata. Absent values (`None`), false flags, and empty collections remain visible. These are application-owned snapshots, not exact prepared provider requests.
+
+**Terminal styling** is presentation-only color that helps distinguish application labels from recorded values. As in Lesson 9, headings and actor labels are bold cyan; every Session attribute name is gold (`#FFD700`), including nested metadata and quoted object keys. Values remain in the default foreground, unbolded. Only the top-level Session `usage` section is dimmed; conversation metadata, including any nested usage, is not dimmed. Live model text stays in the default foreground. Errors are bold red on stderr. These supplied helpers do not change Events, Effects, saved data, or provider input and are not a formatter-writing exercise. Output is plain when its stream is redirected, `NO_COLOR` is set (even empty), or `TERM=dumb`. The excerpt below shows that plain output.
 
 The display uses Rust's expanded field formatting so serialization does not silently omit absent/default metadata fields. The supplied helper prints the Session fields explicitly and expands their values; learners do not need to implement a formatter. Two blank lines after each raw Session dump separate its Rust field values from the next narrative label. There are no payload fences or repeated commentary lines.
 

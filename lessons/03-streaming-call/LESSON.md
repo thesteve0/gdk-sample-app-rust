@@ -40,6 +40,12 @@ This is **not yet an agentic loop**. The application makes one inference request
 - The configured provider supports streaming and is reachable.
 - The selected provider JSON contains at least one model.
 
+## Terminal presentation (supplied support)
+
+Supplied **terminal presentation helpers** color application headings bold cyan and the successful connection check green. Errors are bold red on stderr. Streamed model text and metadata values remain normal; usage is not dimmed. Each output stream independently uses plain text when redirected, when `NO_COLOR` is present (even empty), or when `TERM=dumb`. Existing text, spacing, and stdout/stderr destinations are unchanged. These helpers are provided in the complete standalone reference; learners do not need to implement them.
+
+The supplied `main` wrapper displays a returned error once and exits with status 1; the lesson's fallible work remains in `run_application`. This keeps errors under application presentation control rather than Rust's default runtime formatting.
+
 ## Step 3.1: Import the native provider types
 
 ```rust
@@ -64,8 +70,8 @@ let available_models = provider.fetch_supported_models().await?;
 if available_models.is_empty() {
     return Err("Provider is reachable but returned no models".into());
 }
-println!("Connected to provider: {}", provider.get_name());
-println!("Available models:");
+print_status(&format!("Connected to provider: {}", provider.get_name()));
+print_heading("Available models:");
 for model_name in &available_models {
     println!("- {}", model_name);
 }
@@ -108,6 +114,7 @@ let mut stream = provider
         &[],
     )
     .await?;
+print_stderr_heading("\n-------------------------\nStreaming response...");
 
 while let Some((message, usage)) = stream.next().await.transpose()? {
     if let Some(message) = message {
@@ -116,8 +123,24 @@ while let Some((message, usage)) = stream.next().await.transpose()? {
     if let Some(usage) = usage {
         // The streamed usage reports the model the server actually used to
         // answer, which can differ from the one we requested.
-        println!("\nThe model that answered: {}", usage.model);
-        eprintln!("usage: {:#?}", usage);
+        println!(
+            "{} {}",
+            styled(
+                "\n-------------------------\nThe model that answered:",
+                TextStyle::Heading,
+                stdout_color_enabled()
+            ),
+            usage.model
+        );
+        eprintln!(
+            "{} {:#?}",
+            styled(
+                "-------------------------\nFull usage metadata response:",
+                TextStyle::Heading,
+                terminal_color_enabled(io::stderr().is_terminal())
+            ),
+            usage
+        );
     }
 }
 ```

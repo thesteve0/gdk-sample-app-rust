@@ -47,6 +47,12 @@ For the configured OpenAI-compatible provider, `fetch_supported_models()` querie
 - The exact `goose-providers` dependency from the root manifest is available.
 - A compatible provider is running at the selected JSON configuration's `base_url` when its configuration uses dynamic model discovery.
 
+## Terminal presentation (supplied support)
+
+Supplied **terminal presentation helpers** color application headings bold cyan, successful connection/model checks green, and the existing model-mismatch warning yellow. Errors are bold red on stderr. Model IDs and other metadata remain normal; nothing is dimmed. Each output stream independently uses plain text when redirected, when `NO_COLOR` is present (even empty), or when `TERM=dumb`. Existing text, spacing, and stdout/stderr destinations are unchanged. These helpers are provided in the complete standalone reference; learners do not need to implement them.
+
+The supplied `main` wrapper displays a returned error once and exits with status 1; the lesson's fallible work remains in `run_application`. This keeps errors under application presentation control rather than Rust's default runtime formatting.
+
 ## Step 2.1: Load environment and configuration
 
 Start with the imports and default path:
@@ -69,18 +75,30 @@ let provider = from_json(&provider_json, None, EnvKeyResolver {})?;
 
 ## Step 2.2: Discover models through the provider
 
-Model discovery is asynchronous because it may make a network request. Make the entry point asynchronous with Tokio, then call the provider method:
+Model discovery is asynchronous because it may make a network request. Tokio drives the asynchronous entry point; its supplied wrapper presents errors. Call the provider method from the fallible application function:
 
 ```rust
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() {
+    if let Err(error) = run_application().await {
+        print_error(&format!("Error: {:?}", error));
+        std::process::exit(1);
+    }
+}
+
+async fn run_application() -> Result<(), Box<dyn Error>> {
     // ... load environment and construct `provider`
     let available_models = provider.fetch_supported_models().await?;
 
     if available_models.is_empty() {
-        return Err("Provider returned no models".into());
+        return Err("Provider is reachable but returned no models".into());
     }
-    // ... print the names
+    print_status(&format!("Connected to provider: {}", provider.get_name()));
+    print_heading("Available models:");
+    for model_name in &available_models {
+        println!("- {}", model_name);
+    }
+    // ... compare the first configured model with the advertised IDs
     Ok(())
 }
 ```

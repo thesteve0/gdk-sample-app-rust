@@ -1,4 +1,11 @@
-use std::{env, error::Error, fs, path::PathBuf, sync::Arc};
+use std::{
+    env,
+    error::Error,
+    fs,
+    io::{self, IsTerminal},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use futures::StreamExt;
 use goose_providers::{
@@ -33,7 +40,15 @@ const SYSTEM_INSTRUCTION: &str = "You are a day-trading teaching assistant. For 
 const USER_PROMPT: &str = "A hypothetical long trade enters at $51.20, uses a stop at $50.70, and has 200 shares. What is the maximum planned loss?";
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() {
+    // Style fatal errors on stderr and retain the failing exit status.
+    if let Err(error) = run_application().await {
+        print_error(&format!("Error: {:?}", error));
+        std::process::exit(1);
+    }
+}
+
+async fn run_application() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv().ok();
 
     let provider_config_path = provider_config_path()?;
@@ -50,26 +65,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Phase 1: what the application sends in round 1. The tool is advertised,
     // never run. The full outbound payload is these prompts plus the advertised
     // tool definition: the entire context the model sees in the first call.
-    println!("── Sending ─────────────────────────────────────────────");
+    print_heading("── Sending ─────────────────────────────────────────────");
     println!("1 user message; advertising 1 tool: {}", TOOL_NAME);
-    println!("\nOutbound payload sent with this call (application → provider), quoted in full:");
+    print_heading(
+        "\nOutbound payload sent with this call (application → provider), quoted in full:",
+    );
     print_delimiter();
     println!("  system instruction:");
     print_indented(SYSTEM_INSTRUCTION, "    > ");
     println!("  user message:");
-    print_indented(USER_PROMPT, "    > ");
+    print_indented_styled(USER_PROMPT, "    > ", TextStyle::Blue);
     print_tool_definition(&tools[0])?;
     print_delimiter();
 
     // Phase 2: round 1 — the model may request the tool.
-    println!("\n── Round 1: streaming response deltas (provider → application) ──");
+    print_heading("\n── Round 1: streaming response deltas (provider → application) ──");
     let (conversation, round1_usage) =
         stream_and_collect(provider.as_ref(), &model, &first_messages, &tools).await?;
     print_usage_summary(&round1_usage);
 
     // Phase 3: inspect every reconstructed block, exactly as in Lesson 5.
-    println!(
-        "\n── Round 1 reconstructed messages (provider → application, after Conversation::push) ──"
+    print_heading(
+        "\n── Round 1 reconstructed messages (provider → application, after Conversation::push) ──",
     );
     inspect_reconstructed(&conversation)?;
 
@@ -87,7 +104,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut history = vec![Message::user().with_text(USER_PROMPT)];
     history.extend(conversation.messages().iter().cloned());
 
-    println!("\n── Validate, dispatch, and respond ─────────────────────");
+    print_heading("\n── Validate, dispatch, and respond ─────────────────────");
     for request in pending {
         let result = execute_allowed_tool(&request.tool_call);
         match &result {
@@ -98,21 +115,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         text.push_str(&content.text);
                     }
                 }
-                println!(
-                    "  ✓ request {} → deterministic result (application, as the tool → provider)",
-                    request.id
-                );
+                print_styled(&format!("  ✓ request {} → deterministic result (application, as the tool → provider)", request.id), TextStyle::Green);
                 print_delimiter();
-                print_indented(&text, "    ");
+                print_indented_styled(&text, "    ", TextStyle::Green);
                 print_delimiter();
             }
             Err(error) => {
-                println!(
-                    "  ✗ request {} → error result (application, as the tool → provider)",
-                    request.id
+                // An error result is still a tool response, not a fatal runtime error.
+                print_styled(
+                    &format!(
+                        "  ✗ request {} → error result (application, as the tool → provider)",
+                        request.id
+                    ),
+                    TextStyle::Green,
                 );
                 print_delimiter();
-                print_indented(&error.message, "    ");
+                print_indented_styled(&error.message, "    ", TextStyle::Green);
                 print_delimiter();
             }
         }
@@ -123,9 +141,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Phase 5: round 2 — the stateless follow-up call.
-    println!("\n── Round 2: the stateless follow-up call ───────────────");
+    print_heading("\n── Round 2: the stateless follow-up call ───────────────");
     print_outbound_history(&history, tools.len());
-    println!("\nFinal educational answer (provider → application, streaming):");
+    print_heading("\nFinal educational answer (provider → application, streaming):");
     let (final_conversation, round2_usage) =
         stream_and_collect(provider.as_ref(), &model, &history, &tools).await?;
     print_usage_summary(&round2_usage);
@@ -182,7 +200,7 @@ async fn stream_and_collect(
         println!();
         print_delimiter();
     } else {
-        println!(
+        print_warning(
             "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
         );
     }
@@ -194,9 +212,9 @@ async fn stream_and_collect(
 /// means the model ended its turn expecting a tool result: display it, never
 /// act on it. This lesson acts on the request itself, not the finish reason.
 fn print_usage_summary(usage: &Option<ProviderUsage>) {
-    println!("\n── Relevant response metadata (Usage block of the response) ──");
+    print_heading("\n── Relevant response metadata (Usage block of the response) ──");
     let Some(usage) = usage else {
-        println!("(no usage telemetry was provided by the provider)");
+        print_warning("(no usage telemetry was provided by the provider)");
         return;
     };
     let input_tokens = match usage.usage.input_tokens {
@@ -236,45 +254,57 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<(), Box<dyn Erro
             let label = format!("block {}/{}:", block_index + 1, message.content.len());
 
             if let Some(request) = block.as_tool_request() {
-                println!(
-                    "  {} ToolRequest — the model asks the application to run a tool",
-                    label
+                print_styled(
+                    &format!(
+                        "  {} ToolRequest — the model asks the application to run a tool",
+                        label
+                    ),
+                    TextStyle::Magenta,
                 );
                 print_delimiter();
                 // The request ID is the correlation ID: the response below must
                 // attach it so the provider can match result to request.
-                println!("    request id (correlation ID): {}", request.id);
+                print_styled(
+                    &format!("    request id (correlation ID): {}", request.id),
+                    TextStyle::Magenta,
+                );
                 // `tool_call` is a Result: tool-call parsing can fail inside a
                 // request, so never blindly unwrap it.
                 match &request.tool_call {
                     Ok(call) => {
-                        println!("    tool name: {}", call.name);
-                        println!(
-                            "    arguments (untrusted model output; JSON object, order not guaranteed):"
+                        print_styled(&format!("    tool name: {}", call.name), TextStyle::Magenta);
+                        print_styled(
+                            "    arguments (untrusted model output; JSON object, order not guaranteed):",
+                            TextStyle::Magenta,
                         );
                         match &call.arguments {
-                            Some(arguments) => {
-                                print_indented(&serde_json::to_string_pretty(arguments)?, "      ")
-                            }
-                            None => println!("      (none)"),
+                            Some(arguments) => print_indented_styled(
+                                &serde_json::to_string_pretty(arguments)?,
+                                "      ",
+                                TextStyle::Magenta,
+                            ),
+                            None => print_styled("      (none)", TextStyle::Magenta),
                         }
                     }
                     Err(error) => {
-                        println!(
-                            "    unparseable call (reported without panicking): {}",
-                            error
+                        print_styled(
+                            &format!(
+                                "    unparseable call (reported without panicking): {}",
+                                error
+                            ),
+                            TextStyle::Magenta,
                         );
                     }
                 }
                 print_delimiter();
             } else if let Some(thinking) = block.as_thinking() {
-                println!("  {} Thinking block — Not ground truth", label);
+                print_warning(&format!("  {} Thinking block — Not ground truth", label));
                 print_delimiter();
                 print_indented(&thinking.thinking, "             ");
                 print_delimiter();
             } else if let Some(text) = block.as_text() {
                 if !text.trim().is_empty() {
-                    println!("  {} Text", label);
+                    print_heading(&format!("  {} Text", label));
                     print_delimiter();
                     print_indented(text, "    ");
                     print_delimiter();
@@ -434,11 +464,11 @@ fn parse_price(field: &str, raw: &str) -> Result<Decimal, String> {
 /// response has effective role `tool` — the role the provider serializes it as.
 fn print_outbound_history(history: &[Message], advertised_tool_count: usize) {
     println!("The provider is stateless: the follow-up call resends the entire history.");
-    println!(
+    print_heading(&format!(
         "outbound (application → provider): {} advertised tool(s) and {} message(s):",
         advertised_tool_count,
         history.len()
-    );
+    ));
     for (index, message) in history.iter().enumerate() {
         let mut descriptions: Vec<String> = Vec::new();
         for block in &message.content {
@@ -477,8 +507,8 @@ fn describe_block(block: &MessageContentBlock) -> String {
 /// The no-request path: advertising a tool permits a request but does not
 /// cause one. Without a request there is nothing to execute and no round trip.
 fn print_stopped_without_request() {
-    println!("\n── We stopped here ─────────────────────────────────────");
-    println!("No tool request arrived, so the Lesson 6 round trip could not begin:");
+    print_heading("\n── We stopped here ─────────────────────────────────────");
+    print_warning("No tool request arrived, so the Lesson 6 round trip could not begin:");
     println!("nothing executed, no tool response was created, and no follow-up call");
     println!("was made. The complete assistant-role message is retained in memory only");
     println!("for this run; the program performs no second inference round.");
@@ -488,7 +518,7 @@ fn print_stopped_without_request() {
 /// this run reached. With a streamed final answer and no re-request, the cycle
 /// is complete; with a re-request, the run stops at its explicit two-round bound.
 fn print_where_the_run_ends(final_round_had_no_request: bool) {
-    println!("\n── Where this run ends ─────────────────────────────────");
+    print_heading("\n── Where this run ends ─────────────────────────────────");
     println!("The full request/response cycle for a tool-using turn:");
     println!("  1. send system instruction + user message (+ the advertised tool)");
     println!("  2. model responds with thinking + a tool request");
@@ -498,7 +528,7 @@ fn print_where_the_run_ends(final_round_had_no_request: bool) {
     println!();
 
     if final_round_had_no_request {
-        println!("This run completed steps 3–5. The tool response carried only the");
+        print_status("This run completed steps 3–5. The tool response carried only the");
         println!("deterministic number; the streamed answer above is the model's");
         println!("follow-up explanation built on that result. The tool description told");
         println!("the model the calculation excludes fees, slippage, and a gap through");
@@ -507,11 +537,81 @@ fn print_where_the_run_ends(final_round_had_no_request: bool) {
         println!("performs exactly two inference rounds by construction, not an open");
         println!("agent loop; Lesson 7 replaces this fixed structure with a state machine.");
     } else {
-        println!("The model requested a tool again in round 2. This lesson performs exactly");
+        print_warning("The model requested a tool again in round 2. This lesson performs exactly");
         println!("two inference rounds and dispatches only the requests received in round 1,");
         println!("so the run stops at that bound instead of looping. Lesson 7 replaces this");
         println!("fixed two-round structure with a state machine.");
     }
+}
+
+// Terminal styling is presentation only; redirected transcripts contain no ANSI codes.
+#[derive(Clone, Copy)]
+enum TextStyle {
+    Heading,
+    Blue,
+    Magenta,
+    Green,
+    Yellow,
+    Error,
+}
+
+fn color_enabled(is_terminal: bool, no_color: bool, dumb_terminal: bool) -> bool {
+    is_terminal && !no_color && !dumb_terminal
+}
+
+fn terminal_color_enabled(is_terminal: bool) -> bool {
+    let no_color = env::var_os("NO_COLOR").is_some();
+    let dumb_terminal = env::var_os("TERM") == Some("dumb".into());
+    color_enabled(is_terminal, no_color, dumb_terminal)
+}
+
+fn stdout_color_enabled() -> bool {
+    terminal_color_enabled(io::stdout().is_terminal())
+}
+
+fn styled(text: &str, style: TextStyle, enabled: bool) -> String {
+    if !enabled {
+        return text.to_string();
+    }
+    let code = match style {
+        TextStyle::Heading => "1;36",
+        TextStyle::Blue => "34",
+        TextStyle::Magenta => "35",
+        TextStyle::Green => "32",
+        TextStyle::Yellow => "33",
+        TextStyle::Error => "1;31",
+    };
+    format!("\x1b[{}m{}\x1b[0m", code, text)
+}
+
+fn print_heading(text: &str) {
+    println!(
+        "{}",
+        styled(text, TextStyle::Heading, stdout_color_enabled())
+    );
+}
+
+fn print_status(text: &str) {
+    print_styled(text, TextStyle::Green);
+}
+
+fn print_styled(text: &str, style: TextStyle) {
+    println!("{}", styled(text, style, stdout_color_enabled()));
+}
+
+fn print_indented_styled(text: &str, indent: &str, style: TextStyle) {
+    for line in text.lines() {
+        print_styled(&format!("{}{}", indent, line), style);
+    }
+}
+
+fn print_warning(text: &str) {
+    print_styled(text, TextStyle::Yellow);
+}
+
+fn print_error(text: &str) {
+    let enabled = terminal_color_enabled(io::stderr().is_terminal());
+    eprintln!("{}", styled(text, TextStyle::Error, enabled));
 }
 
 /// Print one payload delimiter line. Every payload block opens and closes
@@ -617,6 +717,38 @@ fn first_configured_model(provider_config: &Value) -> Result<String, Box<dyn Err
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terminal_colors_respect_redirection_no_color_and_dumb_terminals() {
+        for terminal in [false, true] {
+            for no_color in [false, true] {
+                for dumb in [false, true] {
+                    assert_eq!(
+                        color_enabled(terminal, no_color, dumb),
+                        terminal && !no_color && !dumb
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn styles_preserve_plain_text_and_reset_without_dimming() {
+        let text = "label → payload\n$100.00";
+        for (style, code) in [
+            (TextStyle::Heading, "1;36"),
+            (TextStyle::Blue, "34"),
+            (TextStyle::Magenta, "35"),
+            (TextStyle::Green, "32"),
+            (TextStyle::Yellow, "33"),
+            (TextStyle::Error, "1;31"),
+        ] {
+            assert_eq!(styled(text, style, false), text);
+            let colored = styled(text, style, true);
+            assert_eq!(colored, format!("\x1b[{}m{}\x1b[0m", code, text));
+            assert!(!colored.contains("\x1b[2m"));
+        }
+    }
 
     #[test]
     fn tool_definition_advertises_one_narrow_allowedlist_tool() {

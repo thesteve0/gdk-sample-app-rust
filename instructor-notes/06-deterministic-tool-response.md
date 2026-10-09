@@ -21,6 +21,12 @@ Carry the Lesson 5 pending request through its complete raw round trip. Define d
 - Re-run the live scenario against the exact classroom provider/model. The spike and Lesson 5 runs observed native `maximum_planned_loss` requests with `entry_price="51.20"`, `stop_price="50.70"`, and `share_count=200`, producing the deterministic `$100.00`.
 - Decide how to present the thinking block in round 1: the classroom model narrates tool calls and results inside its private reasoning that never happened — the structured request is still the only ground truth.
 
+## Terminal color guidance
+
+The reference supplies presentation helpers; do not turn them into a Rust scaffolding exercise. On a color-capable terminal, point out bold cyan headings/ordinary actor labels, blue current human input, magenta reconstructed tool requests, green success statuses and correlated tool-response labels/payloads (even error results returned to the model), yellow warnings/nonfatal diagnostics, and bold red fatal errors on stderr. Live model text remains normal, as do the system instruction, advertised definition, and reconstructed prose. Raw-provider usage is never dimmed; these lessons have no Session usage section. The full history is not blue, and styling never enters protocol messages or arguments/results.
+
+Use the actor text and `++++++++` fences as the primary explanation; color is supplementary. Stdout and stderr have independent terminal checks. Redirected output, `NO_COLOR` presence (including an empty value), and `TERM=dumb` produce the same plain text without application-added ANSI escapes. Each styled line resets so later model fragments cannot inherit color. The supplied error wrapper retains failure exit status. Before class, validate both terminal-colored and plain/disabled-color output alongside the existing live structural checks; deterministic presentation tests cover mappings, resets, plain fallback, and gating, not live model behavior.
+
 ## Discussion prompts
 
 - Why are deserialization and domain validation two separate checks, and what does each one reject?
@@ -62,3 +68,10 @@ Learners validate untrusted arguments through deserialization and domain validat
 ## Transition to Lesson 7
 
 Lesson 7 motivates the GDK state machine from this manual implementation without code: define Session, Operation, StateMachine, Effect, and re-evaluation, then narrate one simple question/answer exchange. Defer the correlated tool trace to Lesson 9. Do not build a runtime or promise an automatic state-step bound. Lesson 8 supplies an inference-only in-memory runtime with the instructor-approved production-caution comment rather than a loop safeguard; Lesson 9 adds continuing conversation and tools.
+
+
+## Terminal styling validation — 2026-10-06
+
+- Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (14 tests). Root source and dependencies were not replaced.
+- Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified with error-output probes; errors retained exit status 1 and terminal stderr was bold red.
+- The live provider produced a valid calculator request; dispatch returned `$100.00` with the same correlation ID, and the final explanation used that result and identified the exclusions. Colored, redirected, and `NO_COLOR` runs all completed the two-round scenario.

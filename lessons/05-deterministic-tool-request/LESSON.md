@@ -164,13 +164,22 @@ Tool names and arguments are untrusted model output even when they appear to mat
 
 A **payload delimiter** separates explanatory text from **protocol payload** — the actual values that traveled to or from the provider. Every block of payload is printed between two identical `++++++++` lines, and everything outside them is this application's own commentary. The line immediately before each block also names the **sender and the receiver** of that message — `application → provider` on the way out, `provider → application` on the way back — because every message in the round trip must show both of its ends. The delimiter matters because model output is untrusted data: the terminal must make visible exactly which lines are the provider's, so a learner can point at the boundary between the application's words and the model's. Lesson 6 reuses the same delimiter for the tool responses sent back.
 
+### Supplied terminal presentation helpers
+
+**Terminal styling** uses color to make the existing actor and payload roles easier to follow; it does not change the protocol. The complete reference supplies `TextStyle` (the display role), `styled` (a display-only string with a final reset), `print_heading`, `print_status`, `print_warning`, `print_styled`, and `print_indented_styled`. These are presentation helpers, not Rust scaffolding to write. They style only printed copies: messages, tool definitions, arguments, and provider input stay unchanged.
+
+Headings and ordinary actor labels are bold cyan; the separately displayed current human input is blue; reconstructed tool-request labels and payloads are magenta; success statuses are green; warnings and nonfatal diagnostics are yellow; fatal errors on stderr are bold red. Live model text, reconstructed prose, the system instruction, and the advertised tool definition stay in the default foreground. The raw-provider usage summary is **not dimmed**: these lessons have no Session usage section.
+
+The helpers check stdout and stderr independently with `IsTerminal`. Styling is disabled for a redirected stream, the presence of `NO_COLOR` (even an empty value), or `TERM=dumb`. Each styled line resets completely so streamed model prose cannot inherit a preceding color. The supplied `main` wrapper prints fatal errors with stderr's setting and retains a nonzero exit status. Payload delimiters, labels, wording, spacing, and output order remain meaningful without color; plain transcripts contain no application-added ANSI escapes.
+
 At the provider call site, the new input from Lesson 4 is a non-empty `tools` slice:
 
 ```rust
 let tools = [tool_definition()];
 let messages = vec![Message::user().with_text(USER_PROMPT)];
 
-println!("── Sending ─────────────────────────────────────────────");
+// Phase 1: what the application sends. The tool is advertised, never run.
+print_heading("── Sending ─────────────────────────────────────────────");
 println!("1 user message; advertising 1 tool: {}", TOOL_NAME);
 println!("  (the model may now request it)");
 
@@ -178,22 +187,32 @@ println!("  (the model may now request it)");
 // definition: the entire context the model sees in the first call.
 // Printing all of it makes it visible — the model answers only what this
 // call contains, and nothing here executes anything.
-println!("\nOutbound payload sent with this call (application → provider), quoted in full:");
+print_heading(
+    "\nOutbound payload sent with this call (application → provider), quoted in full:",
+);
 print_delimiter();
 println!("  system instruction:");
 print_indented(SYSTEM_INSTRUCTION, "    > ");
 println!("  user message:");
-print_indented(USER_PROMPT, "    > ");
+print_indented_styled(USER_PROMPT, "    > ", TextStyle::Blue);
 print_tool_definition(&tools[0])?;
 print_delimiter();
 
-println!("\n── Streaming response deltas (provider → application) ──");
+// Phase 2: stream the response, printing text blocks as they arrive.
+print_heading("\n── Streaming response deltas (provider → application) ──");
 let (conversation, usage) =
     stream_and_collect(provider.as_ref(), &model, &messages, &tools).await?;
-//  └── the four inputs are unchanged: provider, model, system+user history, tools
+
+// Phase 3: compact telemetry. A finish reason of `tool_calls` is evidence
+// of the request boundary, but the program only displays it, never acts on it.
 print_usage_summary(&usage);
 
-println!("\n── All the response messages (provider → application, after Conversation::push) ──");
+// Phase 4: inspect every block of every reconstructed message. Structured
+// requests, thinking, and text are labeled; the request ID is the
+// correlation ID Lesson 6 must reuse.
+print_heading(
+    "\n── All the response messages (provider → application, after Conversation::push) ──",
+);
 let saw_tool_request = inspect_reconstructed(&conversation)?;
 ```
 
@@ -307,7 +326,7 @@ async fn stream_and_collect(
         println!();
         print_delimiter();
     } else {
-        println!(
+        print_warning(
             "(no text blocks streamed; the response arrived as non-text blocks — see the reconstructed view below)"
         );
     }
@@ -321,12 +340,12 @@ This retains the `Some`/`None` handling from Lesson 4. The two changes are `conv
 A **finish reason** is provider telemetry that describes why the model's turn ended. A finish reason of `tool_calls` means the model stopped its turn expecting the application to run a tool and return a result — it is evidence of the request boundary, not permission to act. This program only displays it:
 
 ```rust
-/// Print one compact usage line. A finish reason of `tool_calls` means the
-/// model ended its turn expecting a tool result: display it, never act on it.
 fn print_usage_summary(usage: &Option<ProviderUsage>) {
-    println!("\n── Usage ───────────────────────────────────────────────");
+    print_heading(
+        "\n── Relevant response metadata (Usage block of the response)──────────────────",
+    );
     let Some(usage) = usage else {
-        println!("(no usage telemetry was provided by the provider)");
+        print_warning("(no usage telemetry was provided by the provider)");
         return;
     };
     let input_tokens = match usage.usage.input_tokens {
@@ -373,45 +392,57 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
 
             if let Some(request) = block.as_tool_request() {
                 saw_tool_request = true;
-                println!(
-                    "  {} ToolRequest — the model asks the application to run a tool",
-                    label
+                print_styled(
+                    &format!(
+                        "  {} ToolRequest — the model asks the application to run a tool",
+                        label
+                    ),
+                    TextStyle::Magenta,
                 );
                 print_delimiter();
                 // The request ID is the correlation ID: Lesson 6 must attach it to
                 // the tool response so the provider can match result to request.
-                println!("    request id (correlation ID): {}", request.id);
+                print_styled(
+                    &format!("    request id (correlation ID): {}", request.id),
+                    TextStyle::Magenta,
+                );
                 // `tool_call` is a Result: tool-call parsing can fail inside a
                 // request, so never blindly unwrap it.
                 match &request.tool_call {
                     Ok(call) => {
-                        println!("    tool name: {}", call.name);
-                        println!(
-                            "    arguments (untrusted model output; JSON object, order not guaranteed):"
+                        print_styled(&format!("    tool name: {}", call.name), TextStyle::Magenta);
+                        print_styled(
+                            "    arguments (untrusted model output; JSON object, order not guaranteed):",
+                            TextStyle::Magenta,
                         );
                         match &call.arguments {
-                            Some(arguments) => {
-                                print_indented(&serde_json::to_string_pretty(arguments)?, "      ")
-                            }
-                            None => println!("      (none)"),
+                            Some(arguments) => print_indented_styled(
+                                &serde_json::to_string_pretty(arguments)?,
+                                "      ",
+                                TextStyle::Magenta,
+                            ),
+                            None => print_styled("      (none)", TextStyle::Magenta),
                         }
                     }
                     Err(error) => {
-                        println!(
-                            "    unparseable call (reported without panicking): {}",
-                            error
+                        print_styled(
+                            &format!(
+                                "    unparseable call (reported without panicking): {}",
+                                error
+                            ),
+                            TextStyle::Magenta,
                         );
                     }
                 }
                 print_delimiter();
             } else if let Some(thinking) = block.as_thinking() {
-                println!("  {} Thinking block — Not ground truth", label);
+                print_warning(&format!("  {} Thinking block — Not ground truth", label));
                 print_delimiter();
                 print_indented(&thinking.thinking, "             ");
                 print_delimiter();
             } else if let Some(text) = block.as_text() {
                 if !text.trim().is_empty() {
-                    println!("  {} Text", label);
+                    print_heading(&format!("  {} Text", label));
                     print_delimiter();
                     print_indented(text, "    ");
                     print_delimiter();
@@ -425,8 +456,6 @@ fn inspect_reconstructed(conversation: &Conversation) -> Result<bool, Box<dyn Er
     Ok(saw_tool_request)
 }
 
-/// Print multi-line model text with a fixed indent so streamed prose, private
-/// reasoning, and structured arguments stay visually inside their labeled block.
 fn print_indented(text: &str, indent: &str) {
     for line in text.lines() {
         println!("{}{}", indent, line);
@@ -443,7 +472,7 @@ A tool-request block has an ID even when its enclosed call cannot be parsed. For
 After inspection, show where the run stops inside the cycle:
 
 ```rust
-println!("\n── We stopped here ────────────────────────────────────");
+print_heading("\n── We stopped here ────────────────────────────────────");
 println!("The full request/response cycle for a tool-using turn:");
 println!("  1. send system instruction + user message (+ the advertised tool)");
 println!("  2. model responds with thinking + a tool request");
@@ -452,12 +481,12 @@ println!("  4. send the full history + tool response; model writes the final ans
 println!("  5. application returns the final answer to the user");
 
 if saw_tool_request {
-    println!("\nThis run stopped between steps 2 and 3 — an artificial stop for teaching.");
+    print_status("\nThis run stopped between steps 2 and 3 — an artificial stop for teaching.");
     println!("The tool request above was received, but nothing executed: the application");
     println!("alone authorizes, validates, and runs the calculation. Lesson 6 resumes");
     println!("the cycle at step 3.");
 } else {
-    println!("\nThis run stopped after step 2: no tool request arrived, so there was");
+    print_warning("\nThis run stopped after step 2: no tool request arrived, so there was");
     println!("nothing to execute. Advertising a tool permits a request; it does not");
     println!("cause one. Lesson 6 validates and dispatches when one does arrive.");
 }
@@ -467,6 +496,7 @@ The section shows the learner **where** the run stopped inside the cycle instead
 
 ## Expected structural behavior
 
+- Terminal colors follow the supplied role mapping above; redirected output and disabled-color terminals retain the same plain text, fences, and ordering.
 - The run prints five labeled phases: sending (what is advertised), streaming, usage, reconstructed messages, and the closing stop summary.
 - Under the sending header, the program prints the entire outbound payload before any model output: both prompts quoted in full (labeled as the system instruction and the user message) and the advertised tool definition with its name, description, and pretty-printed input schema.
 - Text blocks stream to stdout as they arrive; if no text block streams, the run says so under the streaming header and points to the reconstructed view.
@@ -488,7 +518,7 @@ The section shows the learner **where** the run stopped inside the cycle instead
 - Every content block across every reconstructed message is inspected.
 - A parseable request is read without blindly unwrapping its tool call; an unparseable request is reported safely.
 - Nothing is executed: no decimal calculation, `CallToolResult`, tool response, or follow-up inference occurs.
-- The unit test checks the advertised tool name, closed-object declaration, and required-field list without a live provider.
+- Unit tests check the advertised tool name, closed-object declaration, required-field list, exact style mappings and resets, plain fallback, and the terminal/`NO_COLOR`/`TERM=dumb` gating combinations without a live provider.
 
 ## Live validation
 

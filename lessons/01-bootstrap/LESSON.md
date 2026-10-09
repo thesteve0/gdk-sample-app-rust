@@ -94,7 +94,9 @@ Create `.env.example` with placeholder key documentation and ignore the real `.e
 
 `src/main.rs` is where the application begins. It is the future orchestrator described above; this bootstrap version only prepares safe local configuration and proves that Cargo can run the binary.
 
-Create `src/main.rs`:
+The supplied reference includes small **terminal presentation helpers**: local functions that color the application's output without changing its text or behavior. `print_status` shows the greeting in green. It uses plain text when stdout is redirected, `NO_COLOR` is present (even empty), or `TERM=dumb`. These are supplied support code, not a helper-implementation exercise; copy the complete [reference source](src/main.rs) when running this lesson.
+
+The entry point is:
 
 ```rust
 fn main() {
@@ -102,7 +104,7 @@ fn main() {
     // environment unchanged in that case.
     dotenvy::dotenv().ok();
 
-    println!("Hello from gdk_hello");
+    print_status("Hello from gdk_hello");
 }
 ```
 
