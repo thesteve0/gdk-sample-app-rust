@@ -40,7 +40,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 - Ask the instructor before making uncertain curriculum, sequencing, or architecture decisions.
 - Keep the roadmap in `README.md` current when lesson state or order changes.
 
-**`README.md` is the authoritative curriculum plan**, including replacement Lessons 7–9 and their implementation handoff. `post-lesson4-plan.md` supplies supporting architecture context and historical evidence; it must not override the README. It prioritizes the raw tool protocol, then the GDK state machine, before later market data, evaluation, retrieval, and CLI/model-selection work. The roadmap is not constrained to a fixed number of lessons.
+**`README.md` is the authoritative curriculum plan**, including replacement Lessons 7–9 and their implementation handoff. `post-lesson4-plan.md` supplies supporting architecture context and historical evidence; it must not override the README. The final instructor decision (2026-10-11) fixes the course at 14 lessons: Lesson 12 PostgreSQL/pgvector retrieval, Lesson 13 context compaction, Lesson 14 evaluation. Earlier market-data/ingestion/CLI/fine-tuning sequencing is superseded. Read `lessons/final-lessons-handoff.md` and the numbered PLAN.md files before implementation.
 
 ### Progressive conceptual foundation and editorial rules
 
@@ -125,7 +125,7 @@ Isolated technical validation supported the direction recorded in `post-lesson4-
 - Keep exploratory spike code out of lesson directories; derive the smallest concept-focused lesson code.
 - Explicit model selection remains deferred to the later CLI lesson.
 
-Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–7 are complete. The instructor clarified on 2026-10-07 that Lessons 8 and 9 still need review, superseding earlier completion records for Lesson 8. The root previously contained the authorized replacement Lesson 8. The instructor authorized Lesson 9 on 2026-10-06; root now contains the separately authorized Lesson 10 learning partner. Keep Lesson 7 and Lesson 8’s workflow unchanged; Lesson 8’s terminal styling now follows the all-application rule above. Lessons 8 and 9 still need instructor review; Lesson 9’s default live scenario passed, but its live 100-share tweak is pending. Lesson 10 was authorized on 2026-10-07; its implementation does not release Lessons 8–9 or authorize Lesson 11.
+Before starting a tool lesson, read `post-lesson4-plan.md` and the exact pinned GDK/RMCP source. Lessons 1–7 are complete. The instructor clarified on 2026-10-07 that Lessons 8 and 9 still need review, superseding earlier completion records for Lesson 8. The root previously contained the authorized replacement Lesson 8. The instructor authorized Lesson 9 on 2026-10-06; root now contains the separately authorized Lesson 11 learning partner. Keep Lesson 7 and Lesson 8’s workflow unchanged; Lesson 8’s terminal styling now follows the all-application rule above. Lessons 8 and 9 still need instructor review; Lesson 9’s default live scenario passed, but its live 100-share tweak is pending. Lesson 10 was authorized on 2026-10-07; its implementation does not release Lessons 8–9 or authorize Lesson 11.
 
 ## Lesson 10 implementation — 2026-10-07
 
@@ -137,7 +137,7 @@ Supplied crossterm 0.29.0 events-only supports selection; GDK/provider/RMCP/tool
 
 Lesson 10 validation: 20 tests and format/check/Clippy passed; live conversation/reselection, optional correlated $100.00, arrow/color and plain/NO_COLOR/dumb modes, commands/EOF, complete Markdown diagnostics, and fatal logging/provider partial-state handling checked. Guidance tweak loaded but example-before-check ordering was inconclusive; default restored. Keep teaching/content/UI review pending. Exact evidence is in Lesson 10 and instructor notes.
 
-Lesson 11 now prioritizes a persistent learning record and learner-agreed to-do list, superseding evaluation-baseline-primary scope. Distinguish discussion, goals, demonstrated understanding, unresolved questions, and agreed next activities; do not infer mastery from tutor explanations. Storage/consent/corrections/tools remain undesigned. Do not scaffold Lesson 11 or any later lesson without authorization.
+Lesson 11 now prioritizes a persistent learning record and learner-agreed to-do list, superseding evaluation-baseline-primary scope. Distinguish discussion, goals, demonstrated understanding, unresolved questions, and agreed next activities; do not infer mastery from tutor explanations. The instructor authorized Lesson 11 on 2026-10-11: editable ignored Markdown, consent to use memory per selection, proposal-only tool, default-no per-addition local approval after successful run, append preserving hand edits, corrections/deletion by hand between launches. Root/reference are supplied; no later lesson is authorized.
 
 ## Lesson requirements
 
@@ -207,7 +207,7 @@ The instructor owns curriculum scope, sequencing, and release decisions. When th
 
 ## Lesson 9 implementation handoff (2026-10-06)
 
-Lesson 9 source, prose, notes, and narrated SVG/PNG frames are supplied. At that handoff root matched its reference source; root now runs Lesson 10. `SHARE_COUNT` is the approved 200→100 tweak, shared by the prompt and structural check. The application uses a `ToolProvider` with typed `LossArguments` and a safe wrapper around the pinned `ToolOperation`; the SDK alone filters unknown names and supplies no request cap. Keep correlated unknown/excess errors and all-block handling. Bounds are eight applied work passes plus a possible terminal halt batch, four aggregate requests per user turn, and a 180-second run timeout; the engine owns the loop. Full partial state is shown on failure.
+Lesson 9 source, prose, notes, and narrated SVG/PNG frames are supplied. At that handoff root matched its reference source; root now runs Lesson 11. `SHARE_COUNT` is the approved 200→100 tweak, shared by the prompt and structural check. The application uses a `ToolProvider` with typed `LossArguments` and a safe wrapper around the pinned `ToolOperation`; the SDK alone filters unknown names and supplies no request cap. Keep correlated unknown/excess errors and all-block handling. Bounds are eight applied work passes plus a possible terminal halt batch, four aggregate requests per user turn, and a 180-second run timeout; the engine owns the loop. Full partial state is shown on failure.
 
 Eleven deterministic tests and build/lint checks passed; the local live endpoint was unavailable. Neither real selective-tool-use outcome nor the live 100-share tweak is validated. Start/supply a provider and record actual structure/explanation before requesting release review. Do not mark Lesson 9 Complete or implement future curriculum based on these tests.
 
@@ -234,3 +234,32 @@ Instructor found bold difficult to see and replaced it with gold (`#FFD700`) for
 Instructor requested Lesson 9's scheme for all earlier active coding exercises and made it the rule for future terminal-output code. Lessons 1–6 and 8 now use self-contained presentation helpers; prose, snippets, instructor notes, and README agree. Lesson 7 has no terminal code; root, Lesson 9, archived drafts, dependencies, and provider JSON are unchanged. Behavior, payload delimiters/labels/order, full Session values, and Lesson 8's no-fence exception remain intact.
 
 Each earlier coding reference passed formatting, check, Clippy, tests (33 in aggregate), and its documented run using the shared pinned manifest in temporary staging. Provider-calling references passed against the live local model in colored, redirected/plain, and empty-NO_COLOR modes. TERM=dumb and independent stdout/stderr gating were also checked. Lesson 6 returned a correlated `$100.00` and grounded final explanation; Lesson 8 retained complete gold-field Session snapshots with only top-level usage dimmed. The unchanged root separately passed its 15 tests, build/lint checks, and default live two-turn scenario. Lesson 9's live 100-share tweak and instructor release review remain pending; this styling update does not change curriculum status.
+
+
+## Lesson 11 implementation — 2026-10-11
+
+Follow README and `lessons/11-learner-memory/` as current root. Preserve Lesson 10 and its pending UI notes. `learner-record.md` is fixed-path Markdown, read only with default-no consent per selection; approved note appends preserve existing bytes and use repeated category headings. No in-app correction/review commands; edit/delete between launches. Proposal tool has strict category/note/learner_quote fields, single-line 600-byte limits, exact actual-learner-quote check, and no path argument. Source occurrence is not semantic validation. The tool acknowledges WITHOUT writing; only local default-no approval after successful run/inspection saves. Notes are separate from diagnostics and old transcripts; new selection is fresh Session with current record context. Existing memory updates in current Session after approval; disk hand edits are for between launches. No mastery/completion inference.
+
+Lesson 11's authorized UI exception overrides payload/actor logging conventions for its learner dialogue: simple Tutor/Learner labels, brief activity/results, no application-added fences/arrows/IDs/raw arguments/Session dumps. A supplied streaming `TerminalProse` helper suppresses common Markdown markers; no general renderer. Keep course colors/gating and untouched saved/provider text. Full developer data remains in plain overwritten `session-output.md`, never read as memory. Include complete post-approval Session diagnostics and proposal definition when available.
+
+Record is capped at 32 KiB, regular UTF-8 only, rejects symlinks/nonregular paths; new Linux file requests 0600, existing permissions unchanged. Ignore is not encryption/access security; consented notes are sent to provider and can appear in diagnostics. Single-process append+sync has no transactional/crash/exactly-once guarantee; log/storage failures stop. Preserve calculator validation, allowlists/all blocks/correlation and shared four-request/eight-pass/180-second per-turn bounds. No dependencies/provider/toolchain upgrades.
+
+26 tests and formatting/check/Clippy passed. Live approved append, manual-edit/relaunch resumption, declined memory, rejected addition, and correlated $100.00 calculator passed. An initial proposal-followup timed out at 180 seconds; no approval/write occurred and full partial diagnostics survived, then a separate rejection retry passed. Plain/NO_COLOR live output checked; colored arrow UI not revalidated. Test record removed. Lesson11 content/teaching/UI and instructor review pending; Lessons8–10 review and Lesson9 live100-share tweak remain independent gates. No Lesson12 scaffolding.
+
+
+### Instructor review schedule — 2026-10-11
+
+The instructor requested that content and teaching materials be implemented now and will review once the full course is implemented. Pending content/teaching/UI review is therefore deferred to end-of-course review, not a blocker for separately authorized implementation. This is not release approval and does not erase validation gaps or authorize later lessons implicitly. Lesson 11 now includes memory-aware runtime teaching guidance, authored category examples, a narrated approval lifecycle, exit questions, and a supplied instructor teaching script. These editorial additions still need instructor review and fresh live teaching evaluation.
+
+
+## Final curriculum planning handoff — 2026-10-11
+
+The instructor authorized documentation only for the final Lessons 12–14; **do not implement them until separately requested**. Root remains Lesson 11. Plans live in `lessons/12-specialized-retrieval/PLAN.md`, `lessons/13-context-compaction/PLAN.md`, and `lessons/14-agent-evaluation/PLAN.md`; `lessons/final-lessons-handoff.md` is the fresh-session entry point after README. No source belongs in these planned units yet.
+
+Lesson 12 integrates a supplied PostgreSQL/pgvector datastore, not ingestion. Schema and embedding model/service are unresolved prerequisites. The instructor has private EPUB/PDF books, no expert-authored rubrics and no domain-expertise claim. Do not assume a prepared assessment corpus, silently invent schema or embedding compatibility, or represent source-grounded feedback as mastery assessment. Settle source rights, disclosure, provenance and a redistributable test corpus before coding.
+
+Lesson 13 is long-conversation context compaction, not simulation. Verify pinned Operation/effect/inference APIs; full Goose compaction is not automatic GDK functionality. Preserve actual learner quotation provenance, kickoff/current-turn handling, request/result pairs and pending local approvals. Current `.skip(1)` quotation search is a compatibility trap when replacing history. Model summaries never authorize writes or substitute for authoritative state.
+
+Lesson 14 evaluates the full application, separating deterministic invariants from live evidence use and fallible teaching judgments. Preserve prior validation gaps and deferred end-of-course review. Do not implement former Lessons 15–18 or a general CLI as implicit requirements.
+
+Root `potential-lesson-15/` is an explicitly approved **documentation-only draft**, not a committed lesson or implementation permission. Preserve its plain-language terminology, reproducible probabilistic engine boundary, unresolved data/calibration choices and no-source status. Do not combine it with compaction.

@@ -1,0 +1,4 @@
+1. Add a "thinking" blinker
+2. The format of the output is still carrying through some of the formatting from the old log output. We want the formatting to looks like a normal application.
+3. CLI output so use colors rather than markdown formatting
+4. Need to handle multi-line input (ctrl-j for a new line)

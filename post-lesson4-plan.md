@@ -2,6 +2,8 @@
 
 ## Status of this document
 
+**Latest decision:** the course ends at Lesson 14. Read [final-lessons handoff](lessons/final-lessons-handoff.md); historical simulator planning is separate and source-free. Older references to Lessons 15–18 or future market-data features do not authorize them.
+
 **README.md is the authoritative curriculum plan**, including the replacement Lessons 7–9 and their implementation handoff. This document supplies supporting architecture context and historical validation evidence, not a competing sequence or a released lesson. Where older evidence conflicts with the README or exact pinned source, follow the README for curriculum and pinned source for API behavior.
 
 The post-Lesson 4 technical spike is complete and supports the sequence below. The instructor accepted the outline on 2026-09-29. Lesson numbers and boundaries should now remain stable unless later implementation evidence or an explicit instructor decision requires a change. The instructor still owns curriculum sequencing and release decisions.
@@ -25,6 +27,8 @@ The class uses complete code, not fill-in exercises: predict, run, explain, twea
 On 2026-10-05 the instructor authorized Lesson 7 implementation, then Lesson 8 and replacing root `src/main.rs` with its complete one-exchange implementation. The replacement lesson materials are supplied. The instructor’s 2026-10-07 clarification supersedes the earlier completion record: Lesson 7 is complete; Lessons 8 and 9 still need review. Lesson 8 has no loop safeguard, only the production-caution comment beside `StateMachine::run`. Root then contained replacement Lesson 8; dependencies, provider configuration, and archived drafts remained unchanged. The instructor authorized Lesson 9 implementation on 2026-10-06. Root then contained its two-turn continuation; the separately authorized Lesson 10 now occupies root. The default live scenario passed; the live 100-share tweak remains pending. Lessons 8 and 9 both await instructor review.
 
 ## Course application goal
+
+**Scope update — 2026-10-11:** the final course teaches retrieval, compaction and evaluation in a learning partner. The broader analysis/market-data aspirations below are historical context, not required implementation. Follow README and the final-lessons handoff.
 
 The course incrementally builds a **day-trading teaching assistant that can also analyze trades**.
 
@@ -280,7 +284,7 @@ Supporting technical cautions:
 - Combine the chosen lesson's objectives, reviewed domain material, teaching guidance, and scope with common tutor instructions. Selection is learner-controlled; no skill-discovery tool or RAG database is required.
 - Support a focused, interactive conversation: ask about experience, explain a small concept, invite participation, and respond to questions/misconceptions. Do not infer guaranteed mastery from a few replies.
 - Keep one Session across learner turns; the application waits for replies between GDK-owned runs. Provide an explicit finish action and fresh Session when starting a different lesson.
-- Supply the selector and input machinery. Only this limited interactive UI moves forward from Lesson 18; the general parser, provider/model options, and operational workflow remain later.
+- Supply the selector and input machinery. Only this limited interactive UI moves forward from Lesson 18; the general parser, provider/model options, and operational workflow were deferred; the final 14-lesson decision leaves that expansion outside required scope.
 - Preserve the no-execution capability boundary and applicable tool validation/limits. Teach that prompts influence behavior while capabilities limit actions; supplied educational context is not RAG.
 
 Use Goose's tutorial extension as a reference pattern for authored content plus teaching guidance, not as a dependency or a reason to add an MCP server. Domain material and its sources require review during implementation. Lessons 8 and 9 still await instructor review; Lesson 9's live 100-share tweak remains pending. The instructor authorized Lesson 10 and root replacement after settling content files, controls, and the guidance tweak. Learner UI uses concise activity/results; complete plain diagnostics move to ignored root session-output.md, overwritten each launch and never read as learner memory. crossterm 0.29.0 supplies terminal selection, with numbered fallback. Do not infer review approval for earlier lessons.
@@ -289,97 +293,23 @@ Use Goose's tutorial extension as a reference pattern for authored content plus 
 
 The instructor revised this primary direction on 2026-10-07. Make the tutor useful over time through deliberate learner records across launches and a learner-agreed list of next learning activities. Separate discussed topics and stated goals from evidence in learner answers, unresolved questions, and agreed activities. Do not equate tutor explanations with mastery or readiness to trade.
 
-Storage, consent/permissions, corrections, tools, and resumption details are not yet designed. Lesson 10's overwritten diagnostic file is not this memory system. Do not scaffold persistence before design and authorization. Structural and qualitative evaluation still matter throughout development, but the former evaluation-baseline-primary lesson is superseded.
+On 2026-10-11 the instructor authorized Lesson 11: editable ignored Markdown, hand corrections/deletion between launches rather than management commands, default-no consent per selection and per-addition approval, proposal-only bounded tool with real learner quotations, append preserving existing bytes, fresh Session resumption from notes. Root/reference/materials are supplied; clean learner UI excludes developer log fences/actors/IDs. Lesson 10's overwritten diagnostic file remains separate and is not this memory system. README and Lesson 11 are authoritative for implementation/evidence; no later lesson is authorized. Structural and qualitative evaluation still matter throughout development, but the former evaluation-baseline-primary lesson is superseded.
 
-### Lesson 12: Fixture-backed read-only market data
+### Final Lessons 12–14 — superseding decision, 2026-10-11
 
-Define a stable market-observation contract using historical fixtures first. This keeps the class reproducible and isolates the tool contract from provider selection.
+The instructor approved the final required sequence: **12 specialized retrieval with supplied PostgreSQL/pgvector, 13 long-conversation context compaction, 14 application evaluation**. This replaces the former Lessons 12–18 sequence and optional fine-tuning capstone. Day trading is a concrete teaching vehicle, not a reason to prioritize domain features over general agentic architecture.
 
-Do not select a live source until its licensing, delayed/real-time semantics, API stability, authentication, rate limits, symbol identity, timestamps, caching terms, historical availability, and cost are researched.
+Read [the fresh-session handoff](lessons/final-lessons-handoff.md) and the detailed [Lesson 12](lessons/12-specialized-retrieval/PLAN.md), [Lesson 13](lessons/13-context-compaction/PLAN.md), and [Lesson 14](lessons/14-agent-evaluation/PLAN.md) plans. They are documentation only: no lesson implementation, root replacement, dependency change or infrastructure setup is authorized yet.
 
-### Lesson 13: Evidence-based trade analysis
+- The instructor has private EPUB/PDF books but no expert-authored assessment rubrics. Use identifiable source evidence for explanations and tentative learner feedback; never invent specialist validation or infer mastery. Books may be wrong, stale or conflicting.
+- Datastore and prepared passages/vectors are to be supplied for learners. Schema, embedding model/service and compatible query path have not been chosen; preparation is outside class and must be settled before retrieval implementation.
+- Compaction is a separate lesson about bounded working context. Preserve authoritative state and independent learner-approved memory. Verify real learner provenance and current-turn tool/approval semantics after history changes; generated summaries are not actual learner quotations.
+- Evaluation separates deterministic checks, real datastore integration, live model behavior, and human evidence inspection. No claimed domain-expert ground truth or automatic model-judge authority.
+- No required live market observations, full ingestion pipeline, general CLI/model selector, simulator, or fine-tuning. Earlier discussions of those features in this document are historical possibilities, not current course promises.
 
-Combine:
+### Potential Lesson 15 — historical simulation, not authorized implementation
 
-- an educational principle;
-- a historical market observation;
-- a deterministic risk calculation;
-- alternatives and risk discussion;
-- a final conclusion.
-
-Evaluate visible evidence and conclusions, not private chain-of-thought.
-
-### Lesson 14: Private educational document ingestion
-
-Introduce local, private document handling separately from retrieval:
-
-1. load a private local EPUB or PDF;
-2. extract text and source-location metadata;
-3. normalize while preserving useful citation locations;
-4. chunk;
-5. embed or otherwise index;
-6. store local retrieval artifacts.
-
-PDF page references and EPUB chapter/location references need deliberate source-location modeling rather than arbitrary chunk IDs.
-
-### Lesson 15: Retrieval tool and citations
-
-Expose educational retrieval as a read-only tool. Return passages with provenance and allow an insufficient-evidence result.
-
-### Lesson 16: Retrieval evaluation and hostile content
-
-Test:
-
-- irrelevant retrieval;
-- missing evidence;
-- conflicting sources;
-- citation accuracy;
-- unsupported synthesis;
-- stale educational material;
-- instructions embedded in retrieved text.
-
-Retrieved text is untrusted data and must not override system/application policy.
-
-### Lesson 17: Combined teaching and trade analysis
-
-Bring together:
-
-- conversation;
-- deterministic calculations;
-- read-only observations;
-- educational retrieval;
-- citations;
-- alternatives;
-- a final evidence-based conclusion.
-
-### Lesson 18: CLI, model selection, and operational errors
-
-Move explicit model selection later so it serves a meaningful purpose. Compare models based on:
-
-- reliable structured tool calling;
-- context requirements;
-- streaming behavior;
-- retrieval and citation behavior;
-- boundary retention;
-- latency and cost;
-- local hardware constraints.
-
-The CLI can then support provider/model selection, scenario inputs, private corpus paths, and clear error reporting.
-
-### Optional capstone: Open-weights model comparison or fine-tuning
-
-Fine-tuning is an optional experiment after the application has:
-
-- a stable task definition;
-- a baseline model;
-- deterministic tools;
-- retrieval;
-- representative failure data;
-- development and holdout evaluations.
-
-Fine-tuning is not the solution for current prices, changing regulations, deterministic arithmetic, citation provenance, or the no-execution capability boundary.
-
-A safer first experiment uses course-authored examples to improve teaching style, response structure, or tool-selection behavior. Directly training on copyrighted private books introduces materially different licensing, memorization, extraction, and model-distribution risks and should not be the default course path.
+A separate root [potential-lesson-15/](potential-lesson-15/README.md) directory contains documentation only. The accepted draft scope is one instrument, intraday historical replay, long-only/no leverage, explicit execution assumptions and seeded randomness. The conventional engine would own clock/orders/account/fills; the tutor would own explanation. Data/license/granularity, order types and probability distributions remain unresolved. No source exists; do not combine this with context compaction or require it for course completion.
 
 ## Private corpus policy
 
@@ -567,3 +497,13 @@ The reconstructed request now displays through the shared Event queue after savi
 ### Lesson 10 implementation record — 2026-10-07
 
 Lesson 10/root and content/prose/instructor notes are supplied; README remains authoritative. Twenty tests and build/lint/format checks passed, with live continuing teaching conversation, optional correlated `$100.00` calculation, arrow/plain/NO_COLOR/dumb UI, commands/EOF, and complete plain Markdown diagnostics. The guidance tweak was loaded but example-before-check ordering remains inconclusive. Instructor review of content and teaching is pending. Earlier lesson review/live-tweak gates remain unchanged. See the Lesson 10 validation record for details; no learner persistence was implemented.
+
+
+### Lesson 11 implementation record — 2026-10-11
+
+Root now follows the separately authorized `lessons/11-learner-memory/` continuation. See README and its lesson/notes for storage/approval/UI boundaries, 26 passing tests/build checks, live approved/rejected/declined/calculator/resumption evidence, and the honest initial timeout limitation. No dependency or earlier-reference changes. Instructor teaching/content/UI review and all earlier gates remain pending.
+
+
+### Instructor review schedule — 2026-10-11
+
+The instructor requested that content and teaching materials be implemented now and will review once the full course is implemented. Pending content/teaching/UI review is therefore deferred to end-of-course review, not a blocker for separately authorized implementation. This is not release approval and does not erase validation gaps or authorize later lessons implicitly. Lesson 11 now includes memory-aware runtime teaching guidance, authored category examples, a narrated approval lifecycle, exit questions, and a supplied instructor teaching script. These editorial additions still need instructor review and fresh live teaching evaluation.
