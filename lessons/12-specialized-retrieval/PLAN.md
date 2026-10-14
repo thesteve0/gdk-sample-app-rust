@@ -1,6 +1,6 @@
 # Lesson 12 plan — Local specialized educational retrieval
 
-**Detailed planning only — 2026-10-11.** The instructor authorized this document, not implementation, model conversion, ingestion, infrastructure launch, dependency changes, or root replacement. Root remains Lesson 11. Read [README](../../README.md) and [the shared handoff](../final-lessons-handoff.md) first.
+**Scoped instructor preparation authorized — 2026-10-11; expanded 2026-10-12.** After model/container preparation and Rust PDF ingestion/chunking, the instructor selected Harrier and separately authorized test embeddings, PostgreSQL startup/loading and query code. Follow the Lesson 12 [database startup and loading guide](DATABASE-SETUP.md) to populate the supplied 511-entry test collection; [preparation code and evidence](../../embedding-code/RETRIEVAL.md) are supplied. Historical preparation-only boundary: corpus freezing remains separate. The instructor subsequently authorized learner integration and root replacement on 2026-10-12; [LESSON.md](LESSON.md) and its complete reference are supplied, and root now runs Lesson 12. Read [README](../../README.md) and [the shared handoff](../final-lessons-handoff.md) first.
 
 ## 1. Goal and lesson boundary
 
@@ -29,7 +29,7 @@ Learners do not install PostgreSQL, convert models, ingest books, design chunkin
 | Weight precision | F16 or BF16, chosen by correctness and measured AMD behavior; no initial Q4/Q8 comparison |
 | Model files | Unsloth GGUF where available; otherwise reproducible official-checkpoint conversion through llama.cpp |
 | Dimensions | Up to 1,024; Harrier 1,024, Nemotron reduced to 1,024, EmbeddingGemma native 768 without padding |
-| Chunking | Paragraph/section-first, structural overlap, token counts only as safeguards |
+| Chunking | Compare page + 10% preceding-page overlap against section-aware paragraph groups targeting 300–500 words; choose after inspection/retrieval evidence; tokenizer limits are safety guards |
 | Full corpus | All PDFs and EPUBs in `day_trading/books/`; exclude AZW3 |
 | Preparation code | Separate Rust application in `embedding-code/`, not a premature root workspace |
 | Private outputs | Text, chunks, vectors, manifests, exports, content-bearing reports in `day_trading/embeddings/` |
@@ -77,11 +77,33 @@ Historical publication dates matter. Test whether a passage supports a question,
 
 | Candidate | Source | Required behavior | Output policy |
 | --- | --- | --- | --- |
-| EmbeddingGemma 2 | `google/embeddinggemma-2`; Unsloth GGUF available | Verify exact text-only GGUF prompts, pooling and tokenizer against selected source revision | Native 768; normalize as prescribed |
+| EmbeddingGemma 2 | `google/embeddinggemma-2`; Unsloth GGUF available `-hf unsloth/embeddinggemma-2-GGUF:BF16` | Verify exact text-only GGUF prompts, pooling and tokenizer against selected source revision | Native 768; normalize as prescribed |
 | Harrier 0.6B | `microsoft/harrier-oss-v1-0.6b` | Last non-padding token pooling; retrieval-instructed queries; no query instruction on passages; L2 normalization | 1,024 |
 | Nemotron 1B | `nvidia/Nemotron-3-Embed-1B-BF16` | Bidirectional attention; mean pooling; `query: ` and `passage: ` prefixes; L2 normalization | Native 2,048; take leading 1,024 and normalize again |
 
 Newest does not mean best on this corpus. Publisher benchmark claims are dated evidence, not independently verified current global rankings. Sentence Transformers compatibility does not automatically mean llama.cpp support. Harrier's underlying Qwen architecture is not the excluded Qwen embedding model.
+
+Here is an example of how to run the Gemma model on our AMD AI 395+ machine but it needs a newer version than 0.6.0_1 of llama.cpp so this does not work for now. 
+```
+llama serve -hf unsloth/embeddinggemma-2-GGUF:BF16 \
+  --embeddings \
+  --pooling mean \
+  -ngl 99 \
+  -np 8 \
+  -c 16384 \
+  -b 8192 \
+  -ub 8192
+```
+
+### Harrier embedding-server startup
+
+Start the current Harrier GGUF embedding service with:
+
+```sh
+llama-server -hf TheSteve0/harrier-oss-v1-0.6b-GGUF --embeddings --pooling last -ngl 99 -c 16384 -np 8 -fa on -b 2048 -ub 2048 --host 0.0.0.0 --port 9999
+```
+
+The server context setting is `-c 16384`; `-b 2048` and `-ub 2048` configure the logical and physical batch sizes. This command intentionally listens on all network interfaces (`--host 0.0.0.0`) on port `9999`. Use it only for the approved local-network instructor topology, with firewall/network controls and endpoint identity verification described in Section 3; the default deployment remains loopback-only. Record the exact llama.cpp build, downloaded GGUF revision/checksum, GPU/backend behavior, and response-contract validation before accepting it as the Harrier embedding contract. Starting the server is not fidelity validation or authorization to embed/freeze the corpus.
 
 ### Conversion procedure when authorized
 
@@ -124,9 +146,26 @@ Use deterministic passage IDs derived from source/preparation identity and locat
 
 Start text-only. OCR and chart interpretation are not implicitly authorized additions to the MVP. If required later, propose local tooling and document its quality/rights implications. Unresolved layout or visual-dependent passages are explicitly excluded/quarantined with counts, not silently lost.
 
+### Two-policy chunking comparison — instructor decision, 2026-10-12
+
+Compare these two alternatives before choosing and freezing the retrieval corpus:
+
+| Candidate | Proposed construction | Main tradeoff |
+| --- | --- | --- |
+| Page baseline | One chunk per nonempty physical PDF page, prepending the last `ceil(0.10 x previous-page base word count)` words from the immediately preceding physical page | Simple, reproducible locations and predictable size; may cut an explanation or cross a topic boundary |
+| Section-aware paragraph groups | Use reviewed section/subsection boundaries as context boundaries; keep short coherent sections together and split long ones into complete paragraph groups targeting roughly 300–500 words | Better semantic continuity, including across adjacent pages; requires trustworthy section and reading-order mapping |
+
+The page baseline deliberately uses exact word-tail overlap, which may start mid-sentence; do not quietly round it to a structural boundary and still label it the same baseline. The first page has no overlap. Empty pages produce no chunks and reset overlap. Compute overlap from the previous page's original cleaned text, not its already-overlapped chunk; never cross documents. Record overlap source page/word locations, base count and total count separately. Any topic-boundary crossing is a measured weakness, not silently suppressed behavior.
+
+For section-aware groups, retain reviewed parent-section identity/title as metadata, preserve examples/lists/tables where practical, and allow cross-page continuity only with exact source spans. Add complete-sentence/paragraph overlap within the same section; the amount/selection rule must be specified, versioned and reported before that experiment, not silently assumed to equal the page baseline's 10%. Avoid duplicating a whole short section solely to create overlap. The 300–500-word range is a provisional target, not a hard cutoff: record justified shorter/longer coherent units, split oversized paragraphs conservatively when required, and apply verified model-tokenizer limits to actual input including heading context and model prefixes. No word-to-token ratio is assumed.
+
+Whole major sections and whole subsections are diagnostic size measurements, **not the two deployment candidates**. Exploratory typography-derived reports found Heitkoetter maxima of 7,903 words for major sections and 4,316 for subsections; page+overlap maxima were 360–490 words across the three books. These reports include front matter, remaining Heitkoetter margins and unverified heading candidates. They motivate the comparison but do not validate section structure, retrieval quality or model capacity. Review heading candidates, remaining margins, front matter and visual/reading-order exclusions before building comparison collections. Use the same reviewed source text and exclusion decisions for both policies; record all changes from the current draft.
+
+Freeze each comparison collection separately with its policy/version, source hashes, deterministic IDs, locations, overlap and content hashes. For each policy, use one common chunk set across candidate embedding models after checking every candidate tokenizer; do not silently truncate or produce model-specific chunks. Keep policy/model identities distinct so chunks and vectors from different experiments cannot mix. Select the final chunk policy and embedding contract only after the comparison; a count-only report does not freeze or authorize embedding a corpus.
+
 ## 7. Rust preparation flow and deliverables
 
-Future application: `embedding-code/`, with its own Cargo manifest/lockfile and documentation, using the repository's pinned Rust toolchain. Keep GDK, provider, RMCP and root dependencies unchanged during preparation. Select narrow dependencies and verify current licenses/APIs during implementation: page-aware PDF extraction, EPUB ZIP/XML/XHTML reading, tokenizer-aware splitting, HTTP client, hashing/serialization and a PostgreSQL client with pgvector support. EPUB crate licensing and external PDF library distribution deserve explicit review.
+The PDF inventory/extraction/draft-chunking application is supplied in `embedding-code/`, with its own Cargo manifest/lockfile and documentation, using the repository's pinned Rust toolchain. It currently uses installed Poppler executables and saves pending-review drafts; tokenization, accepted corpus freezing, embeddings and later stages remain unimplemented. Keep GDK, provider, RMCP and root dependencies unchanged during preparation. Select narrow dependencies and verify current licenses/APIs during implementation: page-aware PDF extraction, EPUB ZIP/XML/XHTML reading, tokenizer-aware splitting, HTTP client, hashing/serialization and a PostgreSQL client with pgvector support. EPUB crate licensing and external PDF library distribution deserve explicit review.
 
 Stages:
 
@@ -177,7 +216,7 @@ No credentials or invented live connection addresses are part of this plan. Conn
 
 ## 9. Small real-book comparison
 
-Use the entire accepted three-PDF chunk collection as distractors, not only the answer-bearing passages. Freeze approximately 40 manually checked questions before examining model rankings:
+Compare the two chunk policies from Section 6 on the same three-PDF source collection. Use every accepted chunk in each policy collection as distractors, not only answer-bearing passages. Freeze approximately 40 manually checked questions before examining chunk-policy or model rankings:
 
 | Type | Initial count |
 | --- | ---: |
@@ -193,7 +232,9 @@ Measure Recall@5/10, MRR@10, and multi-passage coverage; nDCG is optional only w
 
 Record extraction/chunk counts, failures/exclusions, passage/token length distribution, precision, dimensions, model/runtime identities, hardware, warm/cold query latency (including p50/p95), embedding passages/tokens per second, index size/build time and HNSW settings. Repeat timing with comparable batches and tutor-service load. Distinguish embedding quality, float16 rounding and HNSW search effects in failure analysis; if exact comparison is needed as a private validation oracle, it is not the deployed application search path.
 
-Choose the model based on relevant-passage retrieval, stable runtime fidelity and practical local latency, not release date or total multilingual scores. If results are close, prefer the simpler validated deployment. Report uncertainty from a small test and add an EPUB/software sample before claiming coverage of the full corpus. Freeze the winning embedding contract and re-embed new/final corpus consistently.
+Compare policies using word/token distributions (minimum, median, p95, maximum), chunk count, overlap overhead, complete source coverage, boundary-cut/topic-mixing inspection, evidence completeness, Recall@5/10, MRR@10, multi-passage coverage, preparation cost and latency. Map relevance to source page/line spans first, then to each policy's chunk IDs; the same question/evidence should not be relabeled simply to favor a policy. Hold model/runtime/index settings fixed when comparing policies, and policy fixed when comparing models. In addition to equal top-k, compare within an equal verified returned-token budget so larger passages do not gain unlimited context. Record boundary-crossing cases and uncertainty; word counts alone cannot choose the winner.
+
+Choose the chunk policy and model based on relevant-passage retrieval, stable runtime fidelity and practical local latency, not release date or total multilingual scores. If results are close, prefer the simpler validated deployment. Report uncertainty from a small test and add an EPUB/software sample before claiming coverage of the full corpus. Freeze the winning embedding contract and re-embed new/final corpus consistently.
 
 ## 10. Lesson 12 runtime integration
 
@@ -304,3 +345,17 @@ Supplemental references, not substitutes for supplied workshop instructions:
 - [Sentence Transformers backends](https://www.sbert.net/docs/sentence_transformer/usage/efficiency.html), [pgvector Rust integration](https://github.com/pgvector/pgvector-rust)
 
 Next: Lesson 13 manages working context as conversation and retrieved evidence accumulate. It must preserve source/learner provenance, tool pairing and local approval state. This plan does not authorize Lesson 13 or historical simulation.
+
+## Harrier selection and test datastore authorization — 2026-10-12
+
+The instructor selected **Microsoft Harrier OSS v1 0.6B** (the downloaded variant) and explicitly authorized embedding the saved test set, local PostgreSQL loading, Docker-compatible startup/DDL/SQL and working query code. This supersedes the earlier preparation-only prohibition on embeddings/services/database work, but **does not authorize learner Lesson 12 integration or root replacement**. See [the preparation workflow](../../embedding-code/RETRIEVAL.md). The test collection uses the current 511 draft chunks and preserves review flags/provenance; this is not a freeze or implementation of either alternative chunk policy. Final layout/section review, full-corpus expansion, legal distribution and retrieval-quality evaluation remain open.
+
+For the initial test load (superseded by the llama.cpp switch below), the supplied local reference runtime used the pinned official Harrier checkpoint with publisher-specified last-token pooling, L2 normalization and web-search query instructions. It does not claim converted-GGUF fidelity. The earlier llama.cpp deployment choice remains a learner-integration compatibility gate, not a reason to silently mix embedding profiles. PostgreSQL stores `halfvec(1024)` with cosine HNSW, collection/model/profile identity and a separate read-only role. Other-model comparison is no longer a prerequisite to this selected-Harrier test; historical comparison plans above are preserved as evidence.
+
+### Harrier llama.cpp runtime switch — 2026-10-12
+
+The instructor explicitly requested the existing **llama.cpp service on port 9999** instead of the Python reference runtime. The preparation Rust client now targets its OpenAI `/v1/embeddings` API, applies the query instruction in Rust and preflights tokenizer/context counts. The active collection is **`harrier-llamacpp-test-511-v1`**, re-embedded with the pinned F16 GGUF/runtime profile; the original `harrier-test-511-v1` Transformers collection is preserved and must not be mixed. Follow `embedding-code/RETRIEVAL.md` and Lesson 12 `DATABASE-SETUP.md` for current startup/load/query instructions. This changes only preparation, not root Lesson 11 or learner Lesson 12 integration. The existing user's server is bound to 0.0.0.0; instructions use 127.0.0.1, but no automatic restart occurs. Cross-runtime parity and final retrieval quality are not claimed.
+
+## Superseding Lesson 12 implementation authorization — 2026-10-12
+
+The instructor explicitly authorized implementing Lesson 12, its complete lesson/instructor materials, and root replacement after confirming the tutor service was running. Root now advances from the preserved Lesson 11 reference to Lesson 12. Use the existing provisional three-PDF `harrier-llamacpp-test-511-v1` collection; no final corpus freeze, full-source conversion, runtime parity claim, or Lesson 13–14 implementation is implied. The complete Lesson 12 and its validation record supersede earlier learner-integration restrictions only for this scope. Keep all earlier references and unrelated preparation work intact. Private-data access/distribution rights remain the operator's responsibility; do not distribute the books or excerpts with the public course.

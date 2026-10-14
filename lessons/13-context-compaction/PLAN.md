@@ -1,6 +1,6 @@
 # Lesson 13 plan — Context compaction for continuing learning
 
-**Planning only — 2026-10-11. No implementation authorized or supplied.** Read [the shared handoff](../final-lessons-handoff.md). Compaction is its own lesson, not part of historical simulation.
+**Historical planning record — 2026-10-11. Implementation and root continuation were separately authorized on 2026-10-12; see [LESSON.md](LESSON.md) for implemented policy and validation.** Read [the shared handoff](../final-lessons-handoff.md). Compaction is its own lesson, not part of historical simulation.
 
 ## Goal and concepts
 
@@ -49,3 +49,8 @@ Predict which facts should survive a continuing conversation; run until the cons
 - Run standard Rust checks and documented provider/datastore run. Add cases for Lesson 14; do not call a single successful summary reliable long-term memory.
 
 Next: Lesson 14 evaluates retrieval, compaction, teaching behavior and enforced application boundaries together.
+
+
+## Implementation decision — 2026-10-12
+
+The instructor authorized implementation with `/learned <concept name>` as the learner-controlled progress declaration and requested staying on the published exact alpha.11 dependencies until course completion and verification. The implementation distinguishes declared completion from mastery; when memory is enabled the local command is narrow authorization for its deterministic entry, while model proposals retain independent approval. With memory disabled no record is read or written. The same Session continues after bounded compaction. See LESSON.md for the supplied conservative byte-budget policy (not an exact model context measurement), retention/provenance rules, failure outcomes and actual validation. Original planning requirements above remain historical context, not pending permission to implement Lesson 13. No Lesson 14 authorization is implied.

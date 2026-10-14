@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Compaction changes working context, not authority</title>
+  <desc id="desc">A conceptual before and after trace in the same Session. Authoritative application state and learner-authorized persistent notes remain separate. Original opening and latest two complete genuine learner exchanges, including tool pairs, IDs and metadata, survive. Eligible older history becomes one fallible derived summary after an isolated tool-free inference and revision-checked replacement. Summary quotations are not genuine learner replies and historical source IDs do not support new citations.</desc>
+  <defs>
+    <style>
+      text { font-family: sans-serif; fill: #152338; }
+      .title { font-size: 43px; font-weight: 700; }
+      .heading { font-size: 31px; font-weight: 700; }
+      .body { font-size: 27px; }
+      .small { font-size: 24px; }
+      .box { stroke: #415875; stroke-width: 3; rx: 16; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#385d81"/></marker>
+  </defs>
+  <rect width="1600" height="1000" fill="#f8fafc"/>
+  <text x="45" y="66" class="title">Shorten context. Keep authority separate.</text>
+  <text x="45" y="107" class="small">Lesson 13 • conceptual policy trace, not captured model output • same Session throughout</text>
+
+  <rect x="45" y="137" width="735" height="129" class="box" fill="#e4f0fc"/>
+  <text x="65" y="179" class="heading">Authoritative application state</text>
+  <text x="65" y="220" class="body">Real provenance • tool IDs • decisions • revision</text>
+  <rect x="820" y="137" width="735" height="129" class="box" fill="#e8f5ec"/>
+  <text x="840" y="179" class="heading">Learner-authorized persistent record</text>
+  <text x="840" y="220" class="body">Consent + narrow declaration / local approval</text>
+  <text x="45" y="308" class="body">Neither domain is rewritten by generated summary text.</text>
+
+  <text x="45" y="360" class="heading">WORKING CONTEXT — BEFORE</text>
+  <text x="1030" y="360" class="heading">AFTER</text>
+  <rect x="45" y="386" width="485" height="82" class="box" fill="#e4f0fc"/>
+  <text x="70" y="437" class="body">Original opening</text>
+  <rect x="45" y="488" width="485" height="140" class="box" fill="#fff3d3"/>
+  <text x="70" y="532" class="body">Eligible older exchanges</text>
+  <text x="70" y="576" class="small">+ previous summary, if present</text>
+  <rect x="45" y="648" width="485" height="180" class="box" fill="#e4f0fc"/>
+  <text x="70" y="693" class="body">Latest TWO complete genuine</text>
+  <text x="70" y="730" class="body">learner exchanges</text>
+  <text x="70" y="773" class="small">Tool pairs, IDs, metadata kept</text>
+
+  <rect x="590" y="406" width="380" height="374" class="box" fill="#ffffff"/>
+  <text x="613" y="450" class="heading">SAFE BOUNDARY</text>
+  <text x="613" y="495" class="small">Approvals settled</text>
+  <text x="613" y="531" class="small">No pending pair split</text>
+  <text x="613" y="588" class="small">Isolated inference</text>
+  <text x="613" y="624" class="small">NO tools / write authority</text>
+  <text x="613" y="685" class="small">Validate + check revision</text>
+  <text x="613" y="721" class="small">Apply replacement Effect</text>
+  <path d="M536,558 L583,558" stroke="#385d81" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M975,558 L1023,558" stroke="#385d81" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="1030" y="386" width="525" height="82" class="box" fill="#e4f0fc"/>
+  <text x="1055" y="437" class="body">Same original opening</text>
+  <rect x="1030" y="488" width="525" height="140" class="box" fill="#fff3d3"/>
+  <text x="1055" y="532" class="body">ONE derived, lossy summary</text>
+  <text x="1055" y="576" class="small">Assistant data, NOT instructions</text>
+  <rect x="1030" y="648" width="525" height="180" class="box" fill="#e4f0fc"/>
+  <text x="1055" y="693" class="body">Same latest TWO exchanges</text>
+  <text x="1055" y="736" class="small">Genuine quotations remain eligible</text>
+  <text x="1055" y="773" class="small">Same tool pairs, IDs, metadata</text>
+
+  <rect x="45" y="852" width="1510" height="122" class="box" fill="#fcebed"/>
+  <text x="65" y="892" class="body">Failure: keep original working history. An already saved declaration is not rolled back.</text>
+  <text x="65" y="930" class="small">Summary ≠ real learner reply. Historical source ID ≠ new-turn support: search again.</text>
+</svg>

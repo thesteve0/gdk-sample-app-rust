@@ -1,7 +1,10 @@
 /target/
+/embedding-code/target/
 .env
 /.idea/
 /out/
 /session-output.md
 /learner-record.md
 /day_trading/
+
+/.evaluation/

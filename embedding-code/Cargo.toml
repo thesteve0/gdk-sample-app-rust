@@ -1,0 +1,16 @@
+[package]
+name = "pdf-corpus-preparation"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94.1"
+publish = false
+default-run = "pdf-corpus-preparation"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+# Separate preparation CLI: local embedding HTTP and native PostgreSQL protocol.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+postgres = { version = "0.19", features = ["with-serde_json-1"] }

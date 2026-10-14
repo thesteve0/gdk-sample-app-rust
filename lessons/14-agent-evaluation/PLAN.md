@@ -1,6 +1,6 @@
 # Lesson 14 plan — Evaluate the complete agentic application
 
-**Planning only — 2026-10-11. No implementation authorized or supplied.** Read [the shared handoff](../final-lessons-handoff.md). This is the final required lesson, not a simulator or deployment lesson.
+**Historical plan — 2026-10-11; implementation authorized and supplied 2026-10-13.** Read [LESSON.md](LESSON.md) and [VALIDATION.md](VALIDATION.md) for settled infrastructure, actual checks and remaining gaps. Read [the shared handoff](../final-lessons-handoff.md). This is the final required lesson, not a simulator or deployment lesson.
 
 ## Goal and concepts
 
