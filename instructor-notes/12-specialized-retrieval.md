@@ -10,7 +10,7 @@ Core learning outcomes: explain compatible embedding spaces; distinguish retriev
 
 ## Before class: instructor-only readiness checklist
 
-1. Read README, the entire [PLAN and latest amendments](../lessons/12-specialized-retrieval/PLAN.md), [handoff](../lessons/final-lessons-handoff.md), Lesson 11's lesson/reference/notes/content and the active root. Preserve unrelated work. Root/reference/support belong to the implementation owner, not this documentation task.
+1. Read README, the entire [PLAN and latest amendments](../lessons/12-specialized-retrieval/PLAN.md), [handoff](../lessons/final-lessons-handoff.md), Lesson 11's lesson/reference/notes/content and the active root. Preserve unrelated work. Root `src/` is ephemeral; activate the complete Lesson 12 tree before rehearsal. The combined Lessons 12–14 refactor finishes with Lesson 14 active, so do not infer this lesson from the current root.
 2. Follow [DATABASE-SETUP](../lessons/12-specialized-retrieval/DATABASE-SETUP.md) and [RETRIEVAL](../embedding-code/RETRIEVAL.md) to start/verify existing local services and the loaded collection. Keep preparation outside classroom time. Private artifacts are not in Git; obtain authorized originals rather than silently substitute another corpus.
 3. Confirm `harrier-llamacpp-test-511-v1`, three document identities, 511 draft rows, 1,024 dimensions, selected model/runtime profile, hashes and draft status. The preserved Transformers collection `harrier-test-511-v1` is incompatible with this query runtime even though dimensions match.
 4. Verify the actual Harrier model/build/GGUF identity, pooling, normalization, query formatting and token preflight through the supplied client. The service is llama.cpp on port 9999, not a chat endpoint or the old Python service. Verify the local tutor provider independently; the bundled default uses port 8080.
@@ -19,7 +19,43 @@ Core learning outcomes: explain compatible embedding spaces; distinguish retriev
 7. Run format/check/Clippy/tests and an actual local tutor/datastore rehearsal. Record commands, actual tool selection, returned evidence and limits; deterministic tests and preparation reader-query smoke checks are not new tutor-validation evidence.
 8. Prepare an authorized, sanitized projection view. `session-output.md` can contain learner words, consented record context and private excerpts; do not open it blindly on a projector. Use course-authored synthetic evidence when public redistribution is required and label it synthetic, not real-book validation.
 
+Activate all source and child-test files from repository root; this intentionally replaces the ephemeral exercise, with no backup/restore or final hello-world reset:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/12-specialized-retrieval/src/. src/
+```
+
 Root launch/check commands are in LESSON.md. Set `RETRIEVAL_DATABASE_URL="$READER_DATABASE_URL"` after sourcing the private connection file, and set the approved `HARRIER_URL` and `TUTOR_URL`. The latter is the actual tutor tokenizer endpoint, not an alternative generation provider, and must match the provider JSON. The supplied adapter verifies the GGUF path reported by the local embedding server; there is no assumed `HARRIER_GGUF` variable. Use the verified environment contract above; the application additionally requires literal-loopback provider origin equality and rejects ambient proxies, with same-origin provider redirects. Complete source and support must be present before handing out the lesson.
+
+## Supplied local modules
+
+A **module** is a named part of this Rust application that groups related code. Local modules let us keep the agent's decisions visible while reading already-taught calculation and supplied UI/storage mechanics separately. They are files in this lesson, not a shared course library, another agent, or a new execution loop. Every Rust source starts with `// Lesson 12`.
+
+| Source | Responsibility |
+| --- | --- |
+| [main.rs](../lessons/12-specialized-retrieval/src/main.rs) | Context loading/prompt assembly and consent; Session/runtime/Effects; concurrent Event consumption; machine assembly/run/cancellation; tool registration/dispatch/allowlists/limits; shared evidence ledger; current-turn citation inspection; genuine-learner-source validation and post-run approval sequence. |
+| [retrieval.rs](../lessons/12-specialized-retrieval/src/retrieval.rs) | Cohesive local read-only adapter: strict query, endpoint/profile/privilege/provenance checks, embedding/SQL, tokenizer accounting, evidence clipping and connection-driver cancellation/Drop guards. |
+| [calculator.rs](../lessons/12-specialized-retrieval/src/calculator.rs) | Previously taught exact-decimal calculation, strict arguments and capability schema; two local tests. |
+| [learning_record.rs](../lessons/12-specialized-retrieval/src/learning_record.rs) | Record categories/proposal shape/schema, bounded file reading/appending and default-no confirmation-input mechanics; two local tests. It does not decide learner-source validity or when approval may happen. |
+| [chooser.rs](../lessons/12-specialized-retrieval/src/chooser.rs) | Supplied arrow/Enter chooser, numbered fallback, input and raw-mode cleanup. |
+| [presentation.rs](../lessons/12-specialized-retrieval/src/presentation.rs) | Palette, independent terminal gating and streaming `TerminalProse` formatting; two local tests. Event consumption stays in main. |
+| [provider_setup.rs](../lessons/12-specialized-retrieval/src/provider_setup.rs) | Positional provider-path handling and first configured model selection. Local tutor policy/transport checks stay in main. |
+| [diagnostics.rs](../lessons/12-specialized-retrieval/src/diagnostics.rs) | Plain Markdown log writing, complete Session rendering and presentation sanitization; two local tests. It is never learner memory. |
+| [tests.rs](../lessons/12-specialized-retrieval/src/tests.rs) | Application/runtime/Event/dispatch/memory/citation/evidence-ledger tests and shared test helpers; includes one opt-in same-snapshot live search-batch test. |
+| [retrieval/tests.rs](../lessons/12-specialized-retrieval/src/retrieval/tests.rs) | Adapter-local query/URL/database/vector/profile/provenance/serialization/cancellation tests, plus one opt-in actual-service smoke test. |
+
+### Teaching reading path: preserve the visible boundaries
+
+Use [the lesson's detailed reading path](../lessons/12-specialized-retrieval/LESSON.md#supplied-source-map-and-teaching-reading-path), not a line-by-line tour of support helpers:
+
+1. Main's `LessonContext` loading/prompt assembly and selection-time consent establish context authority before inference.
+2. Main's Session/runtime/Effects, concurrent `display_events` and `run_turn` explain saving versus presentation, machine execution, timeout/cancellation, sender drop/drain and inspection. Keep that order visible.
+3. Main's registrations, `SafeTools`, `RunLimit`, `RetrievalToolProvider` and shared `EvidenceBudget` establish all-block dispatch and one evidence allowance per turn. Read the cohesive retrieval adapter afterward, including cancellation/Drop guards.
+4. Main's `inspect_turn`/`inspect_citations` use only current-turn successful correlated evidence; valid IDs do not prove semantic support.
+5. Main's proposal-only handler and `parse_record_proposal` retain genuine-learner-source validation. Follow successful final/inspection → `approve_record_proposals` → default-no decision → decision log → append call → Session record refresh → post-approval diagnostics. `learning_record` supplies types/schema/file/confirmation mechanics, not permission to save.
+6. Open supporting modules only for an explanation learners need; finish with application tests, retrieval child tests and inline calculator/record/presentation/diagnostics tests. Forty deterministic tests and two default-ignored live tests remain; no new learner scaffolding or shared framework is introduced.
 
 ### Corpus facts to say aloud
 
@@ -120,7 +156,7 @@ Preparation evidence remains in RETRIEVAL.md: the active llama.cpp collection co
 
 Integration rehearsal must separately inspect source-specific support, citation membership versus semantic correctness, query/evidence bounds across multiple searches, collection/profile checks, all-block/shared-request limits/correlation, local services/privacy, plain and colored UI/citation survival, post-approval diagnostics and unchanged calculator/memory behavior. Maintenance failure probes belong to testing, not newly assigned classroom exercises. Keep outages, incorrect tool selection, weak evidence and inconclusive teaching behavior in the record.
 
-End-of-course review should examine beginner pacing, source qualifications, precise feedback, no mastery inference, readable citations, genuine memory agreement, privacy/source rights and terminal readability. Earlier Lesson 8–10 review, Lesson 9's 100-share live tweak, Lesson 10's inconclusive pacing experiment and Lesson 11's teaching/colored UI gaps remain independent. No Lesson 13/14 implementation, new CLI or final corpus/model acceptance is implied.
+End-of-course review should examine beginner pacing, source qualifications, precise feedback, no mastery inference, readable citations, genuine memory agreement, privacy/source rights and terminal readability. Earlier Lesson 8–10 review, Lesson 10's inconclusive pacing experiment and Lesson 11's recorded teaching gaps remain independent. Lesson 9's default and 100-share live runs passed on 2026-10-22; its earlier live-tweak gap is resolved, not a reason to rewrite dated historical records. Later lessons have separate authorizations; this lesson neither introduces their behavior nor grants a new CLI or final corpus/model acceptance.
 
 
 ### Implementation validation — 2026-10-12
@@ -136,3 +172,10 @@ End-of-course review should examine beginner pacing, source qualifications, prec
 The inspected embedding runtime has eight slots and **2,048 tokens per slot**; the documented 8,192/8 startup example has 1,024 per slot. Runtime preflight uses the actual reported capacity, never training context. Existing services were not restarted; the user's Harrier process still listens on all interfaces. Clients use loopback and do not fall back externally, but operators must restrict server exposure. No offline-with-network-disabled test, full injected-outage/malformed-service matrix, exhaustive citation support benchmark, cross-runtime parity, index recall/latency benchmark, or corpus freeze is claimed. Rights and authorized learner access remain the operator's responsibility. Content/teaching/UI and instructor release review remain deferred to end-of-course review; prior lesson gaps are independent. No Lesson 13/14 code was introduced.
 
 Private raw evidence remains in ignored `day_trading/embeddings/postgres-local/lesson12-*` captures, not public lesson examples. Diagnostics can contain private excerpts and learner text; Git ignore is not access control.
+
+### Modularization validation — 2026-10-22
+
+- Behavior-preserving local extraction passed `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build`: **40 deterministic tests passed; two live tests were ignored by default**. The source audit preserved all **158 original function/test bodies**, test names and constants. Literals, types and attributes were preserved apart from necessary visibility/import changes and test `cfg` placement. No prompt, content, dependency, budget, authority or semantic fix was made.
+- Both ignored real-service tests were explicitly attempted and failed because **`RETRIEVAL_DATABASE_URL` was missing**. `cargo run -- custom_aa_llama_qwen3_6-35b.json` failed at the same prerequisite **before the chooser**. The private `connection.env` was absent; Harrier on port 9999 was unavailable; the tutor on port 8080 returned health HTTP 200. Tutor health alone is not retrieval readiness. No mocks were substituted, services restarted or corpus mutated.
+- Plain, empty-`NO_COLOR` and `TERM=dumb` launch-error output and independent stderr terminal gating were checked. This is error-path presentation evidence, **not** a fresh conversation, chooser, consent/storage, search, calculator or teaching validation. The historical successful integration and semantic defects above remain historical evidence, not fresh modularized live success. No fresh IDE/projector or release review is claimed.
+- Root activation uses the entire recursive source tree, not a main/retrieval pair; the combined refactor's final root is Lesson 14. Lesson 9's default and 100-share live runs passed on 2026-10-22, resolving that earlier validation gap independently. Other historical teaching defects and deferred instructor review remain; this pass grants no release approval.

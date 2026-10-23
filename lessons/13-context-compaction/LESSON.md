@@ -6,7 +6,7 @@ Continue a learning conversation without sending an ever-growing transcript to t
 
 Use the complete supplied Lesson 13 reference and root working copy, including the compaction, retrieval, concurrency and presentation helpers. **No missing Rust scaffolding is assigned.** The classroom rhythm is predict → run → explain → tweak → run again. Day trading remains introductory education, not a trading recommendation or competence certification.
 
-**Implementation supplied; instructor review pending.** The complete source and policy are supplied; the validation record below distinguishes checks from remaining gaps. Historical planning-only wording in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) precedes this task, not a claim that validation has occurred. No Lesson 14 implementation is included.
+**Implementation supplied; instructor review pending.** The complete source and policy are supplied; the validation record below distinguishes checks from remaining gaps. Historical planning-only wording in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) precedes this task, not a claim that validation has occurred. This preserved Lesson 13 reference does not include Lesson 14 instrumentation; [Lesson 14](../14-agent-evaluation/LESSON.md) is separately authorized and implemented. The combined modularization pass finishes with root activated from Lesson 14, not this reference.
 
 ## Concepts introduced
 
@@ -34,7 +34,15 @@ A **revision** identifies the state version used to prepare a replacement. Check
 
 Complete Lesson 12's retrieval, citation, calculator and consent/approval boundaries. Keep its prepared local tutor, matching Harrier/llama.cpp service and read-only PostgreSQL connection. Follow [Lesson 12 DATABASE-SETUP.md](../12-specialized-retrieval/DATABASE-SETUP.md); no database reload, model conversion or new corpus preparation is a learner exercise.
 
-Use the existing ignored `.env`/`dotenvy` setup and private reader environment. Do not print credentials or enable shell tracing. From the repository root with the separately supplied Lesson 13 working copy:
+Use the existing ignored `.env`/`dotenvy` setup and private reader environment. Do not print credentials or enable shell tracing. Root `src/` is an ephemeral exercise copy, not an authoritative reference. From the repository root, activate the **entire recursive source tree**, including child test directories:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/13-context-compaction/src/. src/
+```
+
+This intentionally replaces the exercise copy. No backup/restore or final hello-world reset is required. Preserve unrelated work outside `src/`; the combined Lessons 12–14 pass ultimately leaves root matching Lesson 14. To run this activated Lesson 13 copy:
 
 ```bash
 umask 077
@@ -54,9 +62,51 @@ cargo fmt --check
 cargo check
 cargo clippy --all-targets
 cargo test
+cargo build
 ```
 
-The lesson sources share the root manifest; they are not a separate Cargo package. Save unrelated edits before restoring any supplied files. Use the complete Lesson 13 reference, not the earlier Lesson 12 source, when repeating this lesson.
+The lesson sources share the root manifest; they are not a separate Cargo package. Copying only `main.rs` or only top-level `.rs` files is incomplete: the child test directories belong to the reference too. Use this Lesson 13 reference, not an earlier or later lesson's source, when repeating it.
+
+## Supplied module map and teaching reading path
+
+A **Rust module** groups related code under a local name. Here modules keep previously taught mechanics and supplied support out of the main teaching path; they do not create a shared course library or a new application framework. A declaration such as `mod calculator;` loads the sibling `calculator.rs`. The first support declarations in [main.rs](src/main.rs) are:
+
+```rust
+mod calculator;
+mod chooser;
+mod diagnostics;
+mod learning_record;
+mod presentation;
+mod provider_setup;
+```
+
+The same main file also declares the cohesive `compaction` and `retrieval` modules and a test-only `tests` module. A **child test module** keeps tests beside the production module they exercise without splitting that module's algorithm. For example, `compaction.rs` ends with `#[cfg(test)] mod tests;`, which loads `compaction/tests.rs` only for tests. All supplied Rust files start with `// Lesson 13`.
+
+| Complete source map | Responsibility |
+| --- | --- |
+| [main.rs](src/main.rs) | Context loading/prompt assembly; selection and commands; Session, authoritative state, provenance and revisions; preflight/maintenance call sites; runtime/Effects; concurrent Events; dispatch/allowlists/limits; evidence budget, tool registration and current-turn citation inspection; successful-run inspection and local approval order. |
+| [compaction.rs](src/compaction.rs) | Cohesive declaration, ordinary-content projection, partition/budget policy, isolated summary run, revision-checked replacement and maintenance implementation. |
+| [compaction/tests.rs](src/compaction/tests.rs) | Child tests for compaction, declarations, provenance, budgets, revision and failure boundaries. |
+| [retrieval.rs](src/retrieval.rs) | Cohesive local read-only retrieval, transport/profile/provenance validation, token accounting and cancellation/Drop guards. |
+| [retrieval/tests.rs](src/retrieval/tests.rs) | Child retrieval tests, including the explicitly opt-in actual-service test. |
+| [calculator.rs](src/calculator.rs) | Inherited exact-decimal calculator/schema/validation and local tests. |
+| [chooser.rs](src/chooser.rs) | Inherited arrow/numbered chooser, line input and raw-mode cleanup. |
+| [diagnostics.rs](src/diagnostics.rs) | Inherited plain Markdown diagnostics, complete Session formatting and local tests; never learner memory. |
+| [learning_record.rs](src/learning_record.rs) | Inherited record types/schema, bounded read/append and confirmation-input mechanics, with local tests; no model write authority. |
+| [presentation.rs](src/presentation.rs) | Inherited terminal styles/gates and `TerminalProse`, with local tests; not Event consumption or saved-text rewriting. |
+| [provider_setup.rs](src/provider_setup.rs) | Inherited provider path and first-configured-model selection. |
+| [tests.rs](src/tests.rs) | Main's test-only application/runtime/dispatch/approval/Event/citation tests, including the opt-in same-snapshot live search test. |
+
+**Teaching reading path:**
+
+1. Begin in `main.rs`: `LessonContext::load`, `run_learning_partner` and `reply_action`. Trace consent, fresh selection, `/learned`, declaration-before-maintenance and automatic preflight-before-genuine-reply append. Context assembly stays here, not in support modules.
+2. Read `ChatSession`, `ChatRuntime`, its append/policy methods and Effect handler. Identify genuine reply IDs, settled approvals, revisions and application authority before visiting compaction internals.
+3. Follow the `compaction::BudgetPreparer`/maintenance wiring from main into `compaction.rs`: projection → partition → isolated summary → validation → `apply_outcome` revision check. Return to main's `ChatEffect::Maintenance` application boundary. Compaction stays cohesive, not scattered into generic helpers.
+4. Follow `run_turn`, `cooperative_run` and `display_events_bounded`: GDK run and Event consumption execute concurrently; sender closure, draining, saved partial-state diagnostics, successful run and `inspect_turn` precede approval. Event consumption and cancellation ordering remain visible in main, not `presentation.rs`.
+5. Read `EvidenceBudget`, `RetrievalToolProvider`, `LossToolProvider`, `SafeTools`, `RunLimit` and `inspect_citations` in main. Visit `retrieval.rs` only for its supplied cohesive implementation; visit `calculator.rs` to recall the already-taught decimal tool. Current-turn citation/evidence decisions and tool registration remain in main.
+6. Finish in main with `parse_record_proposal`, `approval_pending` and `approve_record_proposals`: retained genuine-learner-source validation → independent default-no decision after successful inspection → decision log → approved append call → Session record refresh/revision → settled decision/revision → complete post-approval diagnostics. Storage/confirmation mechanics are support, not permission. Read the three separate test files and module-local inline tests as boundary evidence, not class fill-ins.
+
+The six inherited support modules are supplied unchanged in behavior. Modularization changes reading locations and visibility/import boundaries, not prompts, policy, limits, authority, privacy or runtime behavior.
 
 ## 13.1 — Predict the three domains
 
@@ -198,6 +248,14 @@ The instructor requested correcting execution guarantees, unjustified closure of
 - Targeted execution questions no longer asserted that stops ensure exit or that market/stop-market orders guarantee a complete immediate fill. The final answers distinguished stop-limit nonfill risk. **Other wording defects still appeared:** a tutor generalized limit orders as a price ceiling without specifying buy versus sell, described a stop-limit as matching an exact level instead of price-or-better, and one costs answer overstated spread costs as applying identically to every trade. These were not silently counted as correct domain teaching. This focused correction is not a general domain-quality benchmark or a proof that prompt guidance eliminates inaccuracies.
 - All checked plain/NO_COLOR/dumb captures and diagnostics remained ANSI-free. Complete original messages/metadata remain diagnostic data; summaries are still fallible and never eligible learner quotes or current-turn citation evidence. No fresh colored UI, consented-save replay, live source/calc dialogue or broad summary benchmark was run in this correction; the two real-service tests and prior regression evidence are separate. Earlier long-input limits, source support defects and deferred instructor review remain.
 
+### Behavior-preserving modularization validation — 2026-10-22
+
+- The activated complete Lesson 13 source tree passed `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build`: **66 deterministic tests passed; two live tests remained ignored in the default run**. The source audit preserved all **225 original function/test bodies**, test names and constants. Strings, types and attributes were preserved apart from necessary visibility/import/conditional-compilation boundaries. The missing test-only `DEFAULT_PROVIDER_CONFIG` import and rustfmt ordering were corrected; neither was a behavior fix.
+- Both opt-in actual-service tests were explicitly attempted and **failed because `RETRIEVAL_DATABASE_URL` was missing**. The documented `cargo run -- custom_aa_llama_qwen3_6-35b.json` also failed for the same prerequisite before the chooser. The private `day_trading/embeddings/postgres-local/connection.env` was absent; Harrier on port 9999 was unavailable; the tutor health endpoint on port 8080 returned HTTP 200. Tutor health alone does not validate retrieval or a tutor exchange. No service was restarted or replaced with a mock.
+- Parent validation checked plain, empty-`NO_COLOR` and `TERM=dumb` launch-error output plus independent stderr terminal gates. This checks failure presentation only, not successful chooser/dialogue styling. **No fresh live compaction, declaration, same-Session continuation, approval, search, calculator, chooser or teaching result is claimed in this pass.** The earlier live evidence and semantic corrections above remain historical, not rerun successes.
+- Context/commands/provenance/authoritative state, preflight, revisions, maintenance wiring, runtime/Effects, concurrent Event consumption, dispatch/inspection and approval ordering remain visible in main. Compaction and retrieval remain cohesive with child test files; the six inherited support modules carry supplied mechanics. No prompt/content, dependency/provider, corpus, authority, budget or behavior fix is included. Historical semantic defects, long-input stops and validation/review gaps remain open; structural preservation is not teaching approval.
+- This checkpoint describes the preserved Lesson 13 reference; the separately authorized Lesson 14 continuation is not absent or unauthorized. Root is ephemeral and ultimately matches the complete Lesson 14 tree after the combined pass. No backup/restore, hello-world reset, service restart, new release approval or fresh IDE/projector validation is claimed.
+
 ## Exit questions and next step
 
 - What can `/learned` authorize, and why is it not mastery evidence?
@@ -207,4 +265,4 @@ The instructor requested correcting execution guarantees, unjustified closure of
 - Why must an old source ID be re-searched for a new answer?
 - What can byte/shape tests prove, and what still needs human inspection?
 
-Next, Lesson 14 evaluates enforced boundaries and fallible retrieval, compaction and teaching behavior together. That is the conceptual next step, not an implementation included here. Supplemental [Goose smart context management](https://goose-docs.ai/docs/guides/sessions/smart-context-management) describes full Goose; it does not automatically configure this pinned custom GDK application.
+Next, Lesson 14 evaluates enforced boundaries and fallible retrieval, compaction and teaching behavior together. That is the conceptual next step; its separately authorized implementation lives in the Lesson 14 reference, not in this preserved Lesson 13 tree. Supplemental [Goose smart context management](https://goose-docs.ai/docs/guides/sessions/smart-context-management) describes full Goose; it does not automatically configure this pinned custom GDK application.

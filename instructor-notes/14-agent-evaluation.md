@@ -4,20 +4,38 @@
 
 Use [Lesson 14](../lessons/14-agent-evaluation/LESSON.md) to teach a defensible evaluation decision: observable structure plus human meaning judgments under controlled conditions. This evaluates the **tutor**, not the learner's mastery or readiness to trade. The instructor has source books but no expert-authored trading assessment rubric; acknowledge that limit aloud.
 
-Complete main/retrieval/compaction/telemetry modules and Lesson 13-derived teaching content are supplied and synchronized with root. Do not assign exporter, concurrency, runtime traits, storage routing or async wiring as missing Rust scaffolding. Predict → run → explain → tweak → run again. Published GDK alpha.11 and provider/toolchain pins stay fixed; migration is deferred until the course is finished and verified.
+The complete modular source tree and Lesson 13-derived teaching content are supplied and synchronized with root. Use the lesson’s [linked source map and reading path](../lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path), including module-local child tests. Do not assign exporter, concurrency, runtime traits, storage routing or async wiring as missing Rust scaffolding. Predict → run → explain → tweak → run again. Published GDK alpha.11 and provider/toolchain pins stay fixed; migration is deferred until the course is finished and verified.
 
 [VALIDATION.md](../lessons/14-agent-evaluation/VALIDATION.md) is the authoritative record of actual implementation checks. Do not infer final scenario coverage or invent a test count from these teaching notes. The narrow existing proof is official MLflow **v3.17.1** receiving native Rust OTLP, observable inference/usage and parent/tool relationships, and persistence of named numeric feedback through the native UI. This is transport/UI evidence, not semantic acceptance or release approval.
 
 ## Before class
 
 1. Read README, Lesson 13's complete lesson/notes and its targeted correction record, then this lesson's [setup guide](../lessons/14-agent-evaluation/MLFLOW-SETUP.md), [rubric](../lessons/14-agent-evaluation/RUBRIC.md), [scenarios](../lessons/14-agent-evaluation/SCENARIOS.md), [dataset catalog guide](../lessons/14-agent-evaluation/DATASETS.md), [comparison worksheet](../lessons/14-agent-evaluation/COMPARISON.md) and validation record. Historical planning status does not replace the current implementation handoff.
-2. Preserve unrelated working-tree changes. Confirm root and all four reference modules plus teaching content agree. Use the root manifest, not a nonexistent lesson manifest. Review the supplied exporter and actual storage behavior before explaining them.
+2. Preserve unrelated working-tree changes. Confirm root and the entire reference source tree, including child test directories, plus teaching content agree. Use the root manifest, not a nonexistent lesson manifest. Review the supplied exporter and actual storage behavior before explaining them.
 3. Verify existing local tutor/tokenizer, Harrier runtime/profile, `harrier-llamacpp-test-511-v1` collection and reader role using [DATABASE-SETUP.md](../lessons/12-specialized-retrieval/DATABASE-SETUP.md). No database reload, embedding conversion, source ingestion or model change belongs to this lesson. Services absent? Ask for them; do not relabel mock evidence as live validation.
 4. Use the official pinned MLflow setup and record the actual numeric experiment ID. Verify local native UI receipt and parentage, not just server health. No Python judge/evaluation runner. Server and dataset seeder infrastructure are supplied; learners need not become MLflow administrators. Verify the active experiment and native `lesson14-visible-v1` catalog separately from trace receipt. Catalog membership is not execution or review evidence.
 5. Establish a disposable baseline name such as `baseline-V02`; confirm it is unused or deliberately prepared. Both record and diagnostic files must resolve under `.evaluation/sessions/baseline-V02/`. Ordinary root files must remain untouched by the rehearsal. Diagnostic evidence is overwritten on launch; archive it privately before restarting.
 6. Fix case version, initial memory/consent, wording, guidance, models/profile/corpus, repetitions and evaluator criteria before observing responses. Simplest demonstration: memory declined in both variants. For a memory case, use byte-identical seed records prepared between launches; do not pass approved additions from baseline into variant. Reserve a held-back case.
 7. Rehearse enough ordinary complete exchanges to make automatic compaction eligible under 60,000 and 50,000 estimated bytes. Keep the 84,000 estimated-input allowance unchanged. Neither two replies nor a lower trigger guarantees replacement. Do not intentionally overflow the provider or break services as learner exercises.
 8. Prepare one permissioned sanitized satisfactory observation and one imperfect observation. Label historical versus current evidence and date each. Do not invent a successful live transcript if the rehearsal was blocked. Do not project raw private books, credentials, environment connection strings or personal conversation.
+
+## Modular source reveal and activation
+
+Define a **module** as a named part of this same application, grouping related code so the class can focus on current decisions. Explain that `mod` loads local code and `use` brings names into scope before showing declarations. Use the lesson's complete linked source map rather than assigning module construction. The six inherited support modules are calculator, chooser, diagnostics, learning_record, presentation and provider_setup. Retrieval, compaction and telemetry remain cohesive production modules, each with a child test file; application tests are in `tests.rs`, and support-local tests remain with their mechanics. Every Rust source starts `// Lesson 14`.
+
+Read main first: context assembly, Session/runtime/Effects, concurrent Event consumption, machine lifecycle and dispatch/limits stay visible. Main also retains the telemetry lifecycle and `run_with_telemetry`, span instrumentation flow, isolation integration, learner-source validation, consent, successful-final/inspection gate and approval → decision log → append call → Session refresh. Follow retrieval for algorithms, then return to main for the shared evidence budget/registration/current-turn citation check. Follow compaction for cohesive algorithms, then return for authoritative-state/provenance, command/preflight/revision/maintenance boundaries. `TerminalProse` is rendering support, not Event consumption; storage/confirmation helpers do not authorize a write.
+
+Explain the evidence identity change: telemetry's explicit inventory adds the six extracted production paths (`src/calculator.rs`, `src/chooser.rs`, `src/diagnostics.rs`, `src/learning_record.rs`, `src/presentation.rs`, `src/provider_setup.rs`). The `course.content_sha256` schema/purpose stays the same; locations and hashes change. Test files are not included. Do not attribute old traces to newly organized source bytes. Seeder and dataset assets are untouched.
+
+Activate recursively from root, not by copying main or a top-level glob:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/14-agent-evaluation/src/. src/
+```
+
+Root is ephemeral: no backup/restore or final hello-world reset now. Preserve authoritative references and unrelated work, and leave root matching Lesson 14 for combined review.
 
 ## Commands to use from the root
 
@@ -35,7 +53,8 @@ export COMPACTION_TRIGGER_BYTES=60000
 cargo fmt --check
 cargo check
 cargo clippy --all-targets
-cargo test
+cargo test --all-targets
+cargo build
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
 
@@ -160,3 +179,7 @@ No complete network-isolation/adversarial reliability, malicious pathname-race h
 Update judgments from actual [VALIDATION.md](../lessons/14-agent-evaluation/VALIDATION.md) evidence, never from commands listed as instructions. Keep deterministic checks, real-service tests, live scenarios, native UI proof and semantic judgments separate. Record skipped/blocked cases and observations that did not exercise compaction. The narrow official v3.17.1 Rust OTLP/feedback proof is not a final application acceptance result.
 
 Final review should consider complete materials, observed teaching/UI behavior, baseline/variant evidence, consent/capability gates, known defects and independent prior gaps. A local numeric feedback value is one evaluator's annotation, not a reusable assessment instrument or mastery score. No Python judge/runner, automatic trade readiness assessment, simulator, general CLI, fine-tuning or SDK migration is added as an implicit final requirement. The course ends with an honest method for deciding what to improve next, subject to instructor authorization and review.
+
+## Modularization validation checkpoint — 2026-10-22
+
+The [dated validation entry](../lessons/14-agent-evaluation/VALIDATION.md#modularization-checkpoint--2026-10-22) records 68 deterministic application plus seven unchanged seeder tests, formatting/check/Clippy/build, preserved bodies/constants/test names and the corrected missing test import. Both opt-in live checks were attempted and failed for missing `RETRIEVAL_DATABASE_URL`; the documented launch failed before selection too. The private connection file was absent; Harrier 9999 and MLflow 5000 were unavailable, tutor 8080 health returned 200. Do not call that a live teaching or export pass. Parent validation checked plain/empty-NO_COLOR/dumb errors and independent stderr gating only, not a fresh learner interaction. No service restart, catalog write, semantic fix, dependency change or commit belongs to this checkpoint. Preserve all historical failures, incomplete V04/V05/V10 and held-back cases, and pending review; ask the instructor to provide prerequisites before fresh end-to-end validation.

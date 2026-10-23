@@ -2,7 +2,7 @@
 
 ## Scope and prerequisites
 
-This is **instructor-side preparation** for Lesson 12, not the learner application's retrieval integration. Root now runs the separately authorized Lesson 12 integration; see [LESSON.md](LESSON.md) for learner-runtime setup. A **collection** is a named set of passages embedded with one compatible model/profile. The supplied test collection is `harrier-llamacpp-test-511-v1`: **511 draft passages** from three PDFs, embedded with **Microsoft Harrier OSS v1 0.6B**. Draft review flags and source provenance are retained; loading does not certify source accuracy or freeze the final corpus.
+This is **instructor-side preparation** for Lesson 12, not the learner application's retrieval integration. The Lesson 12 reference supplies the separately authorized integration (activate its complete source tree when rehearsing it; root currently finishes the Lesson 14 modularization); see [LESSON.md](LESSON.md) for learner-runtime setup. A **collection** is a named set of passages embedded with one compatible model/profile. The supplied test collection is `harrier-llamacpp-test-511-v1`: **511 draft passages** from three PDFs, embedded with **Microsoft Harrier OSS v1 0.6B**. Draft review flags and source provenance are retained; loading does not certify source accuracy or freeze the final corpus.
 
 Run the following Bash commands **from the repository root**. Required:
 

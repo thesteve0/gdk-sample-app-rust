@@ -4,7 +4,7 @@
 
 Continue the day-trading learning partner with a small, editable **learning record** and **learner-agreed next activities** that can survive application exit. Let the learner decide whether to use memory and approve every addition. On a later launch, ask whether to resume an agreed activity rather than assuming the learner wants to continue it.
 
-**Authorized and implemented; instructor review pending.** Validation results and limitations are recorded below. This lesson does not release Lessons 8–10: Lessons 8–9 still need instructor review, Lesson 9's live 100-share tweak remains pending, and Lesson 10's teaching/content/UI review remains separate.
+**Authorized and implemented; instructor review pending.** Validation results and limitations are recorded below. This lesson does not release Lessons 8–10: Lessons 8–9 still need instructor review, Lesson 9's live 100-share tweak passed on 2026-10-22, and Lesson 10's teaching/content/UI review remains separate.
 
 ## Concepts introduced
 
@@ -34,9 +34,9 @@ Approval is an opportunity to correct or reject a note, not a learning assessmen
 
 Use the pinned Linux setup and the same reachable streaming/tool-capable provider as Lesson 10. Review its selection boundary, continuing Session, Events versus Effects, optional calculator, diagnostics, and safeguards.
 
-The entire [reference source](src/main.rs), three [content files](content/), and support helpers are supplied from the outset. Follow **predict → run → explain → tweak → run again**; there are no missing Rust scaffolding exercises. This directory shares root `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`; it is not an independent Cargo package. **No new dependencies** are introduced. Rust `1.94.1`, GDK `0.1.0-alpha.11`, RMCP `3.4.1`, and the existing chooser dependency remain pinned.
+The entire [reference source directory](src/), three [content files](content/), and support helpers are supplied from the outset. Follow **predict → run → explain → tweak → run again**; there are no missing Rust scaffolding exercises. This directory shares root `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`; it is not an independent Cargo package. **No new dependencies** are introduced. Rust `1.94.1`, GDK `0.1.0-alpha.11`, RMCP `3.4.1`, and the existing chooser dependency remain pinned.
 
-Root is the runnable Lesson 11 continuation. Run from the repository root:
+The ephemeral root is activated from the complete Lesson 11 reference for this checkpoint. Run from the repository root:
 
 ```bash
 cargo run -- custom_aa_llama_qwen3_6-35b.json
@@ -44,13 +44,45 @@ cargo run -- custom_aa_llama_qwen3_6-35b.json
 
 The positional provider override and first-configured-model convention are unchanged. The default provider path, content, `learner-record.md`, and `session-output.md` resolve against the shared manifest directory; an explicitly supplied relative provider path resolves against the current working directory. `.env` loads before provider construction. The bundled JSON is a replaceable default, not a required endpoint or model.
 
-To restore the supplied reference to root, first save unrelated working-copy edits:
+Activate all eight supplied Rust files in the ephemeral root. No backup or restoration is required; preserve authoritative references and unrelated work elsewhere.
 
 ```bash
-cp lessons/11-learner-memory/src/main.rs src/main.rs
+rm -rf src
+mkdir src
+cp lessons/11-learner-memory/src/*.rs src/
 ```
 
 Do not copy a finished root back into the reference. The executable needs the checkout's Markdown content files; they are loaded, not embedded or fetched.
+
+## Source map and reading path
+
+A **Rust module** groups related code in a local source file. The `mod` declarations below connect those files to this one application; there is no shared course library or independently packaged lesson. Narrow `pub(super)` visibility allows the parent to use required helpers and proposal fields without a public library API. Every supplied Rust file begins with `// Lesson 11`.
+
+```rust
+mod calculator;
+mod chooser;
+mod diagnostics;
+mod learning_record;
+mod presentation;
+mod provider_setup;
+#[cfg(test)]
+mod tests;
+```
+
+| Source | Responsibility |
+|---|---|
+| [`main.rs`](src/main.rs) | Selected context loading/prompt assembly; consent; selection/reply lifecycle; Session/runtime/Effects; Event consumption; proposal-only handler; actual-learner-quotation validation; successful-run inspection; local approval, decision logging, append call and Session update; dispatch, limits and machine lifecycle |
+| [`learning_record.rs`](src/learning_record.rs) | Fixed-path bounded reading/appending, category/proposal data shapes and advertised schema, default-no confirmation input, Markdown escaping and private storage/decision tests |
+| [`presentation.rs`](src/presentation.rs) | Supplied styles, terminal gating and streaming `TerminalProse` helper; private presentation tests |
+| [`chooser.rs`](src/chooser.rs) | Supplied line input, arrow/numbered selection and raw-mode restoration |
+| [`diagnostics.rs`](src/diagnostics.rs) | Supplied complete plain Session rendering, Markdown logging/fences/control removal and private filesystem tests |
+| [`provider_setup.rs`](src/provider_setup.rs) | Existing path and first-model helpers; provider construction stays in main |
+| [`calculator.rs`](src/calculator.rs) | Previously taught exact-decimal calculator/schema/validation and private tests |
+| [`tests.rs`](src/tests.rs) | Application tests, including consent-gated advertisement, proposal-only behavior and genuine learner-source validation |
+
+Read the teaching files, then follow this route in main: consent → selected context → proposal-only tool handler → `parse_record_proposal` → successful run/inspection → `approve_record_proposals` → append and current-Session refresh. The record module supplies mechanics, not permission to write. Its append helper is called only from the visible approval branch. Keep source-occurrence validation in main: the module's schema and data types cannot establish that quoted words came from the learner.
+
+Next connect Event consumption to Effects/saving and the GDK-owned run. Chooser, diagnostics and formatting details remain supplied support. Context loading and prompt assembly remain in main for now; moving them later would be a separate teaching decision.
 
 ## 11.1 — Predict and run without memory
 
@@ -75,21 +107,21 @@ This is an input to try, not a claim that the model will necessarily make the co
 
 The **tool execution boundary** is where the application validates untrusted model output. The new allowlisted capability, `propose_learning_record`, accepts only a category, note, and supporting quotation; it has no path or arbitrary file-writing argument. A **correlation ID** connects its request and response, just as for the calculator.
 
-The supplied strict proposal shape follows the conceptual record proposal:
+The supplied strict proposal shape in `learning_record.rs` follows the conceptual record proposal; narrow field visibility lets main inspect the note at its authority boundary:
 
 ```rust
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RecordProposal {
-    category: RecordCategory,
-    note: String,
-    learner_quote: String,
+pub(super) struct RecordProposal {
+    pub(super) category: RecordCategory,
+    pub(super) note: String,
+    pub(super) learner_quote: String,
 }
 ```
 
 The category must be one of `discussed_topics`, `stated_goals`, `learner_evidence`, `unresolved_questions`, or `agreed_activities`. Notes and quotations must be nonempty single lines, no more than **600 bytes each**, with no control characters. Runtime byte checks apply even though the advertised schema uses string-length constraints.
 
-`parse_record_proposal` searches actual user-role replies in the current conversation, excluding the application-owned first opening message and tool responses. The supplied check looks for the quotation as an exact substring:
+`parse_record_proposal` in `main.rs` searches actual user-role replies in the current conversation, excluding the application-owned first opening message and tool responses. The supplied check looks for the quotation as an exact substring:
 
 ```rust
 message.role == rmcp::model::Role::User
@@ -107,7 +139,7 @@ Try rejecting an unsuitable suggestion. Expect “Not saved.” For a suitable s
 
 An **approved append** adds a new Markdown block without rewriting existing content. This preserves hand edits and the existing bytes. Repeated category headings intentionally retain chronological additions; they are not a normalized database or an automatically consolidated to-do list.
 
-`append_approved_note` rereads the current record, escapes Markdown punctuation in the new note/quotation, adds the category heading and supporting quotation, checks the complete size, appends, synchronizes the file, then rereads it. A first empty record receives a short explanatory header. The returned record updates the current Session's resumption context for later turns; existing conversation is not rewritten.
+`append_approved_note` in `learning_record.rs` rereads the current record, escapes Markdown punctuation in the new note/quotation, adds the category heading and supporting quotation, checks the complete size, appends, synchronizes the file, then rereads it. A first empty record receives a short explanatory header. The returned record updates the current Session's resumption context for later turns; existing conversation is not rewritten.
 
 The supplied write boundary is:
 
@@ -196,9 +228,19 @@ cargo run -- custom_aa_llama_qwen3_6-35b.json
 - Diagnostic captures retained selected record/context, complete nested/default Session Debug values, correlated requests/results, assembled answers, post-approval state, and failures without ANSI. Git ignore covers both root record and diagnostics. Proposal definition logging was checked in the final live run. Test record was removed; private diagnostic captures stayed outside tracked files.
 - Content/teaching/UI and instructor review remain pending. One proposed activity broadened the learner wording, and generated explanations deserve educational review even when structural checks pass. Earlier Lessons 8–10 review and Lesson 9's live 100-share tweak remain independent gates. No Lesson 12 was scaffolded.
 
+## Modularization validation — 2026-10-22
+
+- Instructor approved the eight-file local split after clarifying that default-no means a blank/unrecognized response or EOF does not approve storage. `main.rs` retains context loading/prompt assembly, selection consent, proposal-only handler, `parse_record_proposal` (including actual-learner-source checks), successful-run inspection, `approve_record_proposals`, decision logging, append call and Session-context refresh. It also retains runtime/Effects, concurrent Event consumption, dispatch, limits, machine assembly/run/shutdown and partial-state handling. `learning_record.rs` supplies types/schema/storage/confirmation mechanics, not permission to save. `TerminalProse` moved to presentation, not the Event consumer.
+- All **105 original function/test bodies** match after whitespace/optional-trailing-comma normalization; all **26 original test names** and all constant values are retained. Coverage is 18 application tests and two each in calculator, diagnostics, learning-record and presentation modules. Private filesystem fixtures remain with their owners without exposing diagnostic file fields or adding getters. `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build` passed without warnings after removing unused test imports. Reference/root match and every Rust source begins with `// Lesson 11`. No dependency, lock/toolchain/provider, prompt or content change; no shared course library, new trait or framework. Lessons 12–14, preparation and dataset seeder are untouched.
+- Fresh live colored down/up/Enter selection reached proposal activity → correlated acknowledgement saying NOT saved → ordinary saved/displayed final answer → local approval. Before each first decision the record was absent. **The first proposed activity was rejected** because it added “check for understanding regarding orders and execution” beyond the learner's accepted wording; no file was created. Its tutor answer also said “I've noted that for our future sessions” before approval, a misleading generated claim despite the unchanged storage boundary. A separate retry proposed the narrower activity “Next time I will explain why a limit order might remain unfilled.” with the actual learner quotation; it was inspected and approved. One correlated request/result, post-approval Session context and a new 0600 record were verified. These are separate attempts, not a silently replaced failure.
+- Between launches the test record was hand-edited to comparing market and limit orders in a hypothetical example, with obsolete quotation support removed. A fresh consented `TERM=dumb` launch loaded the edited text in diagnostics **but its welcome ignored the activity and repeated experience/goals questions**. A subsequent empty-`NO_COLOR` launch loaded the same record and explicitly offered resumption or a different focus. Resumption behavior is therefore mixed, not guaranteed. That second launch produced a suitable slippage-goal proposal; it was explicitly rejected after the ordinary final answer and existing record bytes remained unchanged by SHA-256.
+- A fresh colored arrow-key launch declined memory by blank input while the record existed: diagnostics contained neither the record marker nor an advertised proposal definition, and the record bytes stayed unchanged. The numerical turn made one request with decimal-string `51.20`/`50.70` and 200 shares, one matching `$100.00` result and an ordinary final answer explaining fees/slippage/gaps and no guaranteed realized-loss ceiling. `/finish` returned to the chooser, `q` exited, raw mode restored before line input, and cyan/blue/magenta/green roles plus activity → result → answer order were checked.
+- Redirected/plain continuing selection, blank replies, `/finish`/fresh selection, `/quit`, blank/EOF, empty-`NO_COLOR` and dumb-terminal modes passed. There was no application ANSI in plain/NO_COLOR/dumb captures; clean dialogue omitted protocol fences/arrows/IDs. Independent stdout/stderr error gating passed. Running from `/tmp` without a provider override confirmed manifest-root paths. Complete plain before/after and post-approval diagnostics retained nested/default Session/usage/message data, selected context, correlated tools and approval decisions. The original deterministic `/dev/full`, permissions, symlink/UTF-8/size and presentation-failure tests passed. Test record was removed afterward; captures remain private outside tracked files.
+- No fresh unavailable-provider/log-destination failure probe, IDE build, projector review, service restart, prompt correction or release approval is claimed. Historical timeout/partial-state evidence remains separate. Actual agreement/category/wording and teaching/resumption quality still require instructor review; preserved bodies and passing tests do not certify them. Lesson 9's live 100-share tweak passed separately on 2026-10-22; earlier reviews remain independent. Stop at the Lesson 11 review checkpoint and ask questions before Lesson 12.
+
 ## Next conceptual step and supplemental orientation
 
-We now distinguish selected cross-launch notes from in-process history and disposable diagnostics. Later authorized lessons can add read-only observations and other capabilities without turning approved notes into evidence of mastery. No later lesson is scaffolded here.
+We now distinguish selected cross-launch notes from in-process history and disposable diagnostics. The separately implemented Lesson 12 reference adds bounded educational retrieval. Later references build on these boundaries without turning approved notes into evidence of mastery. No later lesson is scaffolded here.
 
 The [official Goose context-engineering guide](https://goose-docs.ai/docs/guides/context-engineering/index) is supplemental orientation for choosing useful context, not evidence for this persistence design or a requirement to reproduce Goose's assembly. The implementation's engine/tool behavior is grounded in the exact pinned Rust source evidence described in the instructor notes.
 

@@ -6,7 +6,7 @@ Extend the supplied learning partner with a narrow, read-only search of locally 
 
 The instructor has authorized this integration using the **provisional three-PDF, 511-passage test collection**. This is not a final corpus freeze, a three-model comparison, EPUB integration, or proof of retrieval quality. Historical planning/preparation-only restrictions in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) describe earlier phases; this lesson covers the separately authorized runtime continuation. Read [README](../../README.md) for the current roadmap.
 
-The instructor supplies the [complete reference](src/main.rs), retrieval support, and [three editable teaching files](content/) before class. Root is the active exercise; use the authorized Lesson 12 root implementation. Predict → run → explain → tweak → run again. There are **no missing Rust scaffolding exercises** and no requirement to write ingestion, database, async, or presentation machinery during class.
+The instructor supplies the [complete reference source tree](src/), retrieval support, and [three editable teaching files](content/) before class. Root `src/` is an ephemeral exercise copy, not the authoritative Lesson 12 reference; the combined Lessons 12–14 modularization finishes with Lesson 14 active at root. Activate this lesson explicitly before running it. Predict → run → explain → tweak → run again. There are **no missing Rust scaffolding exercises** and no requirement to write ingestion, database, async, or presentation machinery during class.
 
 ## Concepts introduced
 
@@ -38,7 +38,15 @@ Before class, the instructor supplies and verifies:
 
 The instructor follows [DATABASE-SETUP.md](DATABASE-SETUP.md) for startup, loading, identity checks, reader query and shutdown, and [RETRIEVAL.md](../../embedding-code/RETRIEVAL.md) for preparation evidence. **Learners do not install PostgreSQL, convert models, extract books, design chunks, or tune indexes in this lesson.** The three PDFs are sufficient for this provisional integration; EPUB preparation is future corpus work, not a blocker requiring learners to implement it now.
 
-From a prepared repository-root Bash shell:
+Activate the **complete source tree**, including the retrieval test subdirectory, from a repository-root Bash shell. This replaces the ephemeral exercise; preserve unrelated work outside `src/`. No backup/restore or final hello-world reset is required:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/12-specialized-retrieval/src/. src/
+```
+
+Then, from a prepared repository-root Bash shell:
 
 ```bash
 umask 077
@@ -66,14 +74,49 @@ cargo test
 
 These commands check deterministic code boundaries; actual integration outcomes are recorded below. Live datastore, embedding and tutor evidence must be recorded separately. If a service or the authorized private corpus is unavailable, ask the instructor; synthetic tests do not silently substitute for this live run.
 
-To restore supplied code after a classroom tweak, save unrelated edits first, then:
-
-```bash
-cp lessons/12-specialized-retrieval/src/main.rs src/main.rs
-cp lessons/12-specialized-retrieval/src/retrieval.rs src/retrieval.rs
-```
+To reactivate the supplied code after a classroom tweak, repeat the complete recursive activation above. Copying only `main.rs` and `retrieval.rs` leaves out required support and tests.
 
 The shared manifest now adds async `reqwest` 0.13.5 with JSON/rustls/stream support, `tokio-postgres` 0.7 with JSON integration, and `sha2` 0.10. Cargo.lock fixes the actual resolved versions. The GDK, RMCP, toolchain, provider JSON and earlier references are unchanged. The separate preparation package still uses its own blocking clients; those are not called inside the agent tool handler.
+
+## Supplied source map and teaching reading path
+
+A **module** is a named part of this Rust application that groups related code. Local modules let us keep the agent's decisions visible while reading already-taught calculation and supplied UI/storage mechanics separately. They are files in this lesson, not a shared course library, another agent, or a new execution loop. Every Rust source starts with `// Lesson 12`.
+
+| Source | Responsibility |
+| --- | --- |
+| [main.rs](src/main.rs) | Context loading/prompt assembly and consent; Session/runtime/Effects; concurrent Event consumption; machine assembly/run/cancellation; tool registration/dispatch/allowlists/limits; shared evidence ledger; current-turn citation inspection; genuine-learner-source validation and post-run approval sequence. |
+| [retrieval.rs](src/retrieval.rs) | Cohesive local read-only adapter: strict query, endpoint/profile/privilege/provenance checks, embedding/SQL, tokenizer accounting, evidence clipping and connection-driver cancellation/Drop guards. |
+| [calculator.rs](src/calculator.rs) | Previously taught exact-decimal calculation, strict arguments and capability schema; two local tests. |
+| [learning_record.rs](src/learning_record.rs) | Record categories/proposal shape/schema, bounded file reading/appending and default-no confirmation-input mechanics; two local tests. It does not decide learner-source validity or when approval may happen. |
+| [chooser.rs](src/chooser.rs) | Supplied arrow/Enter chooser, numbered fallback, input and raw-mode cleanup. |
+| [presentation.rs](src/presentation.rs) | Palette, independent terminal gating and streaming `TerminalProse` formatting; two local tests. Event consumption stays in main. |
+| [provider_setup.rs](src/provider_setup.rs) | Positional provider-path handling and first configured model selection. Local tutor policy/transport checks stay in main. |
+| [diagnostics.rs](src/diagnostics.rs) | Plain Markdown log writing, complete Session rendering and presentation sanitization; two local tests. It is never learner memory. |
+| [tests.rs](src/tests.rs) | Application/runtime/Event/dispatch/memory/citation/evidence-ledger tests and shared test helpers; includes one opt-in same-snapshot live search-batch test. |
+| [retrieval/tests.rs](src/retrieval/tests.rs) | Adapter-local query/URL/database/vector/profile/provenance/serialization/cancellation tests, plus one opt-in actual-service smoke test. |
+
+These declarations in main name supplied local files; learners do not reconstruct them:
+
+```rust
+mod calculator;
+mod chooser;
+mod diagnostics;
+mod learning_record;
+mod presentation;
+mod provider_setup;
+mod retrieval;
+#[cfg(test)]
+mod tests;
+```
+
+**Teaching reading path:**
+
+1. In main, read `LessonContext::load`/`prompt_parts` and `run_learning_partner`: editable context, explicit consent, fresh selection versus retained replies, and local-service startup policy.
+2. Stay in main for `ChatSession`, `ChatRuntime`, `ChatEffect`, `run_turn` and `display_events`: saving Effects is distinct from consuming Events concurrently. Follow timeout/cancellation, sender closure, draining and partial diagnostics before inspection; module extraction changes none of that order.
+3. Trace main's two ToolProvider registrations, `SafeTools`, `RunLimit`, `RetrievalToolProvider` and `EvidenceBudget`. The budget resets before each run and remains shared across same-snapshot calls. Then open retrieval's cohesive adapter for the bounded service/SQL/provenance path; do not split that algorithm into classroom scaffolding.
+4. Return to `inspect_turn`/`inspect_citations` in main: only successful correlated search results from this learner turn authorize citation IDs. Membership warnings do not certify semantic support.
+5. Read `LossToolProvider`, `parse_record_proposal` and `approve_record_proposals` in main. The handler only prepares a proposal; its quotation must come from an actual learner reply, not kickoff/tutor/tool/source text. A successful final answer and inspection precede local default-no approval, decision logging, the append call, current Session record refresh and complete post-approval diagnostics. Storage mechanics in `learning_record` cannot authorize that sequence.
+6. Consult calculator/chooser/presentation/provider_setup/diagnostics support only as needed. Finish with application and retrieval child tests plus inline support tests: default execution has 40 deterministic tests and two ignored live tests. Synthetic fixtures do not replace real services or human teaching review.
 
 ## 12.1 — Predict which question needs evidence
 
@@ -224,6 +267,13 @@ Preparation already has recorded real 511-vector loading, idempotence, reader qu
 The inspected embedding runtime has eight slots and **2,048 tokens per slot**; the documented 8,192/8 startup example has 1,024 per slot. Runtime preflight uses the actual reported capacity, never training context. Existing services were not restarted; the user's Harrier process still listens on all interfaces. Clients use loopback and do not fall back externally, but operators must restrict server exposure. No offline-with-network-disabled test, full injected-outage/malformed-service matrix, exhaustive citation support benchmark, cross-runtime parity, index recall/latency benchmark, or corpus freeze is claimed. Rights and authorized learner access remain the operator's responsibility. Content/teaching/UI and instructor release review remain deferred to end-of-course review; prior lesson gaps are independent. No Lesson 13/14 code was introduced.
 
 Private raw evidence remains in ignored `day_trading/embeddings/postgres-local/lesson12-*` captures, not public lesson examples. Diagnostics can contain private excerpts and learner text; Git ignore is not access control.
+
+### Modularization validation — 2026-10-22
+
+- Behavior-preserving local extraction passed `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build`: **40 deterministic tests passed; two live tests were ignored by default**. The source audit preserved all **158 original function/test bodies**, test names and constants. Literals, types and attributes were preserved apart from necessary visibility/import changes and test `cfg` placement. No prompt, content, dependency, budget, authority or semantic fix was made.
+- Both ignored real-service tests were explicitly attempted and failed because **`RETRIEVAL_DATABASE_URL` was missing**. `cargo run -- custom_aa_llama_qwen3_6-35b.json` failed at the same prerequisite **before the chooser**. The private `connection.env` was absent; Harrier on port 9999 was unavailable; the tutor on port 8080 returned health HTTP 200. Tutor health alone is not retrieval readiness. No mocks were substituted, services restarted or corpus mutated.
+- Plain, empty-`NO_COLOR` and `TERM=dumb` launch-error output and independent stderr terminal gating were checked. This is error-path presentation evidence, **not** a fresh conversation, chooser, consent/storage, search, calculator or teaching validation. The historical successful integration and semantic defects above remain historical evidence, not fresh modularized live success. No fresh IDE/projector or release review is claimed.
+- Root activation uses the entire recursive source tree, not a main/retrieval pair; the combined refactor's final root is Lesson 14. Lesson 9's default and 100-share live runs passed on 2026-10-22, resolving that earlier validation gap independently. Other historical teaching defects and deferred instructor review remain; this pass grants no release approval.
 
 ## Exit questions and next step
 

@@ -1,4 +1,4 @@
-//Lesson 14
+// Lesson 14
 //! Supplied local trace transport, not an evaluation engine or full Goose CLI exporter.
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
@@ -183,6 +183,12 @@ pub fn identify_current_span() -> anyhow::Result<()> {
         "Cargo.lock",
         "rust-toolchain.toml",
         "src/main.rs",
+        "src/calculator.rs",
+        "src/chooser.rs",
+        "src/diagnostics.rs",
+        "src/learning_record.rs",
+        "src/presentation.rs",
+        "src/provider_setup.rs",
         "src/retrieval.rs",
         "src/compaction.rs",
         "src/telemetry.rs",
@@ -316,21 +322,4 @@ impl<S: Sync> goose_agent::inference::InferenceRequestPreparer<S> for SummaryPre
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn storage_names_cannot_escape_the_disposable_directory() {
-        for name in ["", "../learner-record", "/tmp/a", "a/b", ".", "a\\b"] {
-            assert!(validate_storage_name(name).is_err());
-        }
-        assert!(validate_storage_name("baseline-case08").is_ok());
-    }
-    #[test]
-    fn observable_projection_keeps_dialogue_without_message_metadata() {
-        let message =
-            goose_providers::conversation::message::Message::user().with_text("actual answer");
-        let text = observable(&[message]);
-        assert!(text.contains("actual answer"));
-        assert!(!text.contains("metadata"));
-    }
-}
+mod tests;

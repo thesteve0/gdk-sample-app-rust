@@ -88,3 +88,36 @@ Pinned official `service.proto`, `handlers.py`, `sqlalchemy_store.py` and datase
 Final `cargo fmt --check`, `cargo check --all-targets`, `cargo clippy --all-targets`, `cargo build`, example build and `cargo test --all-targets` passed: **7 new catalog tests plus68 unchanged application tests;2 real-service application tests remained ignored for this subset**. Catalog tests cover authored cases/exact anchor/blocked fixtures, invalid/held-back manifest rejection, arguments, exact-subset resume, idempotency, edited/extra/duplicate record refusal, imported observed-output/provenance refusal, JSON wire fields, identity mismatch, palette and gating. Interrupted-subset recovery and content/mismatch refusal are deterministic tests, **not deliberately induced mutations/failures against the retained native catalog**. IDE build was attempted but blocked because only an unrelated project was open; no IDE success claimed. Scoped whitespace checks passed; full dirty-tree check still reports a pre-existing trailing space in Lesson12 PLAN, preserved as unrelated work.
 
 No fresh tutor scenario execution, trace-to-record link creation, human rubric completion, native evaluation-run orchestration, UI dataset browser automation, container/service restart or new restart-persistence test was performed. API readback establishes native stored catalog contents and experiment association; the browser click path is supplied for instructor inspection, not newly validated UI evidence. SQLite/MLflow restart persistence was previously validated for traces/feedback, not specifically this new dataset. No retrieval fixture preparation, held-back evaluation, expert quality judgment, Docker-specific validation, SDK migration, Lesson15 or release approval. Catalog membership and seven passing seeder tests must not erase earlier semantic findings or blocked/incomplete cases.
+
+## Modularization checkpoint — 2026-10-22
+
+### Scope and preservation audit
+
+Completed behavior-preserving instructional modularization. The complete [source map/reading path](LESSON.md#supplied-modules-and-reading-path) covers main, the six inherited support modules, cohesive retrieval/compaction/telemetry, application tests and module-local child tests. Main retains context assembly, Session/runtime/Effects, concurrent Event consumption, dispatch/allowlists/budgets, machine/cancellation/shutdown lifecycle, genuine-learner-source validation and approval authority. Lesson 14 telemetry lifecycle/`run_with_telemetry`, instrumentation flow and storage-isolation integration remain visible there, alongside inherited evidence/provenance/command/preflight/revision/maintenance boundaries. Terminal/privacy semantics, local approvals, cancellation and Drop ordering were preserved.
+
+The approved `telemetry::identify_current_span` source inventory explicitly adds six production paths: `src/calculator.rs`, `src/chooser.rs`, `src/diagnostics.rs`, `src/learning_record.rs`, `src/presentation.rs`, `src/provider_setup.rs`. No test files are in the hash inventory. The `course.content_sha256` schema and evidence-identification purpose are unchanged; source locations and resulting hashes change. Older stored evidence is not relabeled as current source evidence. Standalone `seed_dataset.rs` and dataset assets are untouched.
+
+The preservation audit found **242 function/test bodies preserved**, apart from the approved `identify_current_span` inventory edit and necessary module paths/visibility. Constants and test names were preserved. An independent audit compared strings, types and attributes, allowing only imports/visibility/`cfg` boundaries and the six approved source-path strings. The missing test-only `DEFAULT_PROVIDER_CONFIG` import in `compaction/tests.rs` was corrected; this was extraction wiring, not a behavior fix. No prompts/content, semantics, dependencies, SDK/toolchain/provider pins or budgets changed.
+
+Root is the ephemeral complete Lesson 14 working copy, including child test directories. Recursive activation is `rm -rf src; mkdir src; cp -R lessons/14-agent-evaluation/src/. src/` from root. No backup/restore or hello-world reset; root finishes matching Lesson 14. Earlier references and unrelated work, including existing Lesson 11 changes, remain preserved.
+
+### Actual checks and blocked live validation
+
+Validation recorded `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo build` and `cargo test --all-targets` passing: **68 deterministic application tests plus seven unchanged seeder tests**. The two real-service tests are normally ignored. Both were explicitly attempted:
+
+```bash
+cargo test live_local_smoke -- --ignored --nocapture
+cargo test live_same_snapshot_sdk_search_batch_obeys_one_evidence_budget -- --ignored --nocapture
+cargo run -- custom_aa_llama_qwen3_6-35b.json
+```
+
+**Both live tests failed because `RETRIEVAL_DATABASE_URL` was missing.** The documented launch failed before the chooser for the same missing prerequisite. `day_trading/embeddings/postgres-local/connection.env` was absent; Harrier on port 9999 and MLflow on port 5000 were unavailable. Tutor port 8080 health returned HTTP 200, which does not establish a complete application exchange. No mocks replaced these blocked checks and no service was restarted.
+
+Validation verified plain redirected, empty-`NO_COLOR` and `TERM=dumb` launch-error output and independent stderr terminal gating. This is error-path presentation evidence, not fresh chooser/chat coverage. Scoped documentation links and whitespace/diff checks were also checked for this update.
+
+**Not freshly validated:** tutor chat, export receipt, span parentage, summary generation/continuation, consent/approval/storage receipt, MLflow restart persistence, evaluation feedback or teaching semantics. No fresh IDE/projector review or release approval is claimed. No evaluation-catalog writes, corpus mutation, semantic fix, dependency change or commit occurred in this checkpoint.
+
+All historical observations above remain evidence at their original dates, including absent final answers, fabricated calculator inputs/budget stops, source-scope errors, strengthened/omitted activities and false learner comfort. V04/V05/V10, fixture-dependent branches, held-back cases, expert quality and deferred instructor/content/teaching/UI/release review remain incomplete or blocked as recorded; passing deterministic tests does not resolve them. Request the missing prerequisites before repeating actual-service and conversational/telemetry checks.
+
+
+Validation-tooling note: archive-preserving temporary source copies initially let Cargo reuse a newer build from another activated lesson. Final validation touched every activated Rust file, then reran the complete checks, both explicit live-test attempts and presentation probes sequentially for Lessons 12, 13 and 14. The reported 40/66/68 application test counts and seven seeder tests per all-target run are from those final rebuilt trees, not cached binaries. Activation instructions now use ordinary recursive `cp -R` rather than preserving old file timestamps. A final isolated Lesson 14 launch produced the expected missing-reader diagnostic under `.evaluation/sessions/refactor14-20261022/`; no learning record was created.

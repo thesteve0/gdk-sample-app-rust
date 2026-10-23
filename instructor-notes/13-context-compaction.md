@@ -4,17 +4,57 @@
 
 Teach one transferable boundary: shortening model working context must not silently change application facts, persistent-note authority or genuine learner evidence. Use [the lesson](../lessons/13-context-compaction/LESSON.md), complete supplied reference/helpers and editable summary guidance from the outset. Attendees predict → run → explain → tweak → run again; they do not rebuild async infrastructure or a summarizer.
 
-The complete authorized implementation is supplied. See the lesson validation record for checked behavior and remaining gaps. The supplied limits are 100,000 serialized input bytes, 60,000-byte default trigger via `COMPACTION_TRIGGER_BYTES`, 6,000-byte summary with a 4,096-token generation cap and one 180-second deadline plus at most five seconds of cancellation grace. Do not treat these limits as evidence of summary fidelity or exact provider capacity. No Lesson 14 code or later subsystem is authorized by these materials. Historical planning restrictions are superseded only for Lesson 13; Lesson 14 remains unauthorized.
+The complete authorized implementation is supplied. See the lesson validation record for checked behavior and remaining gaps. The supplied limits are 100,000 serialized input bytes, 60,000-byte default trigger via `COMPACTION_TRIGGER_BYTES`, 6,000-byte summary with a 4,096-token generation cap and one 180-second deadline plus at most five seconds of cancellation grace. Do not treat these limits as evidence of summary fidelity or exact provider capacity. These notes describe the preserved Lesson 13 reference, not Lesson 14 instrumentation. Lesson 14 is separately authorized and implemented; the combined modularization pass ultimately leaves the ephemeral root matching its complete tree. Historical planning-only restrictions are not a current claim that Lesson 14 is unauthorized.
 
 ## Before class
 
 1. Read README/AGENTS, Lesson 13 PLAN/handoff, complete Lesson 12 materials/content and the actual Lesson 13 source. Preserve unrelated edits. Confirm published alpha.11 SDK pins rather than an unreviewed local checkout.
 2. Use [Lesson 12 DATABASE-SETUP](../lessons/12-specialized-retrieval/DATABASE-SETUP.md). Verify the existing local tutor, Harrier runtime/profile, provisional `harrier-llamacpp-test-511-v1` collection and reader role. No reload, new source corpus, model conversion or database lesson is needed. Keep source rights, disclosure and service exposure checks; a loopback client does not fix an all-interface server.
-3. Launch with the lesson's root command and existing private `.env`/reader setup. Never project credentials, environment connection strings or shell tracing. Services unavailable? Ask for them; do not relabel mock output as integration evidence.
+3. Activate the complete recursive reference as shown below, then launch with the lesson's root command and existing private `.env`/reader setup. Never project credentials, environment connection strings or shell tracing. Services unavailable? Ask for them; do not relabel mock output as integration evidence.
 4. Confirm final code retains original opening/latest two complete genuine learner exchanges, tool pairs/IDs/metadata; isolated tool-free GDK summary inference; one assistant-derived summary; revision-checked replacement; real-reply-only proposal quotation; settled accepted/declined approvals; all-inference budget guard and no repeated compaction loop. Locate the full runtime application boundary, not just an enum variant.
 5. Confirm `/learned` is local, consent-gated, nonblank single-line ≤200 UTF-8 bytes, duplicate-suppressed within the same Session, and ephemeral (no disk access) with memory disabled. Its deterministic completion category is not model-proposable. Confirm no new welcome/unsolicited answer. A saved declaration is not rolled back on a later compaction failure.
 6. Rehearse a lower valid trigger above the actual static-context baseline, with enough room for safe protected history. Measure how many ordinary exchanges are needed; supply that value to class rather than a universal guessed threshold. Keep the 100,000-byte hard budget unchanged. Do not deliberately overflow providers or break services as a learner exercise.
 7. Run actual checks and live continuation, inspect summary meaning, consent/storage, tool and UI regressions. Prepare a permissioned sanitized diagnostic view. Diagnostic files contain learner text/private excerpts and are overwritten at launch; preserve any approved evidence privately before a new rehearsal.
+
+## Source organization and activation
+
+A **Rust module** groups related code under a local name so already-taught mechanics and supplied support do not obscure the new boundary. Define it before showing a declaration. In `main.rs`, for example:
+
+```rust
+mod calculator;
+mod chooser;
+mod diagnostics;
+mod learning_record;
+mod presentation;
+mod provider_setup;
+```
+
+These are the six inherited support modules, not a shared library or new framework. Main also declares the cohesive compaction/retrieval modules and test-only application tests. A **child test module** is a separate test source owned by its production module: `#[cfg(test)] mod tests;` at the end of `compaction.rs` loads `compaction/tests.rs` for tests only. Every Rust source starts `// Lesson 13`.
+
+Use the lesson's [complete linked source map and teaching reading path](../lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path). For instructor navigation, the complete tree is:
+
+- [main.rs](../lessons/13-context-compaction/src/main.rs): context assembly, commands, provenance/authoritative state, preflight/revisions/maintenance wiring, Session/runtime/Effects, concurrent Events, dispatch/limits, evidence/registration/citation inspection and approval lifecycle.
+- [compaction.rs](../lessons/13-context-compaction/src/compaction.rs) and [compaction/tests.rs](../lessons/13-context-compaction/src/compaction/tests.rs): cohesive compaction/declaration policy and child tests.
+- [retrieval.rs](../lessons/13-context-compaction/src/retrieval.rs) and [retrieval/tests.rs](../lessons/13-context-compaction/src/retrieval/tests.rs): cohesive retrieval and child tests, preserving cancellation/Drop guards.
+- [calculator.rs](../lessons/13-context-compaction/src/calculator.rs): exact-decimal tool/schema/validation and local tests.
+- [chooser.rs](../lessons/13-context-compaction/src/chooser.rs): selection/input/raw-mode cleanup.
+- [diagnostics.rs](../lessons/13-context-compaction/src/diagnostics.rs): complete plain diagnostic rendering and local tests.
+- [learning_record.rs](../lessons/13-context-compaction/src/learning_record.rs): record types/schema/storage/confirmation-input mechanics and local tests.
+- [presentation.rs](../lessons/13-context-compaction/src/presentation.rs): terminal gates/styles/`TerminalProse` and local tests, not Event consumption.
+- [provider_setup.rs](../lessons/13-context-compaction/src/provider_setup.rs): path/model selection support.
+- [tests.rs](../lessons/13-context-compaction/src/tests.rs): main's application-boundary tests, including the opt-in same-snapshot live search test.
+
+Read main's context/selection/reply flow first, then Session/runtime and genuine reply/revision ledgers. Follow the preflight and maintenance call sites into compaction's projection/partition/isolated inference/replacement checks and return to the runtime Effect boundary. Next trace `run_turn`/`cooperative_run` and concurrent `display_events_bounded`, including sender closure/draining and partial diagnostics. Then inspect main's tool registration, shared evidence budget, allowlists/limits and current-turn citations. Finish with `parse_record_proposal` and successful run/inspection → default-no approval → decision log → approved append call → Session refresh/revision → settled decision/revision → post-approval diagnostics. Those decisions remain visible in main; support modules do not acquire authority. Read tests as evidence, not scaffolding exercises.
+
+From the repository root, replace only the ephemeral exercise tree with **all files recursively**, not `main.rs` alone:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/13-context-compaction/src/. src/
+```
+
+No backup/restore or final hello-world reset is required. Preserve unrelated work outside the exercise tree and all authoritative references. Child test directories are required. Root ultimately advances to the separately authorized Lesson 14 after the combined pass; do not mistake the active root for the preserved Lesson 13 reference.
 
 ## Reveal script and class rhythm (about 45–55 minutes)
 
@@ -78,7 +118,7 @@ Compare fidelity, not identical generated wording or rankings. Record inconclusi
 - Can a historical source ID support a new-turn citation? Not without fresh returned evidence.
 - Does a valid 6,000-byte summary prove that its claims are accurate? No.
 
-Bridge to Lesson 14: evaluate deterministic boundaries separately from fallible evidence use and teaching judgments. Do not implement it here.
+Bridge to the separately authorized Lesson 14: evaluate deterministic boundaries separately from fallible evidence use and teaching judgments. Its instrumentation belongs in its own preserved reference, not this Lesson 13 teaching path.
 
 ## Summary fidelity review checklist
 
@@ -139,3 +179,12 @@ Use the updated lesson's targeted correction record; do not project private capt
 Four live compaction/follow-up replays passed the targeted uncertainty/activity/stop-guarantee checks, including a less-leading case without explicit nonconfirmation. The first implicit follow-up added “brief”; exact-acceptance wording was tightened and a subsequent replay avoided it.66 deterministic and2 real-service tests plus format/check/Clippy/IDE build passed. Four new tests enforce input projection/provenance/budget, not mastery or generated truth.
 
 Do not replace the original defect evidence with “hallucinations solved.” New tutor wording still confused buy/sell limit boundaries, exact-level versus price-or-better, and generalized spread costs. The requested fixes have targeted live evidence, not global domain correctness. Inspect accepted activity scope and unconfirmed questions after compaction. Old long-input stops and source-support/review gaps remain. No dependency migration, corpus change, later-lesson implementation or release approval.
+
+
+## Modularization checkpoint — 2026-10-22
+
+See the lesson's [dated modularization validation](../lessons/13-context-compaction/LESSON.md#behavior-preserving-modularization-validation--2026-10-22). The activated recursive tree passed format/check/Clippy/test/build: **66 deterministic tests passed, two live tests ignored by default**. The source audit preserved **225 original function/test bodies**, test names/constants, strings/types/attributes except necessary visibility/import/cfg boundaries. A missing test-only `DEFAULT_PROVIDER_CONFIG` import and rustfmt ordering were corrected; no behavior fix or prompt change was made. The six inherited support modules reduce reading noise; compaction/retrieval remain cohesive with child tests, and the main authority/runtime/inspection/approval path remains visible.
+
+Both explicitly enabled live tests failed for missing `RETRIEVAL_DATABASE_URL`; the documented application launch failed at the same prerequisite **before the chooser**. Private `connection.env` was absent, Harrier9999 unavailable, tutor8080 health returned200. Do not confuse tutor health with a successful tutor/retrieval integration. No fresh compaction, declaration, continuation, approval, search, calculator, chooser or teaching outcome is established. Parent checks covered plain/empty-NO_COLOR/dumb launch errors and independent stderr gates only, not a new successful colored dialogue. No service restart, mock substitute, corpus/catalog write or fresh IDE/projector review occurred.
+
+Preserve the historical live successes, semantic correction replays, residual domain defects, long-input stops and incomplete review/failure evidence above. This is behavior-preserving organization, not certification of semantic fidelity, release approval or permission to erase gaps. Lesson 14 is separately implemented/authorized, and root ultimately matches it after the combined pass; Lesson 13 remains a complete independent reference. No backup/reset is part of this checkpoint.
