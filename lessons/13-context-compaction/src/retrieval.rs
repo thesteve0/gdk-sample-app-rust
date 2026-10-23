@@ -1,3 +1,4 @@
+//Lesson 13
 //! Local, bounded, read-only retrieval. Errors deliberately omit external details.
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use rmcp::model::{JsonObject, Tool};
