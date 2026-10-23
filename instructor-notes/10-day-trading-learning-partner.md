@@ -4,7 +4,7 @@
 
 Learners should explain how an application becomes a specialized educational partner by choosing and supplying its own content, keeping a focused conversation, and enforcing a limited capability boundary. The lesson is not about writing another Rust loop or reproducing Goose's application assembly.
 
-**Implemented; structural checks/live scenarios passed; instructor review pending.** Lessons 8 and 9 still need their separate instructor reviews; Lesson 9's live 100-share tweak is still pending. Lesson 10 work does not approve either lesson for release.
+**Implemented; structural checks/live scenarios passed; instructor review pending.** Lessons 8 and 9 still need their separate instructor reviews; Lesson 9's live 100-share tweak passed separately on 2026-10-22. Lesson 10 work does not approve either lesson for release.
 
 Supply the entire implementation from the outset. Teach **predict → run → explain → tweak → run again**. The only customization exercise edits a sentence in the Markdown teaching guidance. Chooser events, raw-mode restoration, runtime traits, synchronization, logging, validation, and concurrency are supplied support, not attendee scaffolding assignments.
 
@@ -16,7 +16,7 @@ Supply the entire implementation from the outset. Teach **predict → run → ex
 - Rehearse in a real terminal and with redirected input/output. Arrow selection needs terminal stdin/stdout and non-dumb `TERM`; `NO_COLOR` uses the numbered fallback to avoid cursor-control escapes as well as color. Verify terminal restoration before learner line input.
 - Inspect `session-output.md` privately. It is overwritten at every launch and can contain personal conversation. Git ignore does not secure it. Do not project an unreviewed file or ask attendees for sensitive financial information.
 - The root is the runnable working copy. Reference source shares the root manifest and the same root-relative content path. No independent lesson Cargo package, embedded content, or network content loading exists.
-- Save unrelated working-copy edits before any restore command. Do not copy a finished root back into lesson references.
+- Treat root `src/` as ephemeral. Use the lesson's complete seven-file activation command, not a main-only restore; no backup/restoration is required. Preserve authoritative references and unrelated work elsewhere. Do not copy a finished root back into lesson references.
 
 Provider construction/configuration occurs before selection. With no override, the provider JSON path is rooted at the manifest directory; an explicit relative override is current-directory-relative. Content and diagnostics are always manifest-root-relative. `.env` loading and first-configured-model selection are retained; full CLI/model-selection work remains later.
 
@@ -70,17 +70,25 @@ Ask learners to predict ordering, not exact model words. Use `/finish` and fresh
 
 Discuss instruction influence versus guarantees. A single paired run is an observation, not a controlled evaluation of teaching effectiveness. Restore the default sentence afterward. No Rust modifications or deliberate failure-path exercises are assigned.
 
+## Source navigation after modularization
+
+Read the lesson's complete source map before navigating Rust. All seven files are required and start with `// Lesson 10`. Explain local `mod` declarations before showing them; `pub(super)` is narrow parent visibility, not a library abstraction. There is no shared course crate.
+
+Keep the teaching route in `main.rs`: context load/prompt parts → selection/new Session → reply classification/append → run → concurrent Event consumption → Effects/saved state → inspection. Context assembly remains here by instructor choice and can be reconsidered separately later. The calculator is previously taught code in `calculator.rs`; provider path/model helpers are in `provider_setup.rs` (construction remains main); input/chooser mechanics are in `chooser.rs`; style helpers in `presentation.rs`; complete plain logging and rendering in `diagnostics.rs`. Main still shows when logging occurs and how failures stop execution. Never hide runtime/Effects/Events or authority boundaries merely to shorten main.
+
+Application tests live in `tests.rs`; private calculator, logging and styling tests stay with their owning modules. Test-only request fixtures are shared with narrow visibility; no production log fields/getters were exposed for tests.
+
 ## Supplied support: explain its purpose, not its implementation as an exercise
 
 | Boundary | Supplied code to navigate | Teaching point |
 |---|---|---|
-| Selection/context | `choose_lesson`, `arrow_chooser`, `LessonContext::load` | Selection starts a fresh Session and reloads all three files; missing/empty content fails |
-| Learner input | `read_line`, `reply_action`, `run_learning_partner` | Application owns commands and reply waiting outside machine runs |
+| Selection/context | `chooser.rs`: `choose_lesson`, `arrow_chooser`; main: `LessonContext::load` | Selection starts a fresh Session and reloads all three files; missing/empty content fails |
+| Learner input | `chooser.rs`: `read_line`; main: `reply_action`, `run_learning_partner` | Application owns commands and reply waiting outside machine runs |
 | Recorded state | `ChatSession`, `ChatRuntime`, `append_user`, Effect handler | Same selected conversation retains history/context; counters/halt state reset per reply |
 | Inference input | `SafeTools::prompt_parts`, `inference_tools` | Application contributes selected context and the one tool definition |
 | Execution | `LossToolProvider`, `SafeTools`, decimal validation | Schema advertisement does not replace strict runtime validation |
 | Display/saving | `run_turn`, `display_events`, request presentation copy | Receive Events while the run executes; Effects separately save complete state |
-| Diagnosis | `DiagnosticLog`, `session_fields`, `markdown_block` | Plain complete diagnostic record, not a provider wire dump or learner memory |
+| Diagnosis | `diagnostics.rs`: `DiagnosticLog`, `session_fields`, `markdown_block` | Plain complete diagnostic record, not a provider wire dump or learner memory |
 
 `tokio::join!` consumes Events while `StateMachine::run` executes. Closing the sole Emitter after success/error lets the receiver drain before post-run inspection. Request presentation follows saving through the same Event queue, keeping complete request notice → tool result → final answer order. The presentation-only marker is not persisted or included in provider input. The consumer does not replace saving, and the log records assembled responses rather than replaying streaming deltas.
 
@@ -141,10 +149,20 @@ The [Goose context-engineering guide](https://goose-docs.ai/docs/guides/context-
 - The approved guidance tweak was loaded into a fresh Session and confirmed in diagnostics, then the default sentence was restored. **Its intended teaching ordering was not clearly validated:** the model placed the hypothetical scenario inside its check question, rather than unambiguously presenting a short example first. This is mixed qualitative evidence, not a guaranteed prompt effect. Default conversations sometimes also used examples. Do not treat the paired observation as a controlled evaluation.
 - Teaching review remains necessary. Some observed responses used reassurance such as “safety net,” described adverse fills as “slightly” worse, or asked whether planning made the learner more comfortable with trade parameters. These were accompanied by risk caveats, but their framing, precision, pacing, and suitability need instructor review; structural success does not certify educational accuracy or readiness to trade. Domain files are course-authored with verified FINRA/SEC attribution, not released instructional evidence merely because sources were consulted.
 
-**Remaining gates:** instructor review of Lesson 10 content, teaching behavior, UI, and classroom tweak. Lessons 8–9 still require their own reviews; Lesson 9's live 100-share tweak remains pending. No Lesson 11 persistence design or implementation is supplied.
+**Remaining gates (historical 2026-10-07 record):** instructor review of Lesson 10 content, teaching behavior, UI, and classroom tweak. Lessons 8–9 required separate reviews; the live 100-share tweak was pending then and passed on 2026-10-22. Lesson 11 was not supplied at that date; its later implementation does not change this lesson's scope.
+
+## Modularization validation — 2026-10-22
+
+- Instructor-approved behavior-preserving split supplies all seven local Rust files. `main.rs` retains the application teaching path, including context loading/prompt assembly and all runtime/Effects/Events/dispatch/limit/run boundaries. Root is activated from the complete reference and matches it. No prompts, content files, dependency/lock/toolchain/provider changes, shared library or new runtime abstraction were introduced. Lessons 11–14 and the dataset seeder are untouched.
+- All **86 original function/test bodies** match after normalizing whitespace and optional trailing commas (rustfmt removed one optional call comma). All **20 original tests** remain: 15 application tests, two calculator tests, two diagnostics tests and one presentation test. Private filesystem fixtures, including `/dev/full`, stay in diagnostics tests rather than widening the log's fields. `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build` passed without warnings after removing an unused test import. No IDE build was performed.
+- Fresh documented live conversation/reselection, conceptual-plus-calculator, and blank/EOF pipelines passed against the existing configured local provider. Four conversation runs covered retained replies and a fresh selection; commands were intercepted. The conceptual turn requested no tool; the numerical turn requested one calculator with decimal-string `51.20`/`50.70`, 200 shares and one correlated `$100.00` result, followed by an ordinary saved/displayed answer with exclusions. This is actual model evidence, not a forced result or a teaching-quality pass.
+- A fresh colored PTY exercised down/up/Enter, return to line input, live calculator, `/finish` and chooser quit. Cyan/blue/magenta/green, framed results and activity → result → final-answer order passed. Empty-`NO_COLOR` and `TERM=dumb` PTYs used numbered selection with no ANSI; redirected/plain and blank/EOF captures had no ANSI. Independent stdout/stderr error gating passed. Plain complete diagnostics retained all Session fields and nested/default metadata across these runs. Automated filesystem/display failures remain covered by the original tests. The default manifest-root provider/content path was also exercised from `/tmp`.
+- Current model wording still needs review: the conceptual answer called a stop-loss a “safety net” and implied closing before further losses, despite later caveats. The numeric answer described exclusions and denied a guaranteed realized-loss ceiling. Prompts/behavior were not altered to hide this defect. The earlier inconclusive guidance-order experiment remains unresolved; the guidance tweak was **not rerun** and the default file is unchanged. No fresh live unavailable-provider/log-destination probe, IDE/projector review, service restart, dependency change or release approval is claimed.
+
+Instructor content/teaching/UI review remains pending. Lesson 9's live 100-share gap was resolved separately on 2026-10-22; its own review and semantic defects remain independent. Lessons 11–14 require their own questions and refactor checkpoints.
 
 ## Handoff to Lesson 11
 
-The instructor's revised primary direction for Lesson 11 is learner persistence: an application-owned learning record plus learner-agreed to-do items. It replaces the earlier evaluation-baseline focus; detailed design is deferred. End with: “What should a learning partner deliberately remember, and what evidence would justify that record?”
+The instructor's revised primary direction for Lesson 11 is learner persistence: an application-owned learning record plus learner-agreed to-do items. It replaces the earlier evaluation-baseline focus; the separately implemented Lesson 11 reference now supplies that design. End with: “What should a learning partner deliberately remember, and what evidence would justify that record?”
 
 Do not implement a profile, mastery tracker, to-do workflow, persistence format, or context-resumption policy here. Distinguish that future purposeful learner record from today's overwritten developer diagnostic log. Keep Lessons 8–9 review gates and Lesson 10's own pending review explicit.

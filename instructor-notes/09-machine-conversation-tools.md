@@ -4,11 +4,11 @@
 
 Connect the raw protocol from Lessons 5–6 to the GDK foundation from Lessons 7–8: same Session across two human inputs, selective use of an always-available calculator, and request/result correlation within one machine run. The entire implementation is supplied. Use predict → run → explain → tweak → run again, not missing Rust scaffolding.
 
-**Implemented; default live scenario validated, live 100-share tweak and instructor review pending.** Authoring/build success does not release the lesson. Lessons 7–8 remain complete and unchanged.
+**Implemented; default and 100-share live scenarios validated; instructor review pending.** Authoring/build success does not release the lesson. Lesson 7 is complete; Lesson 8 is implemented with instructor review pending. This checkpoint changes Lesson 9 only.
 
 ## Preparation
 
-Read the [lesson](../lessons/09-machine-conversation-tools/LESSON.md), complete [source](../lessons/09-machine-conversation-tools/src/main.rs), and [six lecture frames with captions/text equivalents](../lessons/09-machine-conversation-tools/diagrams/README.md). Root contains Lesson 9; shared-manifest execution is documented in the lesson. The bundled provider is replaceable. Start a streaming/tool-capable provider before class.
+Read the [lesson](../lessons/09-machine-conversation-tools/LESSON.md), complete [source directory](../lessons/09-machine-conversation-tools/src/), and [six lecture frames with captions/text equivalents](../lessons/09-machine-conversation-tools/diagrams/README.md). Root is ephemeral and may contain another exercise. Activate Lesson 9 with the lesson’s all-Rust-files replacement workflow; no backup or restoration is required. Do not reset root to hello world before all review is finished. The bundled provider is replaceable. Start a streaming/tool-capable provider before class.
 
 Check both default and approved 100-share tweak live before teaching. Keep an actual transcript locally, not a secret-bearing configuration. Do not silently replace unavailable inference with a mock or force the desired tool-selection pattern.
 
@@ -35,6 +35,16 @@ Use frames 01–06 in numeric order; each SVG has a corresponding 1600×900 PNG.
 These are narrated examples, not an observed transcript or guaranteed model behavior. Snapshots select recorded data for readability; actual program output expands all fields. The diagrams omit the supplied safeguard step to focus the normal route. Do not teach Goose's full assembly as required infrastructure.
 
 ## Code navigation and application choices
+
+A module groups related code within the same application; it is not another executable or a new shared library. Explain that purpose before showing the `mod` declarations. The complete source map is:
+
+- `main.rs`: Session/runtime/Effects and handler, Event consumer, tool provider and safe dispatch, limits, machine assembly/run/concurrency/shutdown, two-turn flow and inspection.
+- `calculator.rs`: familiar `LossArguments`, exact-decimal validation/execution and schema from Lessons 5–6; main retains dispatch and the execution boundary.
+- `presentation.rs`: terminal palette/gating, payload/actor formatting, complete Session rendering and presentation-local tests.
+- `provider_setup.rs`: existing provider configuration/loading and construction.
+- `tests.rs`: application/runtime/dispatch regression coverage.
+
+Read main's orchestration → state/Effects → Event consumer/run lifecycle → dispatch/limits → assembly/inspection. Revisit the calculator as prior learning; consult supplied presentation/provider support only as needed. Copy **all five** reference `.rs` files for shared-manifest execution, not main alone. No functionality, dependency, provider, or later-lesson change belongs to this checkpoint.
 
 Only show focused boundaries unless asked:
 
@@ -104,3 +114,18 @@ Instructor requested bold attribute names throughout Session snapshots, includin
 ### Gold Session attributes — 2026-10-06
 
 Instructor found bold difficult to see and replaced it with gold (`#FFD700`) for every Session attribute name, including nested fields and quoted object keys. Values use the default foreground and are unbolded; only usage remains dimmed. Foreground-only reset preserves usage dimming. Root/reference match; 15 tests, formatting/check/Clippy, IDE build, and default colored live run passed. Plain fallback and complete snapshots remain intact; Lessons 7–8 unchanged. Live 100-share tweak and release review remain pending.
+
+
+## Lesson 9 modularization validation — 2026-10-22
+
+Main is 765 lines (previously 1,617); presentation 228, provider_setup 39, calculator 154, application tests 463. All 62 original function/test bodies compare equal after whitespace normalization. All 15 tests and cargo fmt --check, check --locked, clippy --locked --all-targets, test --locked, build --locked passed. Root was activated with all five files and matches the reference; SHARE_COUNT is restored to 200.
+
+Fresh default and 100-share live runs passed: zero first-turn requests, one correlated second-turn request/result, retained exchange, exact $100.00/$50.00 and numeric final answers including fees/slippage/gaps and non-guarantee caveats. The historical live-tweak gap is resolved. Fresh colored, redirected/plain, empty-NO_COLOR and TERM=dumb runs passed; palette, four usage-only dim sections, independent stdout/stderr gating and default request → result → final stream ordering were checked. Private local transcripts are /tmp/lesson9-{default,tweak,colored,no-color,dumb}.out, not durable course fixtures.
+
+Keep the teaching defect visible: conceptual first-turn answers still used “caps” language for stop-loss protection, despite caveats. No semantic reliability or release approval follows from structural success. Instructor review remains pending. No IDE build, projector review or service restart was performed. Later lessons and the dataset seeder remain untouched.
+
+## Outbound-preview clarification — 2026-10-22
+
+Explain the order: append input → show “Session after appending input, before machine run” → display retained conversation-history preview and individual contributions → run the machine. The complete Debug history preview includes the first saved tutor explanation on turn 2; it is not the SDK-prepared/serialized request. The blue new-input block is only a highlight, not all provider context. The advertised tool-definition block is not a model execution request. No history clear or provider-input change is introduced. Keep previews fenced and actor-labeled; complete Session snapshots stay unfenced.
+
+Formatting/check/Clippy/build and all 16 tests passed, including a new preview test proving ordered first-question/answer/follow-up retention and no state mutation. A fresh documented live default run passed: zero first-turn calls, one correlated second-turn $100.00 result and retained first answer in the turn-2 preview. Plain output had no ANSI and both clarified snapshot/definition labels were checked. Root/reference match. The 100-share tweak and live PTY/color modes were not rerun for this follow-up; their preceding refactor evidence remains separate. No service restart or inference-policy change. Instructor review remains pending.

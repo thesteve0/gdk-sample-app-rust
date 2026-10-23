@@ -4,7 +4,7 @@
 
 Turn the supplied GDK application into a customized educational partner: the learner selects **Getting started in day trading**, the application loads its own material and teaching instructions, and the learner asks questions in a focused, continuing conversation.
 
-**Status:** implemented; structural checks and live scenarios passed; instructor review pending. This lesson does not release Lessons 8 or 9. Their instructor reviews, and Lesson 9's live 100-share tweak, remain separate gates.
+**Status:** implemented; structural checks and live scenarios passed; instructor review pending. This lesson does not release Lessons 8 or 9. Their instructor reviews remain separate gates; Lesson 9's live 100-share tweak passed on 2026-10-22.
 
 The new idea is **application-owned teaching context**, not another agent loop. We reuse the state machine, streaming, saved history, and safe optional calculator from Lesson 9.
 
@@ -24,7 +24,7 @@ Reuse the earlier meanings of Session (recorded conversation and related data), 
 
 Use the pinned Linux/Rust setup, a valid provider JSON, and a reachable model supporting streaming and tool calls. Understand Lessons 7–9, especially Events versus Effects, successive runs in one Session, and correlated tool responses. Their review status is not changed here.
 
-The entire [reference source](src/main.rs), supporting runtime, chooser, reply handling, diagnostics, and safeguards are supplied. There are no missing-code exercises. Lesson sources share the root `Cargo.toml` and lockfile; this directory is **not** an independent Cargo package.
+The entire [reference source directory](src/), supporting runtime, chooser, reply handling, diagnostics, and safeguards are supplied. There are no missing-code exercises. Lesson sources share the root `Cargo.toml` and lockfile; this directory is **not** an independent Cargo package.
 
 The chooser adds one exact dependency, already supplied in the root manifest:
 
@@ -42,11 +42,39 @@ cargo run -- custom_aa_llama_qwen3_6-35b.json
 
 With no positional argument, the bundled provider path resolves against the shared manifest directory. An explicit relative provider path resolves against the **current working directory**. `.env` is loaded before provider construction. You may use your own valid JSON; this course does not require the bundled endpoint or model.
 
-Content and `session-output.md` resolve against the shared manifest directory regardless of the working directory. The executable requires the checkout's content files to remain present: it does not embed them or fetch them online. Running the reference through the shared root manifest uses the **same** content directory, not a separate copy beside the reference source. If restoring the reference to root, save your own edits first:
+Content and `session-output.md` resolve against the shared manifest directory regardless of the working directory. The executable requires the checkout's content files to remain present: it does not embed them or fetch them online. Running the reference through the shared root manifest uses the **same** content directory, not a separate copy beside the reference source. The root `src/` is an ephemeral exercise working copy. Activate the **complete** reference, not `main.rs` alone; no backup or restoration is required. Do not copy root back into the authoritative reference.
 
 ```bash
-cp lessons/10-day-trading-learning-partner/src/main.rs src/main.rs
+rm -rf src
+mkdir src
+cp lessons/10-day-trading-learning-partner/src/*.rs src/
 ```
+
+### Source map and reading path
+
+A **Rust module** groups related code in a local source file. The `mod` declarations make those files part of this one application; they are not separate packages or a shared course framework. Narrow `pub(super)` visibility lets the parent use supplied helpers without making a public library API. All source files begin with `// Lesson 10`.
+
+```rust
+mod calculator;
+mod chooser;
+mod diagnostics;
+mod presentation;
+mod provider_setup;
+#[cfg(test)]
+mod tests;
+```
+
+| Source | What to read there |
+|---|---|
+| [`main.rs`](src/main.rs) | Selected context loading/prompt assembly, selection/reply lifecycle, Session/runtime/Effects, Event consumption, safe dispatch, safeguards, machine assembly/run/concurrency/shutdown and inspection |
+| [`calculator.rs`](src/calculator.rs) | Previously taught calculator schema, allowlist validation and exact-decimal execution; private calculator tests |
+| [`chooser.rs`](src/chooser.rs) | Supplied line input and arrow/numbered chooser mechanics, including raw-mode restoration |
+| [`diagnostics.rs`](src/diagnostics.rs) | Supplied plain Markdown logging, complete Session Debug rendering, safe fences/control removal, and private filesystem tests |
+| [`presentation.rs`](src/presentation.rs) | Supplied palette, independent terminal gating, labels/delimiters and styling tests |
+| [`provider_setup.rs`](src/provider_setup.rs) | Provider-path and first-configured-model helpers; JSON loading and provider construction remain in main |
+| [`tests.rs`](src/tests.rs) | Application regression tests and test-only request fixtures |
+
+Start with the three content files below, then follow `LessonContext`, `run_learning_partner` and its reply boundary, and `run_turn` in main. Next connect the runtime/Effects and Event consumer, then inspect safe dispatch and limits. Open chooser, diagnostics and other support only when explaining their boundaries. The Event consumer stays in main even though it prints output: its concurrency and separation from saving are part of the instructional path. Context loading and prompt assembly also remain visible here; a later relocation would be a separate teaching decision.
 
 ## 10.1 — Predict, select, and run
 
@@ -227,11 +255,21 @@ If the provider is unavailable, ask the instructor to start or supply one. Deter
 - The approved guidance tweak was loaded into a fresh Session and confirmed in diagnostics, then the default sentence was restored. **Its intended teaching ordering was not clearly validated:** the model placed the hypothetical scenario inside its check question, rather than unambiguously presenting a short example first. This is mixed qualitative evidence, not a guaranteed prompt effect. Default conversations sometimes also used examples. Do not treat the paired observation as a controlled evaluation.
 - Teaching review remains necessary. Some observed responses used reassurance such as “safety net,” described adverse fills as “slightly” worse, or asked whether planning made the learner more comfortable with trade parameters. These were accompanied by risk caveats, but their framing, precision, pacing, and suitability need instructor review; structural success does not certify educational accuracy or readiness to trade. Domain files are course-authored with verified FINRA/SEC attribution, not released instructional evidence merely because sources were consulted.
 
-**Remaining gates:** instructor review of Lesson 10 content, teaching behavior, UI, and classroom tweak. Lessons 8–9 still require their own reviews; Lesson 9's live 100-share tweak remains pending. No Lesson 11 persistence design or implementation is supplied.
+**Remaining gates (historical 2026-10-07 record):** instructor review of Lesson 10 content, teaching behavior, UI, and classroom tweak. Lessons 8–9 still required their own reviews; Lesson 9's live 100-share tweak was then pending (passed on 2026-10-22). Lesson 11 was not supplied at that date; its separately implemented reference does not change this lesson's scope.
+
+## Modularization validation — 2026-10-22
+
+- Instructor-approved behavior-preserving split supplies all seven local Rust files. `main.rs` retains the application teaching path, including context loading/prompt assembly and all runtime/Effects/Events/dispatch/limit/run boundaries. Root is activated from the complete reference and matches it. No prompts, content files, dependency/lock/toolchain/provider changes, shared library or new runtime abstraction were introduced. Lessons 11–14 and the dataset seeder are untouched.
+- All **86 original function/test bodies** match after normalizing whitespace and optional trailing commas (rustfmt removed one optional call comma). All **20 original tests** remain: 15 application tests, two calculator tests, two diagnostics tests and one presentation test. Private filesystem fixtures, including `/dev/full`, stay in diagnostics tests rather than widening the log's fields. `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build` passed without warnings after removing an unused test import. No IDE build was performed.
+- Fresh documented live conversation/reselection, conceptual-plus-calculator, and blank/EOF pipelines passed against the existing configured local provider. Four conversation runs covered retained replies and a fresh selection; commands were intercepted. The conceptual turn requested no tool; the numerical turn requested one calculator with decimal-string `51.20`/`50.70`, 200 shares and one correlated `$100.00` result, followed by an ordinary saved/displayed answer with exclusions. This is actual model evidence, not a forced result or a teaching-quality pass.
+- A fresh colored PTY exercised down/up/Enter, return to line input, live calculator, `/finish` and chooser quit. Cyan/blue/magenta/green, framed results and activity → result → final-answer order passed. Empty-`NO_COLOR` and `TERM=dumb` PTYs used numbered selection with no ANSI; redirected/plain and blank/EOF captures had no ANSI. Independent stdout/stderr error gating passed. Plain complete diagnostics retained all Session fields and nested/default metadata across these runs. Automated filesystem/display failures remain covered by the original tests. The default manifest-root provider/content path was also exercised from `/tmp`.
+- Current model wording still needs review: the conceptual answer called a stop-loss a “safety net” and implied closing before further losses, despite later caveats. The numeric answer described exclusions and denied a guaranteed realized-loss ceiling. Prompts/behavior were not altered to hide this defect. The earlier inconclusive guidance-order experiment remains unresolved; the guidance tweak was **not rerun** and the default file is unchanged. No fresh live unavailable-provider/log-destination probe, IDE/projector review, service restart, dependency change or release approval is claimed.
+
+Instructor content/teaching/UI review remains pending. Lesson 9's live 100-share gap was resolved separately on 2026-10-22; its own review and semantic defects remain independent. Lessons 11–14 require their own questions and refactor checkpoints.
 
 ## Next conceptual step
 
-Lesson 11's agreed primary direction is **learner persistence**: an application-owned learning record and learner-agreed to-do items, rather than the previously planned evaluation-baseline lesson. Its detailed design remains deferred. That future feature must distinguish evidence of understanding from topics merely discussed, and purposeful learner records from this lesson's disposable diagnostics. This lesson does not implement profiles, learning records, to-do storage, or cross-launch memory.
+Lesson 11's agreed primary direction is **learner persistence**: an application-owned learning record and learner-agreed to-do items, rather than the previously planned evaluation-baseline lesson. Its separately implemented reference develops that next step; it is not part of Lesson 10. That feature must distinguish evidence of understanding from topics merely discussed, and purposeful learner records from this lesson's disposable diagnostics. This lesson does not implement profiles, learning records, to-do storage, or cross-launch memory.
 
 ## Supplemental official orientation
 

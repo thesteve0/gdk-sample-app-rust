@@ -4,7 +4,7 @@
 
 Continue a conversation through two machine runs, with the same calculator available throughout. Observe when the model requests it, how the application validates and executes it, and why saving a correlated result creates work for inference again.
 
-**Status:** implemented; default live scenario validated, live 100-share tweak and instructor review pending. The endpoint was unavailable during initial implementation, then became available for output-order verification. The narrated trace below is not an observed model transcript.
+**Status:** implemented; default and 100-share live scenarios validated; instructor review pending. The endpoint was unavailable during initial implementation, then became available for output-order verification. The narrated trace below is not an observed model transcript.
 
 ## Concepts introduced
 
@@ -21,12 +21,34 @@ Reuse Session, Operation, StateMachine, Effect, re-evaluation, Events, and Emitt
 
 Complete Lessons 1–8, including the raw calculator round trip in Lessons 5–6. Have a reachable streaming/tool-capable provider, a valid provider JSON, and the pinned Rust toolchain. No new dependencies or provider-schema changes are required.
 
-The entire [reference source](src/main.rs) is supplied, including runtime traits, validation, concurrency, and safeguards. These are not fill-ins. Lesson directories share the root manifest; they are not independent Cargo applications. Root `src/main.rs` contains this implementation. If restoring it after a tweak, save your own edits first:
+The entire [reference source directory](src/) is supplied, including runtime traits, validation, concurrency, and safeguards. These are not fill-ins. Lesson directories share the root manifest; they are not independent Cargo applications.
+
+A **module** is a named part of this application used to group related code. It does not introduce another application or a shared course library. Local files separate previously taught calculator behavior and supplied presentation/provider plumbing from the machine flow. The declarations `mod calculator;`, `mod presentation;`, and `mod provider_setup;` connect those files to `main.rs`; test-only declarations load the supplied tests when testing.
+
+### Complete source map and reading path
+
+| Source | Responsibility |
+| --- | --- |
+| [`src/main.rs`](src/main.rs) | Session/store/runtime, Effects and their handler, Event consumer, tool provider and safe dispatch adapter, run/request/time limits, machine assembly, concurrent run/shutdown, two-turn orchestration, and structural inspection. These remain visible in the teaching path. |
+| [`src/calculator.rs`](src/calculator.rs) | Previously taught calculator argument shape (`LossArguments`), exact-decimal validation/execution, and advertised schema. The execution boundary and dispatch decisions remain in main. |
+| [`src/presentation.rs`](src/presentation.rs) | Supplied terminal styling/gating, payload and actor formatting, complete Session rendering, and presentation-local tests. It does not save messages or execute tools. |
+| [`src/provider_setup.rs`](src/provider_setup.rs) | Supplied provider-path and first-configured-model helpers. Loading and provider construction remain visible in main, with existing behavior. |
+| [`src/tests.rs`](src/tests.rs) | Deterministic application/runtime/dispatch regression tests, separate from the main reading path. |
+
+Read main's two-turn orchestration first, then Session/runtime and Effects, Event consumption and concurrent shutdown, safe dispatch and limits, and machine assembly/inspection. Revisit `calculator.rs` as the Lesson 5–6 behavior being reused, not a new calculator lesson. Consult presentation/provider support only as needed; read the separate tests when checking invariants. Moving code does not change the GDK-owned loop, capability availability, output, or safeguards.
+
+### Activate the reference
+
+Root `src/` is an ephemeral classroom working copy, not the authoritative lesson. Replace it with **all** reference Rust files, not just main; no backup or restoration is required. From the repository root:
 
 ```bash
-cp lessons/09-machine-conversation-tools/src/main.rs src/main.rs
+rm -rf src
+mkdir src
+cp lessons/09-machine-conversation-tools/src/*.rs src/
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
+
+This deliberately replaces the current root exercise, including any earlier module files. Lesson references remain intact. The final hello-world root reset belongs after all review, not at this checkpoint.
 
 Use your own JSON path when appropriate. `.env` is loaded before provider construction; the first JSON-declared model is selected. Named model selection and interactive input remain later work.
 
@@ -125,6 +147,10 @@ Use [six editable/rendered frames and their captions](diagrams/README.md) in ord
 
 The **payload delimiter** is the identical `++++++++` line before and after displayed protocol values; commentary is outside it. Lesson 9 reuses the Lessons 5–6 convention. Lesson 8's no-fence exception remains unchanged.
 
+A **conversation-history preview** displays every saved message in order before the SDK prepares provider input. It is not the final serialized request: the SDK still projects and prepares messages. On turn 2 it includes the original question, the saved stop-loss explanation, and the new calculation question. The snapshot label “Session after appending input, before machine run” makes clear that saving the new input precedes sending it. Only per-turn safeguards reset; history is retained.
+
+The separate new-human-input block highlights only the latest question. The instruction contribution and “advertised tool definition; not an execution request” blocks show the other supplied inference contributions. An advertised schema describes an available capability; only a later model-generated request contains actual arguments and a correlation ID. The history preview uses the same payload delimiter and actor-label convention, without coloring the whole history blue.
+
 Actor labels distinguish `application → provider`, `provider → application`, and `application, as the tool → provider`. The displayed instruction/tool definition are contributions to inference, not a complete serialized outbound request. Complete Session before/after views show all recorded fields, messages, metadata, usage, pass count, and halt reason. They are snapshots, not payload dumps; they are not fenced.
 
 **Terminal styling** uses ANSI control sequences to distinguish presentation categories without changing stored messages or protocol values. Headings and turn boundaries are bold cyan; the separately displayed human input is blue; reconstructed tool requests are magenta; tool responses and successful checks are green; warnings are yellow; errors are bold red. Streamed model text remains in the terminal's normal color. Only the entire `usage` section of each Session snapshot is dimmed, including its nested fields; conversation history and every other field remain at normal brightness. Every Session attribute name is gold (`#FFD700`), including nested metadata/usage fields and quoted object keys; values and Debug type names are not bold. Usage values remain dim as previously agreed. Labels and payload fences remain readable without color.
@@ -165,7 +191,7 @@ The complete code supplies:
 
 These are application decisions, not built-in GDK guarantees. The engine still owns the loop through `StateMachine::run`; no manual pass loop is restored. Supplied safeguards are not deliberate failure-path exercises.
 
-**Approved tweak:** change only `SHARE_COUNT` from `200` to `100` in root source. Predict `$50.00`, run again, then check selected arguments, exact result, matching IDs, retained first exchange, and final explanation. The validator follows that constant. Restore `200` afterward. Restarting the process seeds a fresh store; continuity is between its two scripted runs.
+**Approved tweak:** change only `SHARE_COUNT` from `200` to `100` in root `src/main.rs`. Predict `$50.00`, run again, then check selected arguments, exact result, matching IDs, retained first exchange, and final explanation. The validator follows that constant. Restore `200` afterward. Restarting the process seeds a fresh store; continuity is between its two scripted runs.
 
 ## Validation and success criteria
 
@@ -183,6 +209,18 @@ Success requires the same Session/capability on both turns, no first-turn reques
 
 Deterministic tests validate boundaries, exact arithmetic including the `$50.00` tweak, all-block/multiple-request handling, unknown/parse errors, request limits, ambiguous IDs, continuity, Effects, full snapshots, and concurrent drain behavior. They do not establish live model selection. If the provider is unavailable, ask the instructor to start or supply one; do not silently substitute mocks.
 
+## Modularization validation — 2026-10-22
+
+Main decreased from 1,617 to 765 lines. All 62 original function/test bodies are unchanged after whitespace normalization; only module placement, imports, required visibility, and the introductory module comment changed. All 15 existing tests, formatting, locked check/Clippy/build, full-files activation and root/reference equality passed. No dependencies, provider JSON, safeguards or later lesson sources changed.
+
+Fresh live default and approved 100-share runs passed structural inspection: no first-turn requests, one correlated second-turn request/result, retained history, and `$100.00`/`$50.00` respectively. Both numeric final answers stated fees/slippage/gap exclusions and no guaranteed realized-loss ceiling. The 100-share live gap is resolved; root and reference retain the 200-share default. Colored, redirected/plain, empty-NO_COLOR and TERM=dumb live runs passed; PTY checks found the palette and four top-level usage-only dim blocks. Independent stdout/stderr error-color gating passed. Default output retained reconstructed request → correlated result → final stream order.
+
+**Teaching limitation:** fresh conceptual first-turn answers still described stop-loss orders as “caps” on losses, despite later execution caveats. This refactor does not fix generated teaching accuracy. Instructor review remains pending. No IDE build or classroom/projector review was performed, and no service was restarted. Earlier validation records remain historical, not evidence for all future model outputs.
+
 ## Next conceptual step
 
 Lesson 10 will establish the fuller domain instruction and application-enforced safety contract. This lesson adds no trading, shell, arbitrary-network, market-data, retrieval, or interactive CLI capability.
+
+### Outbound-preview clarification — 2026-10-22
+
+Presentation-only follow-up: explicit snapshot timing, complete retained-history preview, separate instruction contribution and advertised-definition labels. No changes to stored messages, inference preparation, tool execution or provider input. Validation results are recorded in the instructor notes.

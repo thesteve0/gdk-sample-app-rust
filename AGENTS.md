@@ -21,7 +21,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 
 ## Repository model
 
-- `src/main.rs` is the exercise currently being developed and may be incomplete.
+- Root `src/` is always an ephemeral exercise working copy and may be incomplete. Activate a lesson by replacing it with all reference `.rs` files, not main alone; no backup or restoration is required. Preserve authoritative lesson references and unrelated work elsewhere. The final hello-world root reset occurs only after all review, not now.
 - `lessons/` contains numbered instructional units.
 - A lesson's `LESSON.md` contains explanations and important snippets.
 - A coding lesson's `src/` supplies its complete reference solution from the outset (`main.rs` plus any lesson-local modules). It is not an independently packaged application. Replacement Lesson 7 is intentionally no-code and has no `src/main.rs`.
@@ -359,3 +359,20 @@ Native `lesson14-visible-v1` now stores10 authored V01–V10 records in existing
 ## Lesson 8 modularization — 2026-10-22
 
 Instructor authorized behavior-preserving Lesson 8 modularization and corresponding documentation corrections. Keep Session/runtime/Effects, Event consumer, machine assembly/run/concurrency/shutdown, and validation in main (289 lines). Local presentation/provider modules and separate tests keep supporting details out of the instructional path; all eight original tests remain. Copy all four `.rs` files with the lesson's full-root-source backup/restore workflow, not main alone. No shared course library, dependency, root Lesson14, or other lesson change. This supersedes single-source wording for Lesson8 only; the instructor wants eventual modularization across lessons, but only Lesson8 is in this pass. Temporary-staging format/check/Clippy/test/build and fresh live streaming, colored/plain/NO_COLOR/dumb exchanges, independent stdout/stderr gating, and Japan tweak passed after the initially unavailable endpoint came online. France was restored and rerun; no service was restarted by the agent. Historical completion language was corrected to preserve pending instructor review. Do not infer release approval.
+
+
+## Lesson 9 modularization checkpoint — 2026-10-22
+
+Instructor authorized behavior-preserving Lesson 9 modularization only. Keep Session/runtime/Effects and handler, Event consumption, tool provider/safe dispatch, limits, machine assembly/run/concurrency/shutdown and inspection visible in main. Local `calculator.rs` holds the previously taught LossArguments/exact-decimal execution/schema; `presentation.rs` and `provider_setup.rs` hold supplied support; `tests.rs` and presentation-local tests retain coverage. Explain modules before declarations and supply the complete source map/reading path. Copy all five reference `.rs` files into the ephemeral root; no backup/restore is required. This current root decision supersedes earlier claims that root must remain a particular later lesson and the earlier Lesson 8 backup/restore convention, without changing that lesson's files. Later lessons, dependencies and provider behavior remain unchanged; stop at the Lesson 9 checkpoint. Fresh formatting/check/Clippy/build and all15 tests passed; all62 original function/test bodies match after whitespace normalization. Fresh default and100-share live runs passed, resolving the live-tweak gap; default200 restored. Colored/plain/empty-NO_COLOR/dumb and independent stderr gating passed. Conceptual first-turn “caps” wording remains a teaching defect; instructor review pending. No IDE build, projector review or service restart; see Lesson9 validation. Root/reference match; no later lesson/seeder/dependency changes.
+
+
+### Lesson 9 outbound-preview clarification — 2026-10-22
+
+Instructor approved explicit snapshot timing after input append/before machine run, a complete retained conversation-history preview (not a final serialized request), and separate instruction/advertised-definition labels distinguishing capability schema from an execution request. Root/reference presentation match; provider input/history/dispatch unchanged. Added no-state-mutation/history-order test;16 tests plus format/check/Clippy/build and fresh plain live default passed. Fresh100-share/PTY modes not rerun for this follow-up; prior evidence remains separate. Instructor review and first-turn semantic defects remain pending.
+
+
+## Lesson 10 modularization checkpoint — 2026-10-22
+
+Instructor authorized Lessons10–14 one at a time, with questions before each lesson and review checkpoints. Lesson10 boundaries were explicitly confirmed: extract calculator, presentation, provider_setup, chooser, diagnostics and tests; keep context loading/prompt assembly in main for now, alongside selection/reply lifecycle, runtime/Effects/Events/dispatch/limits/machine run/concurrency/shutdown and inspection. Later movement of context assembly needs a separate decision. Every Rust source starts `// Lesson 10`; root is ephemeral, activated from all seven reference files and matches them. No backup/restore or final hello-world reset now.
+
+All86 original function/test bodies match after whitespace/optional-trailing-comma normalization; all20 original tests and fmt/check/Clippy/build pass. Fresh live conversation/reselection, optional correlated$100 calculator, blank/EOF/commands, colored arrow UI and plain/emptyNO_COLOR/dumb modes, independent stderr gating, complete plain diagnostics and manifest-root paths from /tmp passed. Initial unused test import removed; no behavior fix. Safety-net/closing-before-further-loss wording remains a teaching defect; prior guidance ordering experiment remains inconclusive and was not rerun. No IDE/projector review, service restart, new live failure probe or release approval. Lessons11–14/seeder/pins/content untouched; ask questions before Lesson11 and stop at Lesson10 review checkpoint. See Lesson10 dated validation for full scope and gaps.
