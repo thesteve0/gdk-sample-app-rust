@@ -14,14 +14,9 @@ Suggested 30–35 minutes:
 
 ## Run preparation
 
-The instructor authorized replacement Lesson 8 and updating root `src/main.rs` on 2026-10-05. Root and the complete lesson reference use the shared manifest; dependencies and provider configuration are unchanged. Withdrawn drafts remain untouched.
+Replacement Lesson 8 was authorized on 2026-10-05. The instructor authorized this behavior-preserving modularization on 2026-10-22. The current root is Lesson 14; **this refactor leaves that implementation unchanged**. Lesson 8 still uses the shared root manifest, lockfile, toolchain, and provider JSON; withdrawn drafts remain untouched.
 
-From the repository root, save any learner edits before restoring:
-
-```bash
-cp lessons/08-machine-request-response/src/main.rs src/main.rs
-cargo run -- custom_aa_llama_qwen3_6-35b.json
-```
+Follow the [lesson's backup/copy/restore workflow](../lessons/08-machine-request-response/LESSON.md#prerequisites-and-run-setup) from the repository root. Back up the entire root `src/`, copy all four Lesson 8 `.rs` files, then run. A single-file copy is no longer sufficient. Keep the backup path and preserve Lesson 8 learner edits when restoring. Do not copy root back into the lesson reference.
 
 Substitute a valid provider JSON when necessary. Check endpoint availability before class. If unavailable, ask for a live provider; do not present unit-test output as model streaming. Keep `.env` and credentials private.
 
@@ -37,12 +32,23 @@ Substitute a valid provider JSON when necessary. Check endpoint availability bef
 
 ## Source walkthrough
 
-Use small regions of the supplied file, not a full-file lecture:
+Use small regions of supplied `main.rs`, not a full-file lecture:
 
 1. `ChatSession` and `ChatRuntime::seeded`: the application assembly owns conversation and usage records. Loader clones snapshots; saving changes the stored Session, not the BEFORE value.
 2. `InferenceRunner`, one `Step::Inference`, and `StateMachine::run`: the engine coordinates the work.
 3. `ChatEffect` and the handler: message Effects append through `Conversation::push`; usage Effects are actually retained, not merely logged.
 4. `display_events` and `tokio::join!`: the receiver progresses during execution and flushes text as it arrives.
+
+### Module navigation, not a new Rust exercise
+
+A module groups code under a name; here sibling files separate supplied helpers from the exchange under study. The `mod` declarations include them and `use` brings selected helpers into scope. Explain this briefly, then return to the four walkthrough regions above; no learner-authored scaffolding is required.
+
+- `main.rs` (289 lines) retains the Session/runtime/Effects, provider construction, machine/channel assembly, concurrent Event consumer, and final validator. The approved `USER_PROMPT` tweak stays here.
+- `presentation.rs` owns the color rules and complete Session display, with four local tests. Its renderer reads the parent Session; no public fields/getters or generic formatting framework were added.
+- `provider_setup.rs` owns the default path and two existing helpers. Provider construction and `.env` order remain visible in main.
+- `tests.rs` contains the four cross-cutting application tests. All eight original tests remain; their locations change, not their assertions.
+
+Only the helpers needed by main (and a test-only plain Session formatter) are `pub(super)`. There is no library crate or shared cross-lesson module. Do not move `display_events` into presentation: following its Event path alongside the saving boundary is the teaching point. Other lessons may be modularized after separate review; none change in this pass.
 
 Explain the supporting Rust only as needed: `Arc` is shared ownership required by the interfaces, the mutex protects store access, and the async trait implementations are supplied loading/saving contracts. `From<Message>`, `InferenceEffect`, and `MachineEffect` adapt the application's Effects to the runner. Message-ID plumbing is provided, not a learner exercise.
 
@@ -70,7 +76,7 @@ The final validator checks that text was displayed and saved, rejects recorded i
 
 Ask the learner to point at one display path and one save path, then narrate the ordinary load → infer → save → reload → decline trace. Changing only the question should leave that structure intact.
 
-Lesson 9 is not implemented here. It will retain the same Session for successive turns and introduce the deferred planned-loss trace, tool selection, correlation, validation, and explicit execution/request bounds.
+The separate Lesson 9 reference retains the same Session for successive turns and introduces the deferred planned-loss trace, tool selection, correlation, validation, and explicit execution/request bounds.
 
 ## Pinned-source verification
 
@@ -90,7 +96,7 @@ Reviewed matching `goose-provider-types` conversation/message/usage source and `
 - Live default-provider run returned a France answer through 127 message Events (119 non-text blocks), then showed two recorded messages and one usage record. These are observed sample counts, not assertions for other models.
 - The Event consumer is polled concurrently by construction; the capacity-one test exceeds its queue capacity, so buffering an entire run before consumption would not work. That deterministic test supports lifecycle behavior but does not substitute for the live run.
 
-The approved Japan-question tweak also completed live: 335 message Events (292 non-text blocks), two recorded messages, and one usage record. The France default was restored and rerun successfully. Dependencies, provider configuration, and archived drafts were unchanged. On 2026-10-06 the instructor confirmed Lesson 8 complete and ready to teach; this approval is separate from the successful build/provider runs.
+The approved Japan-question tweak also completed live: 335 message Events (292 non-text blocks), two recorded messages, and one usage record. The France default was restored and rerun successfully. Dependencies, provider configuration, and archived drafts were unchanged. A 2026-10-06 completion record was superseded by the instructor's 2026-10-07 clarification: Lesson 8 still needs instructor review. Historical successful build/provider runs do not constitute current release approval.
 
 Output revision validation: all five tests and the live France exchange passed with no payload fences, only the stream label and Session headings, and complete saved message/usage fields. Metadata such as `inference`, visibility flags, optional usage, and operation notes remained visible.
 
@@ -100,3 +106,16 @@ Output revision validation: all five tests and the live France exchange passed w
 - Using this lesson's complete source with the shared pinned manifest in temporary staging, `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, and `cargo test` passed (8 tests). Root source and dependencies were not replaced.
 - Successful terminal-colored, redirected/plain, and empty-`NO_COLOR` runs passed. `TERM=dumb` and independent stdout/stderr gating were also verified with error-output probes; errors retained exit status 1 and terminal stderr was bold red.
 - The live France exchange displayed default-color model text and complete before/after Session views. Gold attributes, default unbolded values, two blank lines, and the no-fence layout were retained. Only the top-level Session `usage` section was dimmed; tests also cover non-dimmed nested message usage and complete original Debug text.
+
+
+## Modularization validation — 2026-10-22
+
+- Scope: Lesson 8 only; supporting presentation/provider helpers and tests relocated into local modules. Session/runtime/Effects, live Event handling, concurrent execution/shutdown, and final validation stay in main. No functionality, prompt, output convention, dependencies, or provider schema changed.
+- With the unchanged shared manifest/lockfile/toolchain/provider JSON in temporary staging, `cargo fmt --check`, `cargo check --locked`, `cargo clippy --locked --all-targets`, `cargo test --locked` (8 tests), and `cargo build --locked` passed. Staging also copied the existing root-registered dataset example/manifest solely so Cargo's all-target checks could resolve it; no catalog operation was run.
+- Root Lesson 14 source, earlier/later references, preparation code, and pins remain unchanged. No IDE build or fresh root tutor execution is claimed.
+- The endpoint initially refused connections, then became available without an agent-initiated restart. A fresh documented `cargo run --locked -- custom_aa_llama_qwen3_6-35b.json` in staging passed with a France answer, retained user/assistant messages, and recorded usage. No mock provider was used.
+- Further real-service runs passed under a PTY with colors, empty `NO_COLOR`, and `TERM=dumb`, and with redirected/plain stdout. Checks confirmed one before/after view and stream label, their order, full retained fields, no payload fences, and two blank lines after the raw dump. Colored snapshots retained cyan headings/gold fields and exactly two dim blocks (top-level usage in BEFORE and AFTER); suppressed-color transcripts contained no application ANSI. The existing tests independently verify complete Debug rendering, unchanged values, and non-dimmed nested usage.
+- In the colored run, the stream label arrived about 8.44 seconds after launch and AFTER at 8.90 seconds; the consumer code and retained capacity-one test verify concurrent draining rather than post-run buffering. Timing is observational, not a performance guarantee.
+- Separate PTY/pipe combinations verified stdout/stderr gating independently: argument-count errors exited 1 and stderr was red only when terminal-enabled, regardless of stdout. No learner-facing failure exercise was added.
+- The approved Japan tweak was applied only in staging, returned Tokyo, and preserved the before/after structure. France was restored and successfully rerun. All 32 original function/test bodies match the pre-refactor source after ignoring formatting whitespace; only module/import placement and required visibility changed.
+- Instructor content/teaching/release review remains pending. The instructor wants the modular pattern extended to other lessons eventually, not implicitly applied in this change.

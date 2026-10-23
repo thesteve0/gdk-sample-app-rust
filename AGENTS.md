@@ -14,7 +14,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 2. Inspect `git status` and preserve unrelated staged and unstaged work.
 3. Read `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`.
 4. Read the active root implementation in `src/main.rs`.
-5. Read the relevant `lessons/<number>-<topic>/LESSON.md` and its complete `src/main.rs` reference solution.
+5. Read the relevant `lessons/<number>-<topic>/LESSON.md` and its complete reference solution (`src/main.rs` and any lesson-local modules).
 6. Read the corresponding `instructor-notes/` file when one exists.
 7. Read the provider JSON used by the active lesson.
 8. For any GDK API, provider-schema field, type, command, or behavior, consult the official documentation and the exact pinned SDK source. Do not rely on memory.
@@ -24,7 +24,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 - `src/main.rs` is the exercise currently being developed and may be incomplete.
 - `lessons/` contains numbered instructional units.
 - A lesson's `LESSON.md` contains explanations and important snippets.
-- A coding lesson's `src/main.rs` is its complete reference solution from the outset. It is not an independently packaged application. Replacement Lesson 7 is intentionally no-code and has no `src/main.rs`.
+- A coding lesson's `src/` supplies its complete reference solution from the outset (`main.rs` plus any lesson-local modules). It is not an independently packaged application. Replacement Lesson 7 is intentionally no-code and has no `src/main.rs`.
 - Do **not** copy root source into a lesson directory at lesson completion.
 - `instructor-notes/` contains one instructor guide per implemented lesson.
 - Keep numeric prefixes on lesson directories.
@@ -354,3 +354,8 @@ Execute manually with unique isolated EVALUATION_STORAGE for every condition/cas
 ### Scope A dataset catalog evidence — 2026-10-13
 
 Native `lesson14-visible-v1` now stores10 authored V01–V10 records in existing experiment1 (`lesson14-compatibility`), dataset `d-c2a3478604b54bb795b2b342a6840f5a`; full API readback/association and repeat/check unchanged IDs/timestamps/content verified.7 catalog tests+68 unchanged application tests,format/check/Clippy/Cargo build passed;2 opt-in application live tests not rerun. Root/reference modules and lock unchanged. Plain/NO_COLOR/dumb plus actual PTY palette checked. IDE build blocked by unrelated open project. No dataset browser automation, new restart-persistence test/service restart, fresh tutor execution or rubric judgment; API catalog evidence is not completed evaluation. See Lesson14 VALIDATION. New versions need separate reviewed seeder/path/name changes; preserve v1. No Lesson15/SDK migration/release authority.
+
+
+## Lesson 8 modularization — 2026-10-22
+
+Instructor authorized behavior-preserving Lesson 8 modularization and corresponding documentation corrections. Keep Session/runtime/Effects, Event consumer, machine assembly/run/concurrency/shutdown, and validation in main (289 lines). Local presentation/provider modules and separate tests keep supporting details out of the instructional path; all eight original tests remain. Copy all four `.rs` files with the lesson's full-root-source backup/restore workflow, not main alone. No shared course library, dependency, root Lesson14, or other lesson change. This supersedes single-source wording for Lesson8 only; the instructor wants eventual modularization across lessons, but only Lesson8 is in this pass. Temporary-staging format/check/Clippy/test/build and fresh live streaming, colored/plain/NO_COLOR/dumb exchanges, independent stdout/stderr gating, and Japan tweak passed after the initially unavailable endpoint came online. France was restored and rerun; no service was restarted by the agent. Historical completion language was corrected to preserve pending instructor review. Do not infer release approval.

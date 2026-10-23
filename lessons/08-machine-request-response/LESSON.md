@@ -4,7 +4,7 @@
 
 Run Lesson 7's question/answer exchange. Explain the two paths back to our application: **Events for display** and **Effects for recorded state**.
 
-The [complete supplied implementation](src/main.rs) is ready from the outset. We will predict, run, explain, change the question, and run again—not fill in Rust scaffolding.
+The [complete supplied implementation](src/) is ready from the outset, with the lesson concepts in [main.rs](src/main.rs) and supporting helpers in local modules. We will predict, run, explain, change the question, and run again—not fill in Rust scaffolding.
 
 ## Prerequisites and run setup
 
@@ -12,14 +12,43 @@ The [complete supplied implementation](src/main.rs) is ready from the outset. We
 - Use the repository's pinned Rust toolchain and shared root manifest. `goose-agent` and `goose-providers` are **0.1.0-alpha.11**; no dependency change is needed.
 - Have a live streaming provider. The bundled JSON is a replaceable default, not a required service.
 
-The root working copy now contains Lesson 9. To run this earlier reference, use the shared root workflow (save any root edits first):
+The root working copy now contains Lesson 14. To run this earlier reference with the shared root manifest, first back up the **entire root `src/` directory**, including any learner edits. Run these commands from the repository root in the same shell:
 
 ```bash
-cp lessons/08-machine-request-response/src/main.rs src/main.rs
+lesson8_backup=$(mktemp -d /tmp/gdk-before-lesson08.XXXXXX)
+cp -a src "$lesson8_backup/src"
+printf 'Original source backup: %s\n' "$lesson8_backup/src"
+cp lessons/08-machine-request-response/src/{main,presentation,provider_setup,tests}.rs src/
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
 
+All four files are required; copying `main.rs` alone no longer works. Other root source files are left in place but are not modules of this lesson. Do not copy the root implementation back over the reference solution.
+
+When finished, preserve the Lesson 8 working files and restore the original root source:
+
+```bash
+mv src "$lesson8_backup/lesson08-working-src"
+cp -a "$lesson8_backup/src" src
+```
+
+The backup and any Lesson 8 edits remain outside the repository. If you open another shell, recover the printed backup path before restoring. These commands do not change the manifest, lockfile, provider JSON, or lesson reference.
+
 You may supply your own provider JSON instead, or omit the argument to use the bundled default. As before, the application loads `.env` before provider construction and selects the first configured model. Lesson directories are not independent Cargo packages.
+
+## Source map — concepts first, supplied helpers second
+
+A **module** is a named part of the Rust program whose implementation can live in a separate source file. Here modules keep familiar setup and presentation details out of the exchange we are learning. They do not add another runtime step or change the machine's behavior.
+
+| File | What to read there |
+|---|---|
+| [main.rs](src/main.rs) | Provider construction, machine assembly/run, Session and runtime/store, Effects and their handler, live Event consumption, and exchange validation |
+| [presentation.rs](src/presentation.rs) | Terminal color gating, headings/errors, complete Session rendering, and four presentation tests |
+| [provider_setup.rs](src/provider_setup.rs) | Default provider path, optional positional override, and first configured model selection |
+| [tests.rs](src/tests.rs) | Four cross-cutting tests for state saving, exchange validation, Event draining, and ordinary run completion |
+
+The declarations `mod presentation;` and `mod provider_setup;` in `main.rs` bring the sibling files into this program; `use` names the helpers called from main. `#[cfg(test)] mod tests;` includes the separate application tests only in a test build. The few `pub(super)` items are accessible to their parent module, not a new public library API. Child modules can read their parent's private Session fields, so the Session and store need no new public fields or getters.
+
+Read `main.rs` for the lesson narrative. In particular, keep **Events display; Effects save** visible together: `display_events`, `ChatEffect`, and the handler remain there. Open `presentation.rs` only to inspect how snapshots/colors are printed, and `provider_setup.rs` for familiar configuration details. All supporting code is supplied, not a module-writing exercise. `USER_PROMPT` remains in `main.rs` for the approved tweak. The modules are local to this lesson; there is no cross-lesson utility library or new dependency.
 
 ## 8.1 — Predict the recorded state
 
@@ -41,7 +70,7 @@ The supplied `MachineSession` implementation exposes the ID and conversation. `S
 
 Before the first Session view, the application prints the configured operations in evaluation order. Names come from the actual steps supplied to the machine; this lesson has one inference step named `llm`. **That name is hard-wired by the GDK-provided `InferenceRunner`; we do not assign it.** It identifies the Operation, not the configured provider or model. The `Session before` and `Session after` headings identify recorded-state views. Each field name is followed by its value: `id`, `conversation`, and `usage`, including every nested message field and its metadata. Absent values (`None`), false flags, and empty collections remain visible. These are application-owned snapshots, not exact prepared provider requests.
 
-**Terminal styling** is presentation-only color that helps distinguish application labels from recorded values. As in Lesson 9, headings and actor labels are bold cyan; every Session attribute name is gold (`#FFD700`), including nested metadata and quoted object keys. Values remain in the default foreground, unbolded. Only the top-level Session `usage` section is dimmed; conversation metadata, including any nested usage, is not dimmed. Live model text stays in the default foreground. Errors are bold red on stderr. These supplied helpers do not change Events, Effects, saved data, or provider input and are not a formatter-writing exercise. Output is plain when its stream is redirected, `NO_COLOR` is set (even empty), or `TERM=dumb`. The excerpt below shows that plain output.
+**Terminal styling** is presentation-only color that helps distinguish application labels from recorded values. Following the course terminal palette, headings and actor labels are bold cyan; every Session attribute name is gold (`#FFD700`), including nested metadata and quoted object keys. Values remain in the default foreground, unbolded. Only the top-level Session `usage` section is dimmed; conversation metadata, including any nested usage, is not dimmed. Live model text stays in the default foreground. Errors are bold red on stderr. These supplied helpers do not change Events, Effects, saved data, or provider input and are not a formatter-writing exercise. Output is plain when its stream is redirected, `NO_COLOR` is set (even empty), or `TERM=dumb`. The excerpt below shows that plain output.
 
 The display uses Rust's expanded field formatting so serialization does not silently omit absent/default metadata fields. The supplied helper prints the Session fields explicitly and expands their values; learners do not need to implement a formatter. Two blank lines after each raw Session dump separate its Rust field values from the next narrative label. There are no payload fences or repeated commentary lines.
 
@@ -150,7 +179,7 @@ The answer appears twice intentionally: once through live Events, then inside th
 
 ## Validation and success criteria
 
-From the repository root:
+After copying all four source files into the root working copy, run from the repository root:
 
 ```bash
 cargo fmt --check
@@ -168,6 +197,12 @@ Success means:
 - You can identify the Emitter/display path and the separate Effect/saving path.
 
 Text, saved content/metadata, message counts, and usage availability depend on the provider. Do not require exact wording. If the provider is unavailable, ask the instructor to start or supply one; tests do not replace live validation.
+
+## Refactor validation — 2026-10-22
+
+The reference is now four files; `main.rs` is 289 lines. The eight existing tests are retained (four presentation tests and four application tests). In temporary staging with the unchanged root manifest/lockfile/toolchain and provider JSON, formatting, check, Clippy across all targets, tests, and build passed. The current root Lesson 14 source was not replaced. This is a source-organization change only: helper and test bodies, Session/runtime/Effects, Event handling/concurrency, validation, labels/spacing/color rules, and provider selection remain unchanged.
+
+The configured `127.0.0.1:8080` endpoint initially refused connections, then became available without an agent-initiated restart. Fresh France exchanges passed in a colored terminal, redirected/plain output, empty-`NO_COLOR`, and `TERM=dumb`. The Japan-question tweak returned Tokyo; the France default was restored and rerun successfully. Complete Session views, labels/spacing, usage-only dimming, and independent stdout/stderr gating were checked. All 32 original function/test bodies also match after ignoring formatting whitespace. These results validate the refactor, not release approval; instructor review remains pending. See the instructor notes for details.
 
 ## Next and references
 

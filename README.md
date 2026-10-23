@@ -70,7 +70,7 @@ Lessons 1–7 are complete. Lessons 8 and 9 are implemented and still need instr
 
 The progression is **mental model → one streamed exchange → a continuing conversation with tools**. Cover the conceptual ground of Lessons 3–6 through the state machine without forcing a one-to-one correspondence.
 
-Class time and Rust familiarity are limited. Coding lessons supply the **entire implementation** in their `src/main.rs` from the outset, including all supporting Session, store, loader, effect-handler, effect-type, event-consumer, and safety code. There are no missing-code exercises or requirements to reconstruct Rust scaffolding. The classroom rhythm is **predict → run → explain → tweak → run again**. Success means learners can explain and change behavior, not reproduce the Rust implementation from memory.
+Class time and Rust familiarity are limited. Coding lessons supply the **entire implementation** in their `src/` directory from the outset (`main.rs` plus any lesson-local modules), including all supporting Session, store, loader, effect-handler, effect-type, event-consumer, and safety code. There are no missing-code exercises or requirements to reconstruct Rust scaffolding. The classroom rhythm is **predict → run → explain → tweak → run again**. Success means learners can explain and change behavior, not reproduce the Rust implementation from memory.
 
 Use the GDK's terms consistently; its names are part of the mental model. Define each concept and its purpose before showing its code-level form. Explain the supporting infrastructure, but do not turn these lessons into a Rust traits, generics, ownership, locking, or async-concurrency course. Keep source comments concise and put extended discussion in lesson prose and instructor notes.
 
@@ -129,7 +129,7 @@ Use consistent GDK names, actor labels, arrow meanings, and a small visual legen
 
 **Out of scope:** tools, multi-turn input, production storage, a general CLI, model selection, Goose's full assembly, or deliberate cancellation/failure exercises.
 
-**Implemented deliverables:** [lesson](lessons/08-machine-request-response/LESSON.md), complete [reference source](lessons/08-machine-request-response/src/main.rs), and [instructor notes](instructor-notes/08-machine-request-response.md). The withdrawn draft with the same directory name remains under `drafts/`; it is reference only, not the implementation to restore wholesale.
+**Implemented deliverables:** [lesson](lessons/08-machine-request-response/LESSON.md), complete [reference sources](lessons/08-machine-request-response/src/), and [instructor notes](instructor-notes/08-machine-request-response.md). Instructor-approved modularization (2026-10-22) keeps Session/runtime/Effects, Event consumption, machine assembly/run, and validation in `main.rs`; local `presentation.rs`, `provider_setup.rs`, and `tests.rs` hold supplied support code. Copy all four files using the lesson's backup/restore workflow, not just main. This changes organization only; root remains Lesson 14. All eight tests and build/lint checks pass, as do fresh colored/plain/NO_COLOR/dumb live exchanges and the Japan-question tweak; instructor review remains pending. Other lessons are unchanged; eventual modularization is an instructor goal, not part of this pass. The withdrawn draft with the same directory name remains under `drafts/`; it is reference only, not the implementation to restore wholesale.
 
 ### Lesson 9 — One Session, successive user turns, and selective tool use
 
