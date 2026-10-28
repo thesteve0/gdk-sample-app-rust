@@ -1,4 +1,10 @@
 // Lesson 12
+// Local classroom defaults; environment variables override these values.
+// The supplied reader password is plaintext in source and compiled binaries.
+const RETRIEVAL_DATABASE_URL: &str = "postgresql://retrieval_reader:7297cb0587b95545f039df77dc32684e75f73093a444895c@127.0.0.1:55432/harrier";
+const HARRIER_URL: &str = "http://127.0.0.1:9999";
+const TUTOR_URL: &str = "http://127.0.0.1:8080";
+
 // Local modules hold previously taught code, record mechanics, and supplied UI/logging support.
 mod calculator;
 mod chooser;
@@ -149,7 +155,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
     };
     let configured_tokenizer = match env::var("TUTOR_URL") {
         Ok(origin) => origin,
-        Err(_error) => "http://127.0.0.1:8080".to_string(),
+        Err(_error) => TUTOR_URL.to_string(),
     };
     if tokenizer_origin.trim_end_matches('/') != configured_tokenizer.trim_end_matches('/') {
         return Err(anyhow::anyhow!(

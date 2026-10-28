@@ -16,7 +16,6 @@ const MODEL: &str = "microsoft/harrier-oss-v1-0.6b";
 const REVISION: &str = "f9b9dc8d367d443f2479d27aa5d8d2850c0774ee";
 const RUNTIME_MODEL: &str = "TheSteve0/harrier-oss-v1-0.6b-GGUF";
 const GGUF_SHA256: &str = "02b8bc790139170d3710b411777342945c0b36d35fdaf0e24684c2d3e135a23b";
-const BUILD: &str = "b11429-d81235049";
 const PROFILE: &str = "harrier-llamacpp-f16-last-l2-web-search-v1-gguf-02b8bc790139170d3710b411777342945c0b36d35fdaf0e24684c2d3e135a23b-build-b11429-d81235049";
 const QUERY_PREFIX: &str =
     "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ";
@@ -356,15 +355,9 @@ pub struct Retrieval {
 }
 impl Retrieval {
     pub async fn from_env() -> Result<Self, String> {
-        let database_url = match env::var("RETRIEVAL_DATABASE_URL") {
-            Ok(value) => value,
-            Err(_) => {
-                return Err("RETRIEVAL_DATABASE_URL reader connection is required".to_string())
-            }
-        };
-        let embedding_url =
-            validate_local_url(&environment("HARRIER_URL", "http://127.0.0.1:9999")?)?;
-        let tutor_url = validate_local_url(&environment("TUTOR_URL", "http://127.0.0.1:8080")?)?;
+        let database_url = environment("RETRIEVAL_DATABASE_URL", crate::RETRIEVAL_DATABASE_URL)?;
+        let embedding_url = validate_local_url(&environment("HARRIER_URL", crate::HARRIER_URL)?)?;
+        let tutor_url = validate_local_url(&environment("TUTOR_URL", crate::TUTOR_URL)?)?;
         let http = LocalHttp::new(&[&embedding_url, &tutor_url])?;
         let health = http.json(&embedding_url, "health", None).await?;
         let props = http.json(&embedding_url, "props", None).await?;
@@ -687,9 +680,9 @@ fn check_runtime(health: &Value, props: &Value, models: &Value) -> Result<usize,
         }
         _ => return Err("embedding slot capacity is invalid".to_string()),
     };
+    // Server builds may differ; retain the model and embedding-contract checks.
     if entries.len() != 1
         || health["status"] != "ok"
-        || props["build_info"] != BUILD
         || props["model_alias"] != RUNTIME_MODEL
         || props["model_ftype"] != "F16"
         || props["is_sleeping"] != false

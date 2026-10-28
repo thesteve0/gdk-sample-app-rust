@@ -12,16 +12,35 @@ ghcr.io/mlflow/mlflow:v3.17.1@sha256:65aa7a75fe37554bd7dd9e539b58e1ec130dac99f27
 
 Test host amd64 image manifest: `sha256:e1badda9c35ea87e325357b4e4d8e3ceef571e6bac92dc24b885ef908dba519a`; local unpacked image size about 951 MB. Do not substitute `latest`. Other architectures are pinned by the index but were not executed here.
 
-From repository root:
+## Start MLflow with Podman
+
+Use Podman as your normal user, without `sudo`, so you use the same rootless containers and storage throughout. Run these commands from the repository root (the directory containing `Cargo.toml`). No local Python or MLflow installation is needed; MLflow runs inside the supplied container.
+
+**1. Start the MLflow container:**
 
 ```bash
-bash lessons/14-agent-evaluation/mlflow.sh start
-# Docker alternative (same configuration; tested with Podman, not separately Docker):
-CONTAINER_ENGINE=docker bash lessons/14-agent-evaluation/mlflow.sh start
+CONTAINER_ENGINE=podman bash lessons/14-agent-evaluation/mlflow.sh start
+```
+
+`mlflow.sh` is our supplied helper script, not an MLflow command you need to install. This command explicitly selects Podman (also the script's default). On the first run, Podman downloads the pinned image and creates a background container named `gdk-mlflow`. On later runs, the script starts the existing container and reuses its saved data. You can keep using the same terminal after the command returns; that does not stop the server.
+
+**2. Check whether the server is ready:**
+
+```bash
 curl --fail http://127.0.0.1:5000/health
 ```
 
-Wait for `OK`; first boot creates schema. Open http://127.0.0.1:5000 . Port publication is loopback-only; the container listens on its internal interfaces. The script never touches existing tutor, embedding or retrieval services. SQLite lives in `.evaluation/mlflow/mlflow.db`, artifacts in `.evaluation/mlflow/artifacts`; neither uses the retrieval database. `.evaluation/` is ignored, not encrypted. Conversations and private excerpts can be present.
+The expected response is `OK`. Startup can take a little time, especially on the first run while MLflow creates its database schema. If this command cannot connect yet, wait a few seconds and run it again. To inspect startup progress or an error:
+
+```bash
+podman logs --tail 50 gdk-mlflow
+```
+
+If startup reports that port 5000 is already in use, stop here and identify the existing service before changing or stopping anything.
+
+**3. Open the MLflow UI** in your browser at **http://127.0.0.1:5000**. Once the UI opens, server startup is complete. The next section creates an experiment and connects the Lesson 14 application to it; starting MLflow alone does not launch the tutor or create traces.
+
+Port publication is loopback-only; the container listens on its internal interfaces. The script never touches existing tutor, embedding or retrieval services. SQLite lives in `.evaluation/mlflow/mlflow.db`, artifacts in `.evaluation/mlflow/artifacts`; neither uses the retrieval database. `.evaluation/` is ignored, not encrypted. Conversations and private excerpts can be present.
 
 Linux/SELinux: `:Z` gives the dedicated bind mount a private container label. Do not mount or relabel your entire home/repository. On non-SELinux Docker installations it is normally accepted; if unsupported remove only the `:Z` suffix. Rootless Podman successfully wrote this directory. For permission errors inspect container UID and mount ownership with your engine; do not solve them with world-writable permissions. This image/setup is classroom local infrastructure, not authenticated production hosting.
 
@@ -35,11 +54,9 @@ curl --fail -H 'Content-Type: application/json' \
   http://127.0.0.1:5000/api/2.0/mlflow/experiments/create
 ```
 
-Use the returned numeric ID (do not assume `1`). Set the existing private reader connection as in [Lesson 12 setup](../12-specialized-retrieval/DATABASE-SETUP.md):
+Use the returned numeric ID (do not assume `1`). Use the local service constants in main; override `RETRIEVAL_DATABASE_URL` only if your prepared reader connection differs (see [Lesson 12](../12-specialized-retrieval/LESSON.md)). The default credential is plaintext in source/binaries, not secret storage:
 
 ```bash
-source day_trading/embeddings/postgres-local/connection.env
-export RETRIEVAL_DATABASE_URL="$READER_DATABASE_URL"
 export MLFLOW_EXPERIMENT_ID=1 # replace with your returned ID
 export EVALUATION_STORAGE=baseline-V02
 export EVALUATION_CASE=V02

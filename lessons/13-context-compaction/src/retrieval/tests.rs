@@ -90,13 +90,36 @@ fn stable_citation_membership_not_semantics() {
     assert!(citation_id("bad").is_err());
 }
 #[test]
-fn runtime_requires_exact_pin_and_context() {
-    let props = json!({"build_info":BUILD,"model_alias":RUNTIME_MODEL,"model_ftype":"F16","is_sleeping":false,"total_slots":8,"default_generation_settings":{"n_ctx":2048}});
+fn runtime_accepts_build_changes_but_requires_model_and_context() {
+    let mut props = json!({"build_info":"b11429-d81235049","model_alias":RUNTIME_MODEL,"model_ftype":"F16","is_sleeping":false,"total_slots":8,"default_generation_settings":{"n_ctx":2048}});
     let mut models = json!({"data":[{"id":RUNTIME_MODEL,"meta":{"n_embd":1024,"ftype":"F16","n_ctx_train":32768,"n_ctx":2048}}]});
     assert_eq!(
         check_runtime(&json!({"status":"ok"}), &props, &models),
         Ok(2048)
     );
+    props["build_info"] = json!("b11669-620d2225c");
+    assert_eq!(
+        check_runtime(&json!({"status":"ok"}), &props, &models),
+        Ok(2048)
+    );
+    props
+        .as_object_mut()
+        .expect("props object")
+        .remove("build_info");
+    assert_eq!(
+        check_runtime(&json!({"status":"ok"}), &props, &models),
+        Ok(2048)
+    );
+    for (field, value) in [
+        ("model_alias", json!("another-model")),
+        ("model_ftype", json!("Q8_0")),
+        ("is_sleeping", json!(true)),
+        ("total_slots", json!(0)),
+    ] {
+        let mut invalid_props = props.clone();
+        invalid_props[field] = value;
+        assert!(check_runtime(&json!({"status":"ok"}), &invalid_props, &models).is_err());
+    }
     models["data"][0]["meta"]["n_ctx"] = json!(1024);
     assert!(check_runtime(&json!({"status":"ok"}), &props, &models).is_err());
 }
@@ -261,4 +284,36 @@ async fn live_local_smoke() {
     assert!(retrieval.search("public question", 150).await.is_err());
     assert!(retrieval.search("public question", 0).await.is_err());
     retrieval.shutdown().await;
+}
+
+#[test]
+fn classroom_defaults_are_valid_local_reader_and_service_settings() {
+    let config = match database_config(crate::RETRIEVAL_DATABASE_URL) {
+        Ok(config) => config,
+        Err(failure) => panic!("{}", failure),
+    };
+    assert_eq!(config.get_user(), Some("retrieval_reader"));
+    assert_eq!(config.get_dbname(), Some("harrier"));
+    assert_eq!(config.get_ports(), &[55432]);
+    assert!(config.get_password().is_some());
+    for (raw, expected_port) in [(crate::HARRIER_URL, 9999), (crate::TUTOR_URL, 8080)] {
+        let url = match validate_local_url(raw) {
+            Ok(url) => url,
+            Err(failure) => panic!("{}", failure),
+        };
+        assert_eq!(url.port(), Some(expected_port));
+    }
+    // Use an invalid environment name: it cannot be set, so no process-global mutation is needed.
+    assert_eq!(
+        environment("LESSON_DEFAULT_TEST=ABSENT", crate::RETRIEVAL_DATABASE_URL),
+        Ok(crate::RETRIEVAL_DATABASE_URL.to_string())
+    );
+    assert_eq!(
+        environment("LESSON_DEFAULT_TEST=ABSENT", crate::HARRIER_URL),
+        Ok(crate::HARRIER_URL.to_string())
+    );
+    assert_eq!(
+        environment("LESSON_DEFAULT_TEST=ABSENT", crate::TUTOR_URL),
+        Ok(crate::TUTOR_URL.to_string())
+    );
 }

@@ -279,3 +279,10 @@ Predict at steps 3 and 5: “Has anything been written yet?” Explain why a req
 - Why must diagnostics never become learner memory merely because they contain a conversation?
 
 Success is explaining these boundaries and observing them in a live run—not reproducing Rust helpers or demonstrating readiness to trade.
+## Learner-led topic scope — 2026-10-28
+
+The four supplied teaching units are optional background examples, not a topic whitelist or required progression. Learners may ask open-ended day-trading questions outside those examples and choose the depth of discussion. Offer topic suggestions only when asked or when the learner wants help choosing a direction. General educational discussion of broker-comparison criteria is allowed; personalized trading recommendations and unsupported claims about current fees, regulations or broker terms are not. Limited source coverage is an evidence limitation, not a ban on the topic.
+
+The three editable content files retain this lesson's own capability and authority instructions; do not replace later-lesson contracts with Lesson 10's calculator-only contract. Content changes take effect on a fresh selection, not in an already-running selected conversation. Historical teaching findings remain evidence about earlier content, not proof that this revision fixes model behavior.
+
+Validation for this content-only revision: static scope/capability/original-section checks passed across Lessons 10–14. The active Lesson 12 context-loading test and all-target tests passed (41 application tests and seven unchanged dataset-seeder tests; two opt-in real-service tests were not run). No new live teaching, approval, retrieval, compaction or telemetry validation is claimed.

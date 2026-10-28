@@ -56,6 +56,27 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 13 | Declare learning progress and compact working context while continuing | **Implemented; instructor review pending** | [Lesson](lessons/13-context-compaction/LESSON.md), [plan](lessons/13-context-compaction/PLAN.md) |
 | 14 | Evaluate the complete agentic application | **Implemented; instructor review pending** | [Lesson](lessons/14-agent-evaluation/LESSON.md), [dataset catalog](lessons/14-agent-evaluation/DATASETS.md), [validation](lessons/14-agent-evaluation/VALIDATION.md) |
 
+## Commands to run before the workshops
+```shell
+llama serve   -hf unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q6_K_XL   --alias qwen3.6-35b-a3b   --host 127.0.0.1 --port 8080   --jinja   --reasoning-format deepseek   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0   --presence-penalty 1.5 --repeat-penalty 1.0   --gpu-layers all --kv-offload --flash-attn auto   --ctx-size 131072 --parallel 1   --batch-size 2048 --ubatch-size 512   --cache-prompt --metrics
+
+ llama-server -hf TheSteve0/harrier-oss-v1-0.6b-GGUF --embeddings --pooling last -ngl 99 -c 16384 -np 8 -fa on -b 2048 -ub 2048 --host 0.0.0.0 --port 9999
+
+
+podman run -d --rm \
+  --name gdk-harrier-postgres \
+  -p 127.0.0.1:55432:5432 \
+  ghcr.io/thesteve0/gdk-harrier-embeddings-pg18:harrier-llamacpp-test-511-v1
+
+```
+
+## Commands to run after the workshops
+```shell
+podman stop gdk-harrier-postgres
+
+
+```
+
 **Final curriculum decision — 2026-10-11:** Lessons 12–14 are the final three required lessons. They replace the former Lessons 12–18 roadmap; full document ingestion, live market data, general CLI/model-selection work, and fine-tuning are not required course outcomes. Historical practice is a separate documentation-only [potential Lesson 15](potential-lesson-15/README.md), outside the committed course. That planning work did not authorize implementation. The instructor subsequently authorized Lesson 12 and root replacement on 2026-10-12; Lesson 13 and its root replacement were subsequently authorized on 2026-10-12; root now runs the separately authorized Lesson 14 evaluation continuation. Potential Lesson 15 remains documentation-only.
 
 **Status meanings:** **Complete** is ready to teach and validated; **Active** is the root exercise; **Planned** is expected direction only; **Draft** is withdrawn material, not part of the teaching sequence; **Implemented; instructor review pending** means authored and source/asset-reviewed, but classroom validation and release approval remain.
@@ -165,6 +186,8 @@ Map the manual responsibilities from Lessons 5–6 to the GDK assembly: advertis
 **Implementation authorized and supplied (2026-10-07); instructor review pending.** Lessons 1–9 establish the GDK pieces and how they work. Lesson 10 is the pivot to assembling them into a purposeful application: a customized partner for learning day trading, not primarily a trade-analysis assistant. Lessons 8 and 9 still need instructor review; Lesson 9's live 100-share tweak passed on 2026-10-22. The separately authorized Lesson 14 continuation remains preserved in its reference; the ephemeral root may be replaced during review. The Lesson 10 reference now uses the approved lesson-local modularization; its behavior is unchanged. Its implementation does not release Lessons 8–9.
 
 **Learning objective:** workshop attendees can combine a user-selected learning goal, application-owned domain information, lesson-specific teaching instructions, and continuing conversation through the GDK to build a focused day-trading tutor. The new application concepts are runtime context configuration, separation of educational content from the engine, an interactive conversation lifecycle, and responses adapted to the learner's demonstrated understanding. A new GDK API is not itself the goal.
+
+**Learner-led scope (2026-10-28):** In Lessons 10–14, the four supplied units are optional examples, not a topic whitelist. Follow open-ended day-trading questions and the learner's chosen depth; offer topic suggestions only when requested or help choosing is wanted. Preserve general-education, capability, evidence and consent boundaries without using the example list to refuse relevant questions. Start a fresh selection after editing content. Static content checks and the active Lesson 12 context-loading test passed; fresh live teaching validation remains pending.
 
 **Implemented experience and scope:**
 
@@ -325,7 +348,7 @@ The bundled local provider requires no key. For a provider that does:
 
 **Current review decision (2026-10-22):** root `src/` is ephemeral and now matches the complete modularized **Lesson 14** reference, including module-local test directories. The instructor authorized finishing Lessons 12–14 sequentially with one combined review; the earlier question/stop requirement for each remaining lesson is superseded. Replace the entire source tree when activating a lesson; no backup or restoration is required. The final hello-world reset remains deferred until all review is complete. Use [Lesson 14’s source map and recursive activation instructions](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path).
 
-The current root uses the [Lesson 14](lessons/14-agent-evaluation/LESSON.md) workflow. It preserves Lesson 13 behavior: `/learned <concept name>` records learner-declared completion (not mastery), compacts eligible older working context and returns to the same conversation. Bounded source retrieval, optional calculator, consent-based memory, clean dialogue and private diagnostics remain. Start the matching local services and source the saved reader credentials as described in the Lesson 12 prerequisites. Lessons 1–7 are complete; Lessons 8 and 9 await instructor review. Lesson 9’s default live scenario passed; its live 100-share tweak passed on 2026-10-22. From the repository root:
+The current root uses the [Lesson 14](lessons/14-agent-evaluation/LESSON.md) workflow. It preserves Lesson 13 behavior: `/learned <concept name>` records learner-declared completion (not mastery), compacts eligible older working context and returns to the same conversation. Bounded source retrieval, optional calculator, consent-based memory, clean dialogue and private diagnostics remain. Start the matching local services. Lessons 12–14 now supply the three service defaults as constants at the top of main; environment variables override them. The instructor-supplied reader password is plaintext in source/binaries, not secret storage; see the Lesson 12 prerequisites. Lessons 1–7 are complete; Lessons 8 and 9 await instructor review. Lesson 9’s default live scenario passed; its live 100-share tweak passed on 2026-10-22. From the repository root:
 
 ```bash
 umask 077
@@ -488,3 +511,15 @@ Completed the authorized behavior-preserving local-module refactor, sequentially
 Each activated reference passed formatting, locked check, all-target Clippy, tests and build. Test names/constants were independently compared; an additional source audit preserved types, literal content and attributes apart from module wiring and the approved six production-source hash paths. Lesson 14 also passed all seven unchanged standalone seeder tests without contacting or changing the catalog. Its `course.content_sha256` metadata purpose/schema is unchanged; source locations and hashes necessarily change. Root finishes byte-matching Lesson 14. Existing Lesson 11 work, earlier references, seeder/assets, provider JSON, manifests/lock/toolchain, teaching content and preparation are preserved.
 
 **Fresh live validation is blocked, not passed:** both explicitly enabled actual-service tests in each lesson and the documented launch were attempted and failed for missing `RETRIEVAL_DATABASE_URL`. The private documented connection file is absent, Harrier port 9999 and MLflow port 5000 are unavailable; tutor port 8080 health returned 200. No credentials were invented, mocks substituted, services restarted, corpus changed or catalog written. Redirected/plain, empty-NO_COLOR and TERM=dumb startup errors and independent stderr terminal gating passed; this is not fresh chooser, tutor conversation, consent/approval, source search, calculator, compaction or telemetry-receipt evidence. Supply the missing local prerequisites before repeating those checks. Historical teaching defects, incomplete evaluation branches and all instructor/release review gates remain. See each dated lesson record and [Lesson 14 validation](lessons/14-agent-evaluation/VALIDATION.md#modularization-checkpoint--2026-10-22). No IDE/projector review, commit or release approval is claimed.
+
+### Lessons 12–14 service defaults — 2026-10-28
+
+The three local classroom defaults are `const` values at the top of `src/main.rs`: `RETRIEVAL_DATABASE_URL` uses the instructor-supplied `retrieval_reader` connection to `127.0.0.1:55432/harrier`, `HARRIER_URL` is `http://127.0.0.1:9999`, and `TUTOR_URL` is `http://127.0.0.1:8080`. No exports or private connection file are required for these defaults. Existing environment variables (including values loaded by `dotenvy` from `.env`) override them. For another prepared database, set `RETRIEVAL_DATABASE_URL` to its reader connection, never the loader/admin connection. The supplied password is **plaintext in source and compiled binaries**; this is an explicit local classroom convenience, not secret storage or a production credential pattern. Rotate/replace it for any other deployment and do not project the credential-bearing source. Defaults do not start services or bypass runtime/profile/reader validation. `TUTOR_URL` selects the tokenizer origin and must match the tutor provider JSON; it does not override generation configuration.
+
+The existing active root remains Lesson 12 for review; this change does not replace it with Lesson 14 or alter unrelated staged work.
+
+### Learner embedding runtime build policy — 2026-10-28
+
+Instructor requested removal of exact llama.cpp server-build equality in the active Lesson 12 and Lesson 12–14 references. `build_info` no longer gates learner startup; model/GGUF identity, pooling/normalization, dimensions/capacity, query formatting, collection/profile/provenance and reader checks remain. The stored profile build suffix describes original corpus preparation, not a current-query-server requirement; cross-build numerical parity is not established. Standalone preparation code remains unchanged and separately build-pinned. Root stays synchronized with Lesson 12; existing staged/unrelated changes are preserved.
+
+Root Lesson 12 and staged Lessons 13–14 passed fmt/check/all-target Clippy/tests/build (41/67/69 deterministic application tests plus seven unchanged seeder tests each). Both actual-service tests passed for each lesson against current build `b11669-620d2225c`; documented launches reached chooser and exited on EOF. No fresh full tutor/approval/compaction/telemetry workflow, parity benchmark, UI/IDE/projector or teaching review; no service restart, corpus/catalog mutation, dependency change or release approval. Historical failures/gaps remain recorded.

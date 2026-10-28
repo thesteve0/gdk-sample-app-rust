@@ -166,3 +166,9 @@ Instructor content/teaching/UI review remains pending. Lesson 9's live 100-share
 The instructor's revised primary direction for Lesson 11 is learner persistence: an application-owned learning record plus learner-agreed to-do items. It replaces the earlier evaluation-baseline focus; the separately implemented Lesson 11 reference now supplies that design. End with: “What should a learning partner deliberately remember, and what evidence would justify that record?”
 
 Do not implement a profile, mastery tracker, to-do workflow, persistence format, or context-resumption policy here. Distinguish that future purposeful learner record from today's overwritten developer diagnostic log. Keep Lessons 8–9 review gates and Lesson 10's own pending review explicit.
+
+## Learner-led scope follow-up — 2026-10-28
+
+The content now explicitly accepts learner-chosen day-trading questions beyond the four supplied examples. Offer the menu only when requested or when the learner wants help choosing. Preserve lesson-specific capability, memory, citation and continuity instructions rather than copying a common calculator-only contract across lessons. For a fresh-selection rehearsal, ask “What should I consider when comparing brokers?” and then choose another topic outside the examples. Inspect whether the tutor answers educationally without redirecting to the preset units, inventing current facts or recommending a personalized financial decision. In retrieval lessons, separately ask what the supplied books support and inspect actual returned evidence/citations.
+
+Validation of this edit: static content checks across Lessons 10–14 and the active Lesson 12 context-loading test passed. No new live tutor, memory approval, retrieval, compaction or telemetry behavior is established by these checks; fresh teaching validation remains pending.

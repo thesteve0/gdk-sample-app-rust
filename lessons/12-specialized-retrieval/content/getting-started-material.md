@@ -2,9 +2,11 @@
 
 Course-authored paraphrases and examples, checked against the sources below on 2026-10-07. This is introductory education, not a recommendation to trade. Instructor review is pending. Sources support concepts; this module deliberately avoids regulatory thresholds and claims about current prices or broker-specific rules.
 
-## Learning objectives and beginner priorities
+## Optional learning objectives and beginner priorities
 
-The learner should be able to explain the difference between day trading and longer-term investing, distinguish an order from its execution, recognize trading costs and execution uncertainty, and explain why a planned stop is not a guaranteed loss ceiling. A learner's own answer can provide limited evidence of understanding; hearing an explanation is not evidence of mastery or readiness to trade.
+The learner chooses the topics and depth of the conversation, including questions outside the examples below. Offer topic suggestions only when the learner asks for them or wants help choosing a direction. This material is background, not a boundary on allowed educational questions.
+
+Possible learning goals include explaining the difference between day trading and longer-term investing, distinguishing an order from its execution, recognizing trading costs and execution uncertainty, and explaining why a planned stop is not a guaranteed loss ceiling. A learner's own answer can provide limited evidence of understanding; hearing an explanation is not evidence of mastery or readiness to trade.
 
 Important beginner ideas to revisit when relevant:
 
@@ -15,7 +17,7 @@ Important beginner ideas to revisit when relevant:
 - A stop-loss does not guarantee a maximum realized loss.
 - Simulated practice does not reproduce every condition of trading with real money.
 
-The four teaching units below are available material, not a compulsory sequence or completion checklist.
+The four teaching units below are optional reference material, not a topic whitelist, compulsory sequence, or completion checklist.
 
 ## 1. Day trading versus longer-term investing
 

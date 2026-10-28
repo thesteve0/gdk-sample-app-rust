@@ -57,7 +57,7 @@ curl --noproxy '*' --fail --silent --show-error http://127.0.0.1:9999/health
 curl --noproxy '*' --fail --silent --show-error http://127.0.0.1:9999/v1/models
 ```
 
-Expect health `status: ok`, model alias `TheSteve0/harrier-oss-v1-0.6b-GGUF`, and `meta.n_embd: 1024`. Rust checks `/props`, model/build identity and the local GGUF hash as well; health alone is insufficient. The client and server must run on the same machine because the client verifies the file named by `/props`.
+Expect health `status: ok`, model alias `TheSteve0/harrier-oss-v1-0.6b-GGUF`, and `meta.n_embd: 1024`. The standalone preparation client checks `/props`, model/build identity and the local GGUF hash as well; health alone is insufficient. The Lesson 12–14 learner applications retain model/GGUF and embedding-contract checks but, as of 2026-10-28, do not require the exact server build. The build below remains the preparation reference, not a learner-runtime version requirement. The client and server must run on the same machine because the client verifies the file named by `/props`.
 
 **Embedding path:** Rust adds Harrier's required instruction to the question, counts tokens through `POST /tokenize`, and sends the prepared question to **`POST /v1/embeddings`**. Passage input receives no query prefix. The returned vector is passed to PostgreSQL for similarity search. PostgreSQL does not embed question text. The service must be configured for **last-token pooling and L2 normalization**; never use a chat-completion endpoint or chat template here.
 

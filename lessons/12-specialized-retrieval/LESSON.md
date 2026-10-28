@@ -34,7 +34,7 @@ Before class, the instructor supplies and verifies:
 - A working local tutor provider. The bundled JSON remains a replaceable default; under the existing limited CLI convention, the application selects the first declared model and accepts an optional positional provider path.
 - PostgreSQL 18/pgvector 0.8.7 with the populated `harrier-llamacpp-test-511-v1` collection and a separate reader role.
 - The matching local Microsoft Harrier OSS v1 0.6B F16 GGUF/llama.cpp embedding service on port 9999. It is separate from the tutor service on the bundled configuration's port 8080.
-- Authorized access to the private source material and artifacts. A Git clone does not contain the books, extracted passages, embeddings, database contents, or private credentials.
+- Authorized access to the private source material and artifacts. A Git clone does not contain the books, extracted passages, embeddings or database contents. The instructor-supplied local reader credential is now explicitly included in the source defaults; other private credentials remain outside Git.
 
 The instructor follows [DATABASE-SETUP.md](DATABASE-SETUP.md) for startup, loading, identity checks, reader query and shutdown, and [RETRIEVAL.md](../../embedding-code/RETRIEVAL.md) for preparation evidence. **Learners do not install PostgreSQL, convert models, extract books, design chunks, or tune indexes in this lesson.** The three PDFs are sufficient for this provisional integration; EPUB preparation is future corpus work, not a blocker requiring learners to implement it now.
 
@@ -50,18 +50,17 @@ Then, from a prepared repository-root Bash shell:
 
 ```bash
 umask 077
-source day_trading/embeddings/postgres-local/connection.env
-export RETRIEVAL_DATABASE_URL="$READER_DATABASE_URL"
-export HARRIER_URL=http://127.0.0.1:9999
-export TUTOR_URL=http://127.0.0.1:8080
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
+
+The three local classroom defaults are `const` values at the top of `src/main.rs`: `RETRIEVAL_DATABASE_URL` uses the instructor-supplied `retrieval_reader` connection to `127.0.0.1:55432/harrier`, `HARRIER_URL` is `http://127.0.0.1:9999`, and `TUTOR_URL` is `http://127.0.0.1:8080`. No exports or private connection file are required for these defaults. Existing environment variables (including values loaded by `dotenvy` from `.env`) override them. For another prepared database, set `RETRIEVAL_DATABASE_URL` to its reader connection, never the loader/admin connection. The supplied password is **plaintext in source and compiled binaries**; this is an explicit local classroom convenience, not secret storage or a production credential pattern. Rotate/replace it for any other deployment and do not project the credential-bearing source. Defaults do not start services or bypass runtime/profile/reader validation. `TUTOR_URL` selects the tokenizer origin and must match the tutor provider JSON; it does not override generation configuration.
+
 
 The tutor JSON must select a literal-loopback OpenAI-compatible service. The application rejects nonempty proxy environment variables and constrains provider redirects to the same local origin; the retrieval HTTP client disables proxies and redirects. `TUTOR_URL` must exactly match the provider origin (trailing slash aside) and expose the llama.cpp `/tokenize` API. This is a deliberate Lesson 12 local-service restriction, not general remote-provider support.
 
 If the reader readiness check rejects inherited temporary-table privileges on an older prepared database, the instructor applies `REVOKE TEMPORARY ON DATABASE harrier FROM PUBLIC;` using the admin preparation shell. The supplied `embedding-code/postgres.sh up` now includes that restriction. Do not weaken the reader check or use admin credentials in the learner application. No corpus reload is required.
 
-The private sourced file supplies `READER_DATABASE_URL`; the launch exports it as `RETRIEVAL_DATABASE_URL`, the application's **reader** connection, never the loader's admin `DATABASE_URL`. Do not invent a password, print the file, enable shell tracing, or project secret-bearing environment values. `TUTOR_URL` identifies the actual local tutor's tokenizer service and must match the tutor selected by provider JSON; it is not a second generation provider. The embedding client verifies the prepared GGUF/profile using the local model path reported by the running server; no extra `HARRIER_GGUF` variable is assumed. The preparation guide describes the verified file/hash checks.
+The embedding client verifies the prepared GGUF/profile using the local model path reported by the running server; no extra `HARRIER_GGUF` variable is assumed. The preparation guide describes the verified file/hash checks.
 
 Run checks from root as maintenance, not Rust fill-ins:
 
@@ -286,3 +285,26 @@ Private raw evidence remains in ignored `day_trading/embeddings/postgres-local/l
 Next, Lesson 13 will manage growing working context while preserving provenance, request/result pairing and local approvals. That is future behavior, not automatic GDK compaction or part of this lesson.
 
 Supplemental official orientation: [GDK SDK overview](https://goose-docs.ai/docs/gdk/sdk), [SDK API reference](https://goose-docs.ai/docs/gdk/sdk/api-reference). These pages orient the provider layer; exact state-machine/tool behavior here was checked against the pinned `goose-agent` source, not inferred from full Goose application features.
+
+
+### Service-default validation — 2026-10-28
+
+Added the instructor-supplied reader connection and Harrier/tutor origins as constants at the top of main. Retrieval uses them only when the corresponding environment variable is absent; the main tokenizer-origin comparison uses the same tutor default. Invalid/non-Unicode retrieval environment values still fail instead of silently selecting a default. No process environment is rewritten, and no credential is deliberately added to diagnostics or telemetry. Provider JSON, compatibility checks, reader checks, dependencies and services are unchanged. The plaintext default is a classroom-only exception, not secure credential management.
+
+Locked format/check/all-target Clippy/all-target tests/build passed in temporary staging for each complete reference: Lesson 12 **41**, Lesson 13 **67**, Lesson 14 **69** deterministic application tests, plus seven unchanged seeder tests each. One new test per lesson validates the reader host/role/database/port, local service origins and absent-variable fallback. The active Lesson 12 root independently passed the same checks and byte-matches its reference. Existing staged changes were preserved; no lesson activation replaced the user's root.
+
+With all three override variables unset, both opt-in actual-service tests and the documented launch were attempted for each reference. All stopped with **`embedding runtime identity mismatch`** before the chooser: the existing Harrier service does not satisfy the pinned runtime identity check. This is blocked live validation, not a passed database connection, retrieval, tutor exchange, approval, compaction or telemetry run. No service restart, compatibility relaxation, corpus/catalog write or mock substitution occurred. No fresh IDE/projector/UI or teaching-quality validation is claimed; historical findings and review gates remain.
+
+
+## Embedding server build flexibility — 2026-10-28
+
+At the instructor's request, the learner application no longer requires an exact llama.cpp build string. A different or absent `/props` `build_info` is accepted. Model alias, F16 format, GGUF checksum, dimensions, context capacity, pooling, normalized vectors, query formatting, stored collection/profile identity, provenance and reader restrictions remain checked. The stored profile's build suffix records the original embedding preparation; it is not a requirement that the current query server report that build. Accepting another build does not establish numerical equivalence or retrieval-quality parity. The standalone preparation loader/client retains its separate pinned-build policy. No service restart, re-embedding or collection mutation is needed solely to pass the removed build check.
+
+Validation for this change: formatting, locked check, all-target Clippy, all-target tests and build passed (41 deterministic application tests plus seven unchanged seeder tests). Both opt-in actual-service retrieval tests passed against the currently running services, including server build `b11669-620d2225c`; the documented launch reached the chooser and exited on EOF. Lesson 12 was checked in the active root; Lessons 13–14 were checked in temporary staging without replacing root. Regression coverage accepts changed/absent build metadata and still rejects incorrect model alias/format, sleeping/no-slot runtime and mismatched context. No full tutor conversation, approval/compaction/telemetry workflow, numerical cross-build parity benchmark, fresh UI/IDE/projector or teaching-quality review was performed. No services restarted, corpus/catalog modified, preparation client changed or dependencies updated. Existing historical defects/review gates remain.
+## Learner-led topic scope — 2026-10-28
+
+The four supplied teaching units are optional background examples, not a topic whitelist or required progression. Learners may ask open-ended day-trading questions outside those examples and choose the depth of discussion. Offer topic suggestions only when asked or when the learner wants help choosing a direction. General educational discussion of broker-comparison criteria is allowed; personalized trading recommendations and unsupported claims about current fees, regulations or broker terms are not. Limited source coverage is an evidence limitation, not a ban on the topic.
+
+The three editable content files retain this lesson's own capability and authority instructions; do not replace later-lesson contracts with Lesson 10's calculator-only contract. Content changes take effect on a fresh selection, not in an already-running selected conversation. Historical teaching findings remain evidence about earlier content, not proof that this revision fixes model behavior.
+
+Validation for this content-only revision: static scope/capability/original-section checks passed across Lessons 10–14. The active Lesson 12 context-loading test and all-target tests passed (41 application tests and seven unchanged dataset-seeder tests; two opt-in real-service tests were not run). No new live teaching, approval, retrieval, compaction or telemetry validation is claimed.
