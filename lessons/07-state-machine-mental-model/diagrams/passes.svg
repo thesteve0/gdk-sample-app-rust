@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1024 576"
+   style="background-color: #ffffff;"
+   version="1.1"
+   id="svg22"
+   sodipodi:docname="passes.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview22"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.5277778"
+     inkscape:cx="511.85454"
+     inkscape:cy="288.65454"
+     inkscape:window-width="1920"
+     inkscape:window-height="1126"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg22" />
+  <defs
+     id="defs1">
+    <filter
+       id="shadow-md"
+       x="-0.0057692308"
+       y="-0.0125"
+       width="1.0115385"
+       height="1.025">
+      <feDropShadow
+         dx="0"
+         dy="6"
+         stdDeviation="6"
+         flood-opacity="0.1" />
+    </filter>
+    <marker
+       id="arrow-flow"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0 0 L 10 5 L 0 10 z"
+         fill="#475569"
+         id="path1" />
+    </marker>
+  </defs>
+  <text
+     x="512"
+     y="60"
+     font-family="Arial, sans-serif"
+     font-size="32"
+     font-weight="bold"
+     fill="#0f172a"
+     text-anchor="middle"
+     id="text1">Anatomy of a Single Pass: run(session_id)</text>
+  <text
+     x="512"
+     y="95"
+     font-family="Arial, sans-serif"
+     font-size="20"
+     fill="#64748b"
+     text-anchor="middle"
+     id="text2">The Engine coordinates these 4 steps in a continuous loop</text>
+  <!-- Connecting Path (The Loop) -->
+  <path
+     d="M 230 200 L 790 200 C 850 200, 890 240, 890 300 L 890 340 C 890 400, 850 440, 790 440 L 230 440 C 170 440, 130 400, 130 340 L 130 300 C 130 240, 170 200, 230 200"
+     stroke="#cbd5e1"
+     stroke-width="8"
+     fill="none"
+     stroke-dasharray="12,12"
+     id="path2" />
+  <!-- Flow arrows overlaid on path -->
+  <path
+     d="M 400 200 L 450 200"
+     stroke="#475569"
+     stroke-width="8"
+     fill="none"
+     marker-end="url(#arrow-flow)"
+     id="path3" />
+  <path
+     d="M 890 290 L 890 320"
+     stroke="#475569"
+     stroke-width="8"
+     fill="none"
+     marker-end="url(#arrow-flow)"
+     id="path4" />
+  <path
+     d="M 624 440 L 574 440"
+     stroke="#475569"
+     stroke-width="8"
+     fill="none"
+     marker-end="url(#arrow-flow)"
+     id="path5" />
+  <path
+     d="M 130 350 L 130 320"
+     stroke="#475569"
+     stroke-width="8"
+     fill="none"
+     marker-end="url(#arrow-flow)"
+     id="path6" />
+  <!-- Center Logic Node -->
+  <rect
+     x="377.05627"
+     y="288.11084"
+     width="277.74197"
+     height="63.778313"
+     rx="37.032261"
+     fill="#f1f5f9"
+     stroke="#94a3b8"
+     stroke-width="3.22169"
+     id="rect6" />
+  <text
+     x="512"
+     y="326"
+     font-family="Arial, sans-serif"
+     font-size="18"
+     font-weight="bold"
+     fill="#334155"
+     text-anchor="middle"
+     id="text6">Loops until &quot;Yield&quot; or Empty</text>
+  <!-- Box 1: Reload -->
+  <rect
+     x="130"
+     y="140"
+     width="260"
+     height="120"
+     rx="12"
+     fill="#eff6ff"
+     stroke="#3b82f6"
+     stroke-width="3"
+     filter="url(#shadow-md)"
+     id="rect7" />
+  <circle
+     cx="130"
+     cy="140"
+     r="24"
+     fill="#3b82f6"
+     id="circle7" />
+  <text
+     x="130"
+     y="148"
+     font-family="Arial, sans-serif"
+     font-size="20"
+     font-weight="bold"
+     fill="#ffffff"
+     text-anchor="middle"
+     id="text7">1</text>
+  <text
+     x="260"
+     y="180"
+     font-family="Arial, sans-serif"
+     font-size="22px"
+     font-weight="bold"
+     fill="#1e3a8a"
+     text-anchor="middle"
+     id="text8">(Re)load Session</text>
+  <text
+     x="260"
+     y="210"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#1e40af"
+     text-anchor="middle"
+     id="text9">Engine fetches fresh history</text>
+  <text
+     x="260"
+     y="235"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#1e40af"
+     text-anchor="middle"
+     id="text10">from the Application Store.</text>
+  <!-- Box 2: Evaluate -->
+  <rect
+     x="634"
+     y="140"
+     width="260"
+     height="120"
+     rx="12"
+     fill="#f0fdf4"
+     stroke="#22c55e"
+     stroke-width="3"
+     filter="url(#shadow-md)"
+     id="rect10" />
+  <circle
+     cx="634"
+     cy="140"
+     r="24"
+     fill="#22c55e"
+     id="circle10" />
+  <text
+     x="634"
+     y="148"
+     font-family="Arial, sans-serif"
+     font-size="20"
+     font-weight="bold"
+     fill="#ffffff"
+     text-anchor="middle"
+     id="text11">2</text>
+  <text
+     x="764"
+     y="180"
+     font-family="Arial, sans-serif"
+     font-size="22"
+     font-weight="bold"
+     fill="#14532d"
+     text-anchor="middle"
+     id="text12">Evaluate Chain</text>
+  <text
+     x="764"
+     y="210"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#166534"
+     text-anchor="middle"
+     id="text13">Iterate Step 1 → 18.</text>
+  <text
+     x="764"
+     y="235"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#166534"
+     text-anchor="middle"
+     id="text14">Find the first operation with work.</text>
+  <!-- Box 3: Execute -->
+  <rect
+     x="634"
+     y="380"
+     width="260"
+     height="120"
+     rx="12"
+     fill="#fff7ed"
+     stroke="#f97316"
+     stroke-width="3"
+     filter="url(#shadow-md)"
+     id="rect14" />
+  <circle
+     cx="894"
+     cy="500"
+     r="24"
+     fill="#f97316"
+     id="circle14" />
+  <text
+     x="894"
+     y="508"
+     font-family="Arial, sans-serif"
+     font-size="20"
+     font-weight="bold"
+     fill="#ffffff"
+     text-anchor="middle"
+     id="text15">3</text>
+  <text
+     x="764"
+     y="420"
+     font-family="Arial, sans-serif"
+     font-size="22"
+     font-weight="bold"
+     fill="#7c2d12"
+     text-anchor="middle"
+     id="text16">Execute &amp; Propose</text>
+  <text
+     x="764"
+     y="450"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#9a3412"
+     text-anchor="middle"
+     id="text17">Read Session + Live State.</text>
+  <text
+     x="764"
+     y="475"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     font-weight="bold"
+     fill="#9a3412"
+     text-anchor="middle"
+     id="text18">Return pure Effects (No mutation).</text>
+  <!-- Box 4: Commit -->
+  <rect
+     x="130"
+     y="380"
+     width="260"
+     height="120"
+     rx="12"
+     fill="#f8fafc"
+     stroke="#64748b"
+     stroke-width="3"
+     filter="url(#shadow-md)"
+     id="rect18" />
+  <circle
+     cx="130"
+     cy="500"
+     r="24"
+     fill="#64748b"
+     id="circle18" />
+  <text
+     x="130"
+     y="508"
+     font-family="Arial, sans-serif"
+     font-size="20"
+     font-weight="bold"
+     fill="#ffffff"
+     text-anchor="middle"
+     id="text19">4</text>
+  <text
+     x="260"
+     y="420"
+     font-family="Arial, sans-serif"
+     font-size="22"
+     font-weight="bold"
+     fill="#0f172a"
+     text-anchor="middle"
+     id="text20">Commit &amp; Emit</text>
+  <text
+     x="260"
+     y="450"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#334155"
+     text-anchor="middle"
+     id="text21">Applier writes Effects to Store.</text>
+  <text
+     x="260"
+     y="475"
+     font-family="Arial, sans-serif"
+     font-size="16"
+     fill="#334155"
+     text-anchor="middle"
+     id="text22">Emits events to client.</text>
+</svg>

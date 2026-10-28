@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1248 800"
+   version="1.1"
+   id="svg30"
+   sodipodi:docname="loop-vs-state-machine.svg"
+   width="1248"
+   height="800"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview30"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.97818782"
+     inkscape:cx="461.05665"
+     inkscape:cy="483.54722"
+     inkscape:window-width="1920"
+     inkscape:window-height="1126"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg30" />
+  <defs
+     id="defs5">
+    <filter
+       id="shadow-sm"
+       x="-0.0125"
+       y="-0.016666667"
+       width="1.025"
+       height="1.0333333">
+      <feDropShadow
+         dx="0"
+         dy="4"
+         stdDeviation="4"
+         flood-opacity="0.1" />
+    </filter>
+    <marker
+       id="arrow-gray"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#94a3b8"
+         id="path1" />
+    </marker>
+    <marker
+       id="arrow-blue"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#3b82f6"
+         id="path2" />
+    </marker>
+    <marker
+       id="arrow-teal"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#0d9488"
+         id="path3" />
+    </marker>
+    <marker
+       id="arrow-indigo"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#6366f1"
+         id="path4" />
+    </marker>
+    <marker
+       id="arrow-orange"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#f97316"
+         id="path5" />
+    </marker>
+    <marker
+       id="arrow-gray-3"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#94a3b8"
+         id="path1-5" />
+    </marker>
+    <marker
+       id="arrow-gray-3-9"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M 0,0 10,5 0,10 Z"
+         fill="#94a3b8"
+         id="path1-5-1" />
+    </marker>
+  </defs>
+  <!-- Titles -->
+  <text
+     x="230"
+     y="60"
+     font-family="Arial, sans-serif"
+     font-size="28px"
+     font-weight="bold"
+     fill="#334155"
+     text-anchor="middle"
+     id="text5">Traditional Agent Loop</text>
+  <text
+     x="730"
+     y="60"
+     font-family="Arial, sans-serif"
+     font-size="28px"
+     font-weight="bold"
+     fill="#0f172a"
+     text-anchor="middle"
+     id="text6">GDK Architecture</text>
+  <!-- Center Divider -->
+  <line
+     x1="480"
+     y1="40"
+     x2="480"
+     y2="520"
+     stroke="#e2e8f0"
+     stroke-width="3"
+     stroke-dasharray="8, 8"
+     id="line6" />
+  <!-- ================= LEFT SIDE: Traditional ================= -->
+  <g
+     transform="translate(30,130)"
+     id="g14">
+    <!-- Messy arrows/paths -->
+    <path
+       d="M 80,150 C 30,50 230,50 180,150 c -50,100 150,100 100,0"
+       stroke="#f87171"
+       stroke-width="4"
+       fill="none"
+       marker-end="url(#arrow-gray)"
+       id="path6" />
+    <path
+       d="M 280,150 C 330,50 130,50 180,150 230,250 30,250 80,150"
+       stroke="#94a3b8"
+       stroke-width="4"
+       fill="none"
+       marker-end="url(#arrow-gray)"
+       stroke-dasharray="8, 6"
+       id="path7" />
+    <path
+       d="M 230,180 330,280"
+       stroke="#f87171"
+       stroke-width="4"
+       fill="none"
+       marker-end="url(#arrow-gray)"
+       id="path8" />
+    <circle
+       cx="180"
+       cy="150"
+       r="80"
+       fill="#fee2e2"
+       stroke="#ef4444"
+       stroke-width="4"
+       filter="url(#shadow-sm)"
+       id="circle8" />
+    <text
+       x="180"
+       y="145"
+       font-family="Arial, sans-serif"
+       font-size="22px"
+       font-weight="bold"
+       fill="#7f1d1d"
+       text-anchor="middle"
+       id="text8">Monolithic</text>
+    <text
+       x="180"
+       y="175"
+       font-family="Arial, sans-serif"
+       font-size="22px"
+       font-weight="bold"
+       fill="#7f1d1d"
+       text-anchor="middle"
+       id="text9">Agent</text>
+    <rect
+       x="20"
+       y="20"
+       width="120"
+       height="40"
+       rx="6"
+       fill="#f1f5f9"
+       stroke="#cbd5e1"
+       stroke-width="2"
+       id="rect9" />
+    <text
+       x="80"
+       y="45"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       fill="#475569"
+       text-anchor="middle"
+       id="text10">Tool Logic</text>
+    <rect
+       x="130"
+       y="280"
+       width="120"
+       height="40"
+       rx="6"
+       fill="#f1f5f9"
+       stroke="#cbd5e1"
+       stroke-width="2"
+       id="rect10" />
+    <text
+       x="190"
+       y="305"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       fill="#475569"
+       text-anchor="middle"
+       id="text11">LLM API</text>
+    <!-- Messy State Blob attached to the side -->
+    <path
+       d="m 280,280 c 20,-40 100,-40 120,0 20,40 -40,80 -80,70 -40,-10 -60,-30 -40,-70 z"
+       fill="#fef3c7"
+       stroke="#d97706"
+       stroke-width="3"
+       filter="url(#shadow-sm)"
+       id="path11" />
+    <text
+       x="340"
+       y="300"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       font-weight="bold"
+       fill="#92400e"
+       text-anchor="middle"
+       id="text12">State /</text>
+    <text
+       x="340"
+       y="320"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       font-weight="bold"
+       fill="#92400e"
+       text-anchor="middle"
+       id="text13">Memory</text>
+    <text
+       x="210"
+       y="400"
+       font-family="Arial, sans-serif"
+       font-size="18px"
+       fill="#64748b"
+       text-anchor="middle"
+       font-style="italic"
+       id="text14">Tangled state, scattered mutation</text>
+  </g>
+  <!-- ================= RIGHT SIDE: GDK ================= -->
+  <rect
+     x="620"
+     y="90"
+     width="300"
+     height="90"
+     rx="8"
+     fill="#eff6ff"
+     stroke="#3b82f6"
+     stroke-width="3"
+     filter="url(#shadow-sm)"
+     id="rect14" />
+  <text
+     x="766.77863"
+     y="119.68296"
+     font-family="Arial, sans-serif"
+     font-size="16.9276px"
+     font-weight="bold"
+     fill="#1d4ed8"
+     text-anchor="middle"
+     id="text15"
+     style="stroke-width:0.84638">[1] Session Store (Source of Truth)</text>
+  <text
+     x="770"
+     y="145"
+     font-family="Arial, sans-serif"
+     font-size="16px"
+     fill="#1d4ed8"
+     text-anchor="middle"
+     id="text16">• Append-only conversation transcript</text>
+  <text
+     x="770"
+     y="165"
+     font-family="Arial, sans-serif"
+     font-size="16px"
+     fill="#1d4ed8"
+     text-anchor="middle"
+     id="text17">• Persisted metadata &amp; notes</text>
+  <text
+     x="569.98279"
+     y="228.8185"
+     font-family="Arial, sans-serif"
+     font-size="16px"
+     font-weight="bold"
+     fill="#3b82f6"
+     text-anchor="start"
+     id="text18">Reads Log (Every Pass)</text>
+  <rect
+     x="530"
+     y="276"
+     width="460"
+     height="340"
+     rx="12"
+     fill="#f8fafc"
+     stroke="#94a3b8"
+     stroke-width="3"
+     stroke-dasharray="10, 6"
+     id="rect18" />
+  <path
+     d="m 863.26846,569.2771 c 23.0188,84.57521 38.08095,61.03066 -5.98785,105.11525 -27.55774,27.56763 -3.34478,27.78733 -104.45971,43.95885"
+     stroke="#94a3b8"
+     stroke-width="4"
+     fill="none"
+     marker-end="url(#arrow-gray-3-9)"
+     stroke-dasharray="8, 6"
+     id="path7-2-7"
+     style="stroke:#f05cea;stroke-opacity:1;marker-end:url(#arrow-gray-3-9)"
+     sodipodi:nodetypes="csc"
+     inkscape:highlight-color="#aaaaaa" />
+  <text
+     x="545"
+     y="306"
+     font-family="Arial, sans-serif"
+     font-size="18px"
+     font-weight="bold"
+     fill="#64748b"
+     text-anchor="start"
+     id="text19">StateMachine Engine</text>
+  <g
+     id="g32"
+     transform="translate(-70.141292,2.863871)">
+    <rect
+       x="720"
+       y="316"
+       width="250"
+       height="100"
+       rx="8"
+       fill="#f0fdfa"
+       stroke="#0d9488"
+       stroke-width="3"
+       filter="url(#shadow-sm)"
+       id="rect22" />
+  </g>
+  <path
+     d="M 770,180 V 312.29415"
+     stroke="#3b82f6"
+     stroke-width="5.14382"
+     fill="none"
+     marker-end="url(#arrow-blue)"
+     id="path17" />
+  <g
+     id="g31"
+     transform="translate(-70.272258,0.95462368)">
+    <text
+       x="845"
+       y="346"
+       font-family="Arial, sans-serif"
+       font-size="18px"
+       font-weight="bold"
+       fill="#0f766e"
+       text-anchor="middle"
+       id="text23">[2] Ordered Operations</text>
+    <text
+       x="845"
+       y="371"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       fill="#0f766e"
+       text-anchor="middle"
+       id="text24">Runs Potential Operations</text>
+    <text
+       x="845"
+       y="391"
+       font-family="Arial, sans-serif"
+       font-size="14px"
+       fill="#0f766e"
+       text-anchor="middle"
+       id="text25">First with work runs &amp; returns</text>
+  </g>
+  <path
+     d="m 771,416 v 65"
+     stroke="#0d9488"
+     stroke-width="4"
+     fill="none"
+     marker-end="url(#arrow-teal)"
+     id="path25" />
+  <text
+     x="779.09076"
+     y="442.63525"
+     font-family="Arial, sans-serif"
+     font-size="16px"
+     font-weight="bold"
+     fill="#0d9488"
+     text-anchor="start"
+     id="text26">Proposes Pure Effects</text>
+  <g
+     id="g34"
+     transform="translate(-64)">
+    <rect
+       x="720"
+       y="496"
+       width="250"
+       height="90"
+       rx="8"
+       fill="#eef2ff"
+       stroke="#6366f1"
+       stroke-width="3"
+       filter="url(#shadow-sm)"
+       id="rect26" />
+    <text
+       x="845"
+       y="526"
+       font-family="Arial, sans-serif"
+       font-size="18px"
+       font-weight="bold"
+       fill="#4338ca"
+       text-anchor="middle"
+       id="text27">[3] Effect Applier</text>
+    <text
+       x="845"
+       y="551"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       fill="#4338ca"
+       text-anchor="middle"
+       id="text28">Validates &amp; persists changes</text>
+    <text
+       x="845"
+       y="571"
+       font-family="Arial, sans-serif"
+       font-size="16px"
+       fill="#4338ca"
+       text-anchor="middle"
+       id="text29">Emits events to client</text>
+  </g>
+  <path
+     d="m 969.98821,553.77364 h 34.70529 V 136.198 h -69.41054"
+     stroke="#6366f1"
+     stroke-width="4.23146"
+     fill="none"
+     marker-end="url(#arrow-indigo)"
+     id="path29" />
+  <g
+     id="g30"
+     transform="translate(-6.3664523,-145.94023)">
+    <rect
+       x="945.04578"
+       y="331.95673"
+       width="130"
+       height="30"
+       rx="4"
+       fill="#ffffff"
+       stroke="#e2e8f0"
+       id="rect29" />
+    <text
+       x="1005"
+       y="352"
+       font-family="Arial, sans-serif"
+       font-size="14px"
+       font-weight="bold"
+       fill="#4338ca"
+       text-anchor="middle"
+       id="text30">Appends / Mutates</text>
+  </g>
+</svg>
