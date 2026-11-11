@@ -6,7 +6,7 @@ Extend the supplied learning partner with a narrow, read-only search of locally 
 
 The instructor has authorized this integration using the **provisional three-PDF, 511-passage test collection**. This is not a final corpus freeze, a three-model comparison, EPUB integration, or proof of retrieval quality. Historical planning/preparation-only restrictions in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) describe earlier phases; this lesson covers the separately authorized runtime continuation. Read [README](../../README.md) for the current roadmap.
 
-**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12). The provisional three-PDF collection, the deferred corpus-freeze/policy-comparison decisions, and all recorded validation limitations remain as documented below.
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12). The instructor verified the root and this lesson's reference mirror as byte-identical, making the 2026-11-11 grounding acknowledgment-enforcement pass below the lesson's final validated state. The provisional three-PDF collection, the deferred corpus-freeze/policy-comparison decisions, and all recorded validation limitations remain as documented below.
 
 The instructor supplies the [complete reference source tree](src/), retrieval support, and [three editable teaching files](content/) before class. Root `src/` is an ephemeral exercise copy, not the authoritative Lesson 12 reference; the combined Lessons 12–14 modularization finishes with Lesson 14 active at root. Activate this lesson explicitly before running it. Predict → run → explain → tweak → run again. There are **no missing Rust scaffolding exercises** and no requirement to write ingestion, database, async, or presentation machinery during class.
 
@@ -25,6 +25,8 @@ An **embedding space** is the complete compatible model and preprocessing contra
 The **read-only retrieval boundary** is application code that accepts a narrow search query, uses approved local services and parameters, and returns bounded evidence. It is needed because a model request is untrusted input, not permission to execute arbitrary SQL or network requests.
 
 A **source-grounded answer** connects a specific claim to an actually returned excerpt. **Source-grounded feedback** compares a learner's particular answer with that evidence and explains a supported distinction. Neither is a validated assessment of trading competence. There are no expert-authored rubrics here; seeing a tutor explanation is not evidence of learner understanding.
+
+**Grounding acknowledgment** is the tutor's visible use of the excerpts supplied for its turn: ending each sentence that draws on an excerpt with that excerpt's exact `[source:<id>]` marker, or stating plainly that the excerpts did not support the answer, ending that one sentence with the exact marker `[source:none]`. Models are not trusted to judge what retrieved information is relevant, so the application — not the model — classifies every grounded reply as cited, declined, or silently ignored. A reply that neither cites nor declines is **non-compliant**: the application appends one authored reminder as a user message and asks the tutor to answer again, exactly once. One re-ask keeps a single bounded correction inside the turn instead of letting overconfidence silently drop supplied evidence.
 
 ## Prerequisites and supplied setup
 
@@ -85,7 +87,7 @@ A **module** is a named part of this Rust application that groups related code. 
 
 | Source | Responsibility |
 | --- | --- |
-| [main.rs](src/main.rs) | Context loading/prompt assembly and consent; Session/runtime/Effects; concurrent Event consumption; machine assembly/run/cancellation; tool registration/dispatch/allowlists/limits; shared evidence ledger; current-turn citation inspection; genuine-learner-source validation and post-run approval sequence. |
+| [main.rs](src/main.rs) | Context loading/prompt assembly and consent; Session/runtime/Effects; concurrent Event consumption; machine assembly/run/cancellation; tool registration/dispatch/allowlists/limits; forced per-turn source grounding; application-side acknowledgment classification with one escalated re-run; per-request exact system prompt capture via a request-preparer hook; current-turn citation inspection; genuine-learner-source validation and post-run approval sequence. |
 | [retrieval.rs](src/retrieval.rs) | Cohesive local read-only adapter: strict query, endpoint/profile/privilege/provenance checks, embedding/SQL, tokenizer accounting, evidence clipping and connection-driver cancellation/Drop guards. |
 | [calculator.rs](src/calculator.rs) | Previously taught exact-decimal calculation, strict arguments and capability schema; two local tests. |
 | [learning_record.rs](src/learning_record.rs) | Record categories/proposal shape/schema, bounded file reading/appending and default-no confirmation-input mechanics; two local tests. It does not decide learner-source validity or when approval may happen. |
@@ -93,7 +95,7 @@ A **module** is a named part of this Rust application that groups related code. 
 | [presentation.rs](src/presentation.rs) | Palette, independent terminal gating and streaming `TerminalProse` formatting; two local tests. Event consumption stays in main. |
 | [provider_setup.rs](src/provider_setup.rs) | Positional provider-path handling and first configured model selection. Local tutor policy/transport checks stay in main. |
 | [diagnostics.rs](src/diagnostics.rs) | Plain Markdown log writing, complete Session rendering and presentation sanitization; two local tests. It is never learner memory. |
-| [tests.rs](src/tests.rs) | Application/runtime/Event/dispatch/memory/citation/evidence-ledger tests and shared test helpers; includes one opt-in same-snapshot live search-batch test. |
+| [tests.rs](src/tests.rs) | Application/runtime/Event/dispatch/memory/citation/grounding/acknowledgment tests and shared test helpers; includes one opt-in live test that forced per-turn grounding prepares turn state without touching conversation history. |
 | [retrieval/tests.rs](src/retrieval/tests.rs) | Adapter-local query/URL/database/vector/profile/provenance/serialization/cancellation tests, plus one opt-in actual-service smoke test. |
 
 These declarations in main name supplied local files; learners do not reconstruct them:
@@ -114,10 +116,10 @@ mod tests;
 
 1. In main, read `LessonContext::load`/`prompt_parts` and `run_learning_partner`: editable context, explicit consent, fresh selection versus retained replies, and local-service startup policy.
 2. Stay in main for `ChatSession`, `ChatRuntime`, `ChatEffect`, `run_turn` and `display_events`: saving Effects is distinct from consuming Events concurrently. Follow timeout/cancellation, sender closure, draining and partial diagnostics before inspection; module extraction changes none of that order.
-3. Trace main's two ToolProvider registrations, `SafeTools`, `RunLimit`, `RetrievalToolProvider` and `EvidenceBudget`. The budget resets before each run and remains shared across same-snapshot calls. Then open retrieval's cohesive adapter for the bounded service/SQL/provenance path; do not split that algorithm into classroom scaffolding.
-4. Return to `inspect_turn`/`inspect_citations` in main: only successful correlated search results from this learner turn authorize citation IDs. Membership warnings do not certify semantic support.
+3. Trace main's one ToolProvider registration, `SafeTools`, `RunLimit` and the forced per-turn grounding path: `prepare_turn_grounding` retrieves before `run_turn` on every genuine learner turn, and `select_grounding` filters SQL's top five candidates to at most three above the similarity threshold. Then open retrieval's cohesive adapter for the bounded service/SQL/provenance path; do not split that algorithm into classroom scaffolding.
+4. Return to `inspect_turn`/`inspect_citations` in main: only the `source-grounding` excerpts selected for this learner turn authorize citation IDs, and only through the tutor actually citing them. Membership in the selected set does not certify semantic support.
 5. Read `LossToolProvider`, `parse_record_proposal` and `approve_record_proposals` in main. The handler only prepares a proposal; its quotation must come from an actual learner reply, not kickoff/tutor/tool/source text. A successful final answer and inspection precede local default-no approval, decision logging, the append call, current Session record refresh and complete post-approval diagnostics. Storage mechanics in `learning_record` cannot authorize that sequence.
-6. Consult calculator/chooser/presentation/provider_setup/diagnostics support only as needed. Finish with application and retrieval child tests plus inline support tests: default execution has 40 deterministic tests and two ignored live tests. Synthetic fixtures do not replace real services or human teaching review.
+6. Consult calculator/chooser/presentation/provider_setup/diagnostics support only as needed. Finish with application and retrieval child tests plus inline support tests: default execution has 46 deterministic tests and two ignored live tests. Synthetic fixtures do not replace real services or human teaching review.
 
 ## 12.1 — Predict which question needs evidence
 
@@ -125,44 +127,41 @@ Select **Getting started in day trading**. Decide separately whether to use opti
 
 Contrast two questions before running:
 
-1. “What is a bid-ask spread?” Ordinary course-authored context may be enough; retrieval is not forced on every turn.
-2. “What do the supplied books say about liquidity and the bid-ask spread?” This requests source-grounded support; predict a search and citations beside supported claims.
+1. “What is a bid-ask spread?” Grounding still runs — the application retrieves before every genuine learner turn — but the tutor may answer from course-authored context when the excerpts do not support the question.
+2. “What do the supplied books say about liquidity and the bid-ask spread?” This requests source-grounded support; predict `[source:<id>]` markers beside supported claims.
 
-Ask the second question. Observe the **actual** selection pattern. A missing or unnecessary search is a finding, not something to hide by forcing a request. The learner terminal should stay simple: `Tutor:`, `Learner >`, brief **Searching educational sources** activity, a returned-passage count/status, and short tutor prose. No application-added protocol fences, actor arrows, correlation IDs, raw arguments, vectors or Session dumps belong in this dialogue. An evidence marker is a source citation, not a tool request ID.
+Both questions run the same forced retrieval; the learner cannot switch it off and the model cannot request a search. Predict how the answers differ in **citation use**, not in whether a search occurs. There is no "missing search" finding in this lesson — a turn with no qualifying excerpt reports `no_evidence`, and a failed retrieval reports `unavailable` with a learner-visible warning; neither is hidden. A grounded turn where the tutor neither cites nor declines is also visible: the application warns the learner, records the classification, and re-asks the tutor once. A decline sentence is reported to the learner as a plain source note, not hidden. The learner terminal should stay simple: `Tutor:`, `Learner >`, a warning only when grounding is unavailable or a grounded reply is silently ignored, a citation footer whenever the tutor actually cites IDs, and short tutor prose. No application-added protocol fences, actor arrows, correlation IDs, raw arguments, vectors or Session dumps belong in this dialogue. An evidence marker is a source citation, not a tool request ID.
 
-Do not promise exact model wording, a specific winning book, or an exact result count. Search may return at most five candidates; fewer can fit the remaining evidence budget. A nearest-neighbor result is still only a candidate.
+Do not promise exact model wording, a specific winning book, or an exact result count. SQL returns at most five candidates; the application keeps at most three above the similarity threshold, and a turn whose candidates all fall below it answers without markers. A nearest-neighbor result is still only a candidate.
 
-## 12.2 — Explain the bounded search round trip
+## 12.2 — Explain the forced per-turn grounding round trip
 
-A **tool request** is structured model output asking for a capability. A **correlation ID** connects that request with its response; it does not establish whether the response supports the answer. Both concepts carry forward from the earlier tool lessons.
-
-The application-owned tool name is `search_educational_passages`. Its sole model-controlled input is a focused `query`. Here is an illustrative request argument object, not captured live output:
-
-```json
-{"query":"How does liquidity affect the bid-ask spread?"}
-```
-
-Unknown fields are rejected. The query must be nonblank and no more than **2,000 UTF-8 bytes**, not 2,000 characters. The model cannot supply SQL, a database identifier, a path, an endpoint, credentials, a collection name, or top-k.
+Lesson 12 gives the model **no search tool**. There is no `search_educational_passages` tool request and no retrieval correlation ID. Instead the application performs **forced per-turn source grounding**: one retrieval that the application initiates before the machine runs, on every genuine learner turn. **The learner's own input is the query** — the model cannot craft, expand, or repeat a query, choose a result count, or re-search when evidence disappoints. A **prompt part** rides the same per-request channel as lesson context: it reaches this turn's inference requests only and is never saved into conversation history, so compaction and learner-quote provenance are unaffected.
 
 Narrate the current flow:
 
-1. The local tutor asks to search; SafeTools checks all request blocks and the shared allowlist/request limits.
-2. The retrieval adapter validates the query and selected collection/runtime contract.
-3. Rust prepares Harrier's query instruction and obtains a matching local query embedding. PostgreSQL does not embed text.
-4. A parameterized, read-only PostgreSQL query searches the fixed collection using cosine distance and the supplied HNSW index.
-5. The adapter returns bounded excerpts with provenance, citation IDs, cosine similarity (`1 - distance`) and clipping information, preserving the correlation ID.
-6. The GDK re-evaluates saved state and the tutor streams a final answer using returned evidence.
-7. Only afterward can a successful memory proposal receive a separate local save decision.
+1. The learner submits a message; blank input, `/finish` and `/quit` are filtered and the reply is appended to conversation history. The application-authored kickoff question grounds nothing.
+2. `prepare_turn_grounding` runs before the machine starts: one retrieval per genuine learner turn, never a model decision.
+3. The retrieval adapter validates the query (the learner input) and the selected collection/runtime contract.
+4. Rust prepares Harrier's query instruction and obtains a matching local query embedding. PostgreSQL does not embed text.
+5. A parameterized, read-only PostgreSQL query searches the fixed collection using cosine distance and the supplied HNSW index, returning at most five ranked candidates with provenance, citation IDs, cosine similarity (`1 - distance`) and clipping information.
+6. `select_grounding` keeps candidates at or above the similarity threshold (0.55, with a validated `GROUNDING_MIN_SIMILARITY` override) and takes at most three. Empty selection reports `no_evidence`; a failed retrieval degrades to `unavailable` with the failure fully recorded and the tutor warned learner-side.
+7. The selected excerpts travel as this turn's `source-grounding` prompt part, placed **first** so the enforcement contract is not buried under the long lesson context; the GDK re-evaluates saved state and the tutor streams a final answer. The part states the acknowledgment rule in the model's own instruction channel: cite each excerpt used with its exact `[source:<id>]` marker, or decline in one sentence ending with the exact `[source:none]` marker; a reply that does neither is non-compliant and will be re-asked.
+8. After the run, the application — never the model — classifies the reply's acknowledgment by scanning its citations against the excerpts selected for this turn: `cited`, `declined` (`[source:none]`), `silently ignored`, or `no excerpts supplied`. The classification is recorded in diagnostics and shown to the learner.
+9. On a silent ignore the application appends one authored reminder as a user message — it never retries twice — then runs the turn once more under the same bounds; the reminder is excluded from learner-quote provenance so an escalated reply cannot validate a memory proposal by quoting it. Any memory proposal from the first attempt is approved before that append, because the proposal window tracks the latest user message.
+10. `citation_footer` lists provenance for the IDs the tutor actually cited. Only afterward can a successful memory proposal receive a separate local save decision.
 
-A **ToolProvider** supplies tool definitions and implementations to the GDK. Lesson 12 adds a separate retrieval provider beside the existing calculator/consented proposal provider. The pinned API permits multiple providers; this is not a second agent loop. In `goose-agent = 0.1.0-alpha.11`, the registration method is:
+Because the model is not trusted, its view of relevance is inspectable: every genuine inference request's exact system prompt is captured through a request-preparer hook and dumped to diagnostics, headed by attempt (`initial run`, `escalated re-run`) and request number, so an instructor can read precisely what instruction text the tutor received, including where the grounding contract sat.
+
+A **ToolProvider** supplies tool definitions and implementations to the GDK. Lesson 12 keeps a single provider — the calculator plus the conditional consented-proposal definition; retrieval is not a tool. In `goose-agent = 0.1.0-alpha.11`, the registration method is:
 
 ```rust
 pub fn with_provider(mut self, provider: Arc<dyn ToolProvider<S>>) -> Self
 ```
 
-This is a focused SDK signature, not a line to fill in. Read the supplied application's registration and SafeTools wrapper. The SDK advertises definitions, dispatches known requests and constructs correlated responses; the application owns validation, privileges, evidence budgets and rejection policy. In this exact release the SDK filters unknown names and does not impose the course's request cap, so removing SafeTools would lose safeguards.
+This is a focused SDK signature, not a line to fill in. Read the supplied application's registration and SafeTools wrapper. The SDK advertises definitions, dispatches known requests and constructs correlated responses; the application owns validation, privileges, the grounding threshold/budget and rejection policy. In this exact release the SDK filters unknown names and does not impose the course's request cap, so removing SafeTools would lose safeguards.
 
-`StateMachine::run` still owns within-turn iteration: load state, select the first applicable step, apply Effects, and reload/re-evaluate. **Effects** describe saved changes; **Events** carry live presentation activity through the Emitter while the run executes. A search activity Event is not evidence saved by itself. Supplied async HTTP/database support keeps service waits inside that existing machinery; attendees need not write concurrency infrastructure.
+`StateMachine::run` still owns within-turn iteration: load state, select the first applicable step, apply Effects, and reload/re-evaluate. **Effects** describe saved changes; **Events** carry live presentation activity through the Emitter while the run executes. Grounding happens before the run, so it issues no tool request and emits no tool Event; its diagnostics are logged directly by the application. Supplied async HTTP/database support keeps service waits inside ordinary async machinery; attendees need not write concurrency infrastructure.
 
 ### Bounds and what they mean
 
@@ -170,23 +169,24 @@ A **token budget** limits model-token contribution, not character or word count.
 
 | Boundary | Application-owned limit |
 | --- | --- |
-| Search query | Nonblank; 2,000 UTF-8 bytes maximum |
-| Candidate results | At most five, fixed by the application |
+| Grounding query | The learner input; nonblank; 2,000 UTF-8 bytes maximum (oversize degrades the turn to `unavailable`) |
+| Candidate results | At most five from SQL, fixed by the application |
+| Selected statements | At most three above the 0.55 similarity threshold |
 | Each returned excerpt | At most 1,000 tokens; clipping labeled |
-| Evidence across all searches in one learner turn | 4,000 actual tokens, including provenance/JSON serialization |
+| Grounding evidence per learner turn | One forced search, 2,500 actual tokens caller-owned, including provenance/JSON serialization |
 | Each embedding/tokenizer HTTP request | 15 seconds |
 | SQL wait | 5 seconds, including server-side statement timeout |
-| All tools together | Four requests per turn, not four per provider |
+| Tool requests together (calculator/proposal) | Four requests per turn, not four per provider |
 | Within-run work | Eight applied work passes, plus a possible terminal halt batch |
 | Entire run | 180 seconds |
 
-Calculator, proposal and retrieval requests share the aggregate limits. A supplied async-mutex ledger outside conversation shares the allowance across calls, including a batch whose handlers receive the same Session snapshot; it resets only before a new learner run. The serialized canonical tool-result JSON is counted before returning and charged to that ledger. Failed calls return correlated sanitized errors rather than evidence; they do not charge successful-evidence tokens. Commands cannot overlap runs in this single-process workflow. Multiple searches do not each receive a fresh 4,000-token allowance. These bounds limit new evidence in one turn; they do not compact accumulated history or guarantee that an arbitrarily long conversation fits the tutor. HTTP requests have a 15-second deadline each; several tokenizer calls can occur within the unchanged 180-second run bound. SQL also has a server-side statement timeout. An owned connection-driver task is aborted on drop, SQL timeout, or cancellation during an outstanding SQL query. The startup GGUF checksum uses one supplied blocking file task; cancellation cannot terminate that file task once running. Timeout/cancellation is not rollback or proof a service stopped executing. Do not assign deliberate service-breakage exercises.
+The grounding budget is caller-owned: the tutor passes 2,500 actual tokens per turn, while the calibration harness passes a large value so every candidate can be inspected. There is one forced search per turn — no second search can be requested within the turn, so no cross-call evidence ledger is needed. Calculator and proposal tool requests still share the aggregate tool limits, and failed tool calls return correlated sanitized errors rather than evidence. Commands cannot overlap runs in this single-process workflow. These bounds limit new evidence in one turn; they do not compact accumulated history or guarantee that an arbitrarily long conversation fits the tutor. HTTP requests have a 15-second deadline each; several tokenizer calls can occur within the grounding wait, which precedes the 180-second run bound. SQL also has a server-side statement timeout. An owned connection-driver task is aborted on drop, SQL timeout, or cancellation during an outstanding SQL query. The startup GGUF checksum uses one supplied blocking file task; cancellation cannot terminate that file task once running. Timeout/cancellation is not rollback or proof a service stopped executing. Do not assign deliberate service-breakage exercises.
 
 ## 12.3 — Inspect citations and support
 
 A **stable passage ID** identifies the saved draft passage under its preparation identity. The tutor uses the exact returned marker **`[source:<chunk_id>]`**, substituting only an actually returned chunk ID. The angle-bracket form here is explanatory, not a real citation to paste into an answer. Changing/finalizing a collection can change identities; stable does not mean eternal across corpus revisions.
 
-The tutor must cite only passages returned for the current learner turn, beside the claims they support. If evidence from an older turn is needed again, search again; do not invent or recycle a citation outside the current returned set. Titles/authors/publication information are used only when verified and available. **Physical PDF pages** count from the first PDF page, including front matter; they are not the book's printed page labels. No inferred chapter, EPUB page, fabricated edition, or chart interpretation is allowed.
+The tutor must cite only passages returned for the current learner turn, beside the claims they support. If evidence from an older turn is needed again, the learner asks again and a fresh per-turn retrieval runs; do not invent or recycle a citation outside the current returned set. Titles/authors/publication information are used only when verified and available. **Physical PDF pages** count from the first PDF page, including front matter; they are not the book's printed page labels. No inferred chapter, EPUB page, fabricated edition, or chart interpretation is allowed.
 
 An **excerpt clipping label** tells us that only a prefix of a stored passage was returned. The supplied token-bound prefix can end within a sentence; do not present a clipped prefix as the complete explanation or invent the missing continuation. The full stored content hash and raw fragment mapping identify the original passage, not a new uncropped quotation.
 
@@ -310,3 +310,23 @@ The four supplied teaching units are optional background examples, not a topic w
 The three editable content files retain this lesson's own capability and authority instructions; do not replace later-lesson contracts with Lesson 10's calculator-only contract. Content changes take effect on a fresh selection, not in an already-running selected conversation. Historical teaching findings remain evidence about earlier content, not proof that this revision fixes model behavior.
 
 Validation for this content-only revision: static scope/capability/original-section checks passed across Lessons 10–14. The active Lesson 12 context-loading test and all-target tests passed (41 application tests and seven unchanged dataset-seeder tests; two opt-in real-service tests were not run). No new live teaching, approval, retrieval, compaction or telemetry validation is claimed.
+
+## Forced per-turn source grounding and reference restoration — 2026-11-11
+
+The instructor had the root restored to this lesson's complete reference and had all lesson documentation brought in line with the actual restored design. A Lesson 13 shared-library split had briefly existed in the working copy; its orphaned files were removed and the root again byte-matches `lessons/12-specialized-retrieval/src/`, which now holds the cleaned tree. `examples/rag_calibration.rs` was reverted to the pre-split single-crate API (`Retrieval::from_env`, `#[path = "../src/retrieval.rs"]`). That revert remains an uncommitted working-tree change; no commit was made.
+
+Design correction for this documentation pass: the reference implements **forced per-turn source grounding**, not a model-callable retrieval tool. There is no `search_educational_passages` tool, no `RetrievalToolProvider`, and no `EvidenceBudget` in the source. Grounding constants: similarity threshold 0.55 (`GROUNDING_MIN_SIMILARITY` override, validated 0.0..=1.0), at most three statements (`GROUNDING_MAX_STATEMENTS`), and 2,500 actual tokens per turn (`GROUNDING_TOKEN_BUDGET`, caller-owned). After a genuine learner reply is appended to history, `prepare_turn_grounding` runs one retrieval — the learner input is the query, and input over 2,000 UTF-8 bytes degrades the turn to `unavailable` — before the machine runs; the application-authored kickoff does not ground. `select_grounding` filters SQL's top five candidates to those at or above the threshold and takes at most three; empty selection reports `no_evidence`; retrieval failure reports `unavailable` with the full failure in diagnostics and a learner-visible warning. The excerpts travel as a per-turn `source-grounding` prompt part with `[source:<id>]` rules and are never saved into conversation history; `citation_footer` lists provenance for IDs the tutor actually cited. The tool surface remains the calculator plus the conditional proposal definition behind SafeTools/RunLimit. The lesson body above was corrected from the earlier tool-based description; dated records elsewhere in this file were left verbatim.
+
+Validation for the restoration and this documentation pass: `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test` and `cargo build` passed. Deterministic tests now total **46** (up from the historical 40/41 counts recorded through the modularization and service-default passes), with the two `#[ignore]` live tests (`live_forced_grounding_prepares_turn_state_without_touching_history` and the retrieval smoke test) both passing explicitly in 18.93s against tutor :8080, Harrier :9999 and PostgreSQL :55432. The documented launch `printf "q\n" | cargo run -- custom_aa_llama_qwen3_6-35b.json` reached the chooser and exited 0, printing the grounding banner. No corpus mutation, dependency change, or service restart occurred. No fresh teaching-quality, UI or IDE/projector review is claimed; historical semantic defects and deferred instructor review remain.
+
+## Grounding acknowledgment enforcement and per-request prompt diagnostics — 2026-11-11
+
+Instructor follow-up after a live turn showed the tutor receiving a qualifying excerpt (similarity 0.684, above the 0.55 threshold) and silently answering with no `[source:]` markers. Root cause was tutor behavior, not retrieval or state handling; the fix keeps relevance judgment with the application, never the model. Three coordinated changes, all behavior-visible and all covered by deterministic tests:
+
+1. **Mandatory-acknowledgment prompt contract (b):** the `source-grounding` prompt part now states that acknowledgment of supplied excerpts is mandatory — cite each excerpt used with its exact `[source:<id>]` marker, or decline in one sentence ending with the exact `[source:none]` marker — and that a reply doing neither is non-compliant and will be asked again. The part is inserted **first** in the system prompt (before tutor contract/educational material/teaching guidance) so the enforcement contract is not buried. The model-facing [tutor contract](content/tutor-contract.md) was updated to the same rules.
+2. **Application-side escalation (c):** `GroundingOutcome` classifies each grounded reply application-side as `NotSupplied`, `Cited`, `Declined` (the `[source:none]` sentinel, sanctioned only on grounded turns), or `SilentIgnore`, using `extract_citations`; citing wins over a simultaneous decline (a flagged contradiction, per `inspect_citations`, which now warns on the sentinel instead of treating silent-ignore as a citation-list finding). A `SilentIgnore` outcome appends one authored `GROUNDING_ESCALATION_MESSAGE` as a user message and re-runs the turn exactly once — never two escalations — under fresh per-attempt bounds (`append_user` resets applied passes/halt reason). Because proposal provenance windows on the latest user message, first-attempt proposals are approved **before** the append, and the escalation message is excluded from learner-quote provenance. A `Declined` outcome is reported to the learner as a plain source note.
+3. **Per-request system prompt diagnostics (d):** a `PromptDiagnosticsPreparer` wraps the SDK's `IdentityInferenceRequestPreparer` behind `InferenceRunner::with_request_preparer`, capturing every genuine inference request's exact `system_prompt` and draining the captures into diagnostics after each attempt as `Application → provider: exact system prompt (initial run | escalated re-run, request N)` blocks — including on failure paths.
+
+Also fixed: `TurnGrounding`'s manual `Default` now uses status `"none"` (was an empty string) to match the kickoff/no-grounding state.
+
+Validation for this pass: `cargo fmt --check`, `cargo check --all-targets`, `cargo clippy --all-targets` (zero warnings), `cargo test` (49 deterministic tests, up from 46; three new: outcome classification, escalation message excluded from learner-quote provenance, exact system-prompt capture by the preparer) and `cargo build` passed. Both `#[ignore]` live tests passed explicitly in 18.46s against tutor :8080, Harrier :9999 and PostgreSQL :55432. The documented launch `printf "q\n" | cargo run -- custom_aa_llama_qwen3_6-35b.json` reached the chooser and exited 0. A live two-launch run of the previously silent-ignored journal/psychology question showed the tutor citing both supplied excerpts with exact markers beside the claims (outcome recorded as `cited`), with diagnostics containing the kickoff prompt dump (no grounding part), the grounded-turn dump **leading** with the source-grounding contract, the outcome classification blocks, and complete `turn_grounding` state. `src/` was mirrored byte-identical into this lesson's `src/`. The escalation re-run path itself is covered deterministically, not yet forced live; forcing a live silent-ignore is non-deterministic and was not attempted. No escalation, decline, or contradiction case has live-provider evidence yet. Historical semantic defects, teaching/UI review and the deferred end-of-course review remain.

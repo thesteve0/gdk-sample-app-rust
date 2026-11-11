@@ -4,9 +4,8 @@
 // Feedback goes to rag-calibration.jsonl (gitignored; no excerpts are written to it).
 #![allow(clippy::too_many_lines)]
 
-// The included retrieval module receives these classroom defaults as
-// `RetrievalDefaults`; environment variables still override them, exactly as
-// in the tutor application.
+// The included retrieval module reads these crate-level defaults; environment
+// variables still override them, exactly as in the tutor application.
 const RETRIEVAL_DATABASE_URL: &str = "postgresql://retrieval_reader:7297cb0587b95545f039df77dc32684e75f73093a444895c@127.0.0.1:55432/harrier";
 const HARRIER_URL: &str = "http://127.0.0.1:9999";
 const TUTOR_URL: &str = "http://127.0.0.1:8080";
@@ -69,13 +68,7 @@ async fn main() {
         FEEDBACK_PATH
     );
     println!("Commands: type a query, 'summary', or empty line to quit.");
-    let retrieval = match retrieval::Retrieval::from_env_with(retrieval::RetrievalDefaults {
-        database_url: RETRIEVAL_DATABASE_URL,
-        embedding_url: HARRIER_URL,
-        tutor_url: TUTOR_URL,
-    })
-    .await
-    {
+    let retrieval = match retrieval::Retrieval::from_env().await {
         Ok(retrieval) => retrieval,
         Err(failure) => {
             eprintln!("Cannot start retrieval services: {}", failure);
