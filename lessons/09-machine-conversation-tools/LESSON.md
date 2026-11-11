@@ -4,7 +4,7 @@
 
 Continue a conversation through two machine runs, with the same calculator available throughout. Observe when the model requests it, how the application validates and executes it, and why saving a correlated result creates work for inference again.
 
-**Status:** implemented; default and 100-share live scenarios validated; instructor review pending. The endpoint was unavailable during initial implementation, then became available for output-order verification. The narrated trace below is not an observed model transcript.
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12); default and 100-share live scenarios validated. The endpoint was unavailable during initial implementation, then became available for output-order verification. The narrated trace below is not an observed model transcript. Recorded teaching defects and validation limits below remain part of the lesson's record.
 
 ## Concepts introduced
 

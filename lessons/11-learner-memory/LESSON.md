@@ -4,7 +4,7 @@
 
 Continue the day-trading learning partner with a small, editable **learning record** and **learner-agreed next activities** that can survive application exit. Let the learner decide whether to use memory and approve every addition. On a later launch, ask whether to resume an agreed activity rather than assuming the learner wants to continue it.
 
-**Authorized and implemented; instructor review pending.** Validation results and limitations are recorded below. This lesson does not release Lessons 8–10: Lessons 8–9 still need instructor review, Lesson 9's live 100-share tweak passed on 2026-10-22, and Lesson 10's teaching/content/UI review remains separate.
+**Complete (instructor completion decision, 2026-11-11; Lessons 1–12).** Validation results and limitations are recorded below. Lessons 8–12 are complete under the same decision; Lesson 9's live 100-share tweak passed on 2026-10-22. The validation limitations recorded here remain part of the lesson's record.
 
 ## Concepts introduced
 

@@ -1,5 +1,7 @@
 # Final three lessons — implementation handoff
 
+**Status update — 2026-11-11:** the instructor marked Lessons 1–12 complete in the README roadmap. Lessons 13–14 remain implemented with instructor review pending. The dated planning entries below remain historical; see the README roadmap and its "Instructor completion decision — 2026-11-11" record for the authoritative current status and current root.
+
 ## Decision and authorization — 2026-10-11
 
 The course ends with **Lesson 12: specialized retrieval, Lesson 13: context compaction, and Lesson 14: evaluation**. The instructor approved this curriculum and requested planning documentation only. **Historical planning-only decision:** each needed a separate implementation request; Lesson 12 was subsequently authorized and implemented on 2026-10-12. Lesson 13 was subsequently authorized on 2026-10-12; Lesson 14 was subsequently authorized and implemented on 2026-10-13; planning is not authorization to change root source, dependencies, configuration, or infrastructure.

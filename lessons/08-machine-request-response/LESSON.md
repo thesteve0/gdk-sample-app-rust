@@ -6,6 +6,8 @@ Run Lesson 7's question/answer exchange. Explain the two paths back to our appli
 
 The [complete supplied implementation](src/) is ready from the outset, with the lesson concepts in [main.rs](src/main.rs) and supporting helpers in local modules. We will predict, run, explain, change the question, and run again—not fill in Rust scaffolding.
 
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12). The dated validation records below remain the evidence base; recorded limitations are unchanged.
+
 ## Prerequisites and run setup
 
 - Complete Lesson 7 and have the working provider setup from Lessons 2–6.

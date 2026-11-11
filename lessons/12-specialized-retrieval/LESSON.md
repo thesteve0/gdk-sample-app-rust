@@ -6,6 +6,8 @@ Extend the supplied learning partner with a narrow, read-only search of locally 
 
 The instructor has authorized this integration using the **provisional three-PDF, 511-passage test collection**. This is not a final corpus freeze, a three-model comparison, EPUB integration, or proof of retrieval quality. Historical planning/preparation-only restrictions in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) describe earlier phases; this lesson covers the separately authorized runtime continuation. Read [README](../../README.md) for the current roadmap.
 
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12). The provisional three-PDF collection, the deferred corpus-freeze/policy-comparison decisions, and all recorded validation limitations remain as documented below.
+
 The instructor supplies the [complete reference source tree](src/), retrieval support, and [three editable teaching files](content/) before class. Root `src/` is an ephemeral exercise copy, not the authoritative Lesson 12 reference; the combined Lessons 12–14 modularization finishes with Lesson 14 active at root. Activate this lesson explicitly before running it. Predict → run → explain → tweak → run again. There are **no missing Rust scaffolding exercises** and no requirement to write ingestion, database, async, or presentation machinery during class.
 
 ## Concepts introduced

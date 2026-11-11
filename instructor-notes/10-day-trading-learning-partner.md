@@ -4,7 +4,7 @@
 
 Learners should explain how an application becomes a specialized educational partner by choosing and supplying its own content, keeping a focused conversation, and enforcing a limited capability boundary. The lesson is not about writing another Rust loop or reproducing Goose's application assembly.
 
-**Implemented; structural checks/live scenarios passed; instructor review pending.** Lessons 8 and 9 still need their separate instructor reviews; Lesson 9's live 100-share tweak passed separately on 2026-10-22. Lesson 10 work does not approve either lesson for release.
+**Complete (instructor completion decision, 2026-11-11; Lessons 1–12); structural checks/live scenarios passed.** Lessons 8–12 are complete under the same decision; Lesson 9's live 100-share tweak passed separately on 2026-10-22. Recorded teaching/content observations below remain part of the lesson's record.
 
 Supply the entire implementation from the outset. Teach **predict → run → explain → tweak → run again**. The only customization exercise edits a sentence in the Markdown teaching guidance. Chooser events, raw-mode restoration, runtime traits, synchronization, logging, validation, and concurrency are supplied support, not attendee scaffolding assignments.
 

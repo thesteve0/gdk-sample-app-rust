@@ -4,7 +4,7 @@
 
 Turn the supplied GDK application into a customized educational partner: the learner selects **Getting started in day trading**, the application loads its own material and teaching instructions, and the learner asks questions in a focused, continuing conversation.
 
-**Status:** implemented; structural checks and live scenarios passed; instructor review pending. This lesson does not release Lessons 8 or 9. Their instructor reviews remain separate gates; Lesson 9's live 100-share tweak passed on 2026-10-22.
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12); structural checks and live scenarios passed. Lessons 8–12 are complete under the same decision; Lesson 9's live 100-share tweak passed on 2026-10-22. Recorded teaching/content observations below remain part of the lesson's record.
 
 The new idea is **application-owned teaching context**, not another agent loop. We reuse the state machine, streaming, saved history, and safe optional calculator from Lesson 9.
 

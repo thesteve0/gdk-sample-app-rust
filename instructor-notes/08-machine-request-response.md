@@ -4,6 +4,8 @@
 
 Turn Lesson 7's ordinary question/answer trace into a working application. Keep the center of attention on **Events display; Effects save**. Supply the entire reference implementation; do not ask attendees to write trait implementations or concurrency machinery.
 
+**Status:** complete (instructor completion decision, 2026-11-11; Lessons 1–12). The dated validation records below remain the evidence base; recorded limitations are unchanged.
+
 Suggested 30–35 minutes:
 
 1. Recall the Session and predict BEFORE/AFTER: 5 minutes.

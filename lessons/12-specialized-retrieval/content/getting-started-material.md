@@ -1,6 +1,6 @@
 # Getting started in day trading — educational material
 
-Course-authored paraphrases and examples, checked against the sources below on 2026-10-07. This is introductory education, not a recommendation to trade. Instructor review is pending. Sources support concepts; this module deliberately avoids regulatory thresholds and claims about current prices or broker-specific rules.
+Course-authored paraphrases and examples, checked against the sources below on 2026-10-07. This is introductory education, not a recommendation to trade. The instructor marked this course material complete on 2026-11-11 (Lessons 1–12). Sources support concepts; this module deliberately avoids regulatory thresholds and claims about current prices or broker-specific rules.
 
 ## Optional learning objectives and beginner priorities
 

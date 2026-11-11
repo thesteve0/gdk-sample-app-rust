@@ -4,7 +4,7 @@
 
 Connect the raw protocol from Lessons 5–6 to the GDK foundation from Lessons 7–8: same Session across two human inputs, selective use of an always-available calculator, and request/result correlation within one machine run. The entire implementation is supplied. Use predict → run → explain → tweak → run again, not missing Rust scaffolding.
 
-**Implemented; default and 100-share live scenarios validated; instructor review pending.** Authoring/build success does not release the lesson. Lesson 7 is complete; Lesson 8 is implemented with instructor review pending. This checkpoint changes Lesson 9 only.
+**Complete (instructor completion decision, 2026-11-11; Lessons 1–12); default and 100-share live scenarios validated.** Lessons 7–12 are complete under the same decision. Recorded teaching defects and validation limits below remain part of the lesson's record. This checkpoint changed Lesson 9 only.
 
 ## Preparation
 

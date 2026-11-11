@@ -4,7 +4,7 @@
 
 Teach the distinction between conversation continuity and intentional cross-launch memory. Learners should explain why selected notes need source inspection, consent, per-addition approval, correction, and separate categories. A learner-agreed next activity is not tutor-assigned homework or a mastery assessment.
 
-The instructor authorized the Lesson 11 Markdown record and root continuation. **Implementation validation is recorded below; instructor review remains pending.** Do not infer success from Lesson 10's historical checks. Lessons 8–9 review and Lesson 10 teaching/content/UI review remain separate gates; Lesson 9's live 100-share tweak passed independently on 2026-10-22.
+The instructor authorized the Lesson 11 Markdown record and root continuation. **Implementation validation is recorded below; the lesson is complete under the instructor's 2026-11-11 completion decision (Lessons 1–12).** Lessons 8–12 are complete under the same decision; Lesson 9's live 100-share tweak passed independently on 2026-10-22. The validation limitations recorded below remain part of the lesson's record.
 
 Supply the complete source and helpers from the outset. Use **predict → run → explain → tweak → run again**. The approved tweak edits an agreed activity by hand between launches, then observes a question about resuming it. No Rust fill-ins, new dependencies, memory-management commands, or deliberate failure-path classroom exercises are authorized.
 
