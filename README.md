@@ -294,7 +294,10 @@ For a new implementation chat:
 
 ```text
 .
-├── src/main.rs                 # current exercise; changes as the course advances
+├── src/                        # current exercise; changes as the course advances
+│   ├── main.rs                 # application binary: the active lesson's focus
+│   ├── lib.rs                  # shared library target (gdk_hello): previously taught support
+│   └── …                       # support modules, app-specific modules, child test files
 ├── lessons/                    # explanation plus complete reference source
 ├── instructor-notes/           # instructor-only pacing and teaching guidance
 ├── potential-lesson-15/        # documentation-only simulator draft, outside required course
@@ -314,6 +317,8 @@ For a new implementation chat:
 ### Root source
 
 The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The instructor authorized replacement Lessons 8 and 9. The preserved Lesson 14 reference supplies the evaluation-ready learning partner with learner-declared completion, bounded working-context compaction, source retrieval and learner-approved notes; the withdrawn draft remains unchanged under `drafts/`. Earlier references and provider configuration are unchanged. Lesson 12 adds async HTTP/database and checksum dependencies; GDK, RMCP and toolchain pins are unchanged. Lesson 7 is no-code and does not run this working copy.
+
+**Shared library split (2026-11-11).** The active root separates previously taught support from the current lesson's focus. `src/lib.rs` declares the package's library target (`gdk_hello`), owning the calculator, chooser, evidence, presentation, provider_setup and retrieval modules; `src/main.rs` keeps the Lesson 13 application — compaction, diagnostics, learning_record, providers, runtime, limits, evidence/citation decisions and the approval lifecycle — and consumes the library with `use gdk_hello::…`. A library cannot read binary-crate constants, so classroom defaults are passed into library calls as parameters: `Retrieval::from_env_with(RetrievalDefaults { database_url, embedding_url, tutor_url })` and `choose_lesson(LESSON_TITLE)`; environment variables still override each default. Behavior, output, limits and the 69-function test inventory are unchanged. This root-only split supersedes the earlier no-shared-library convention for the working copy; the preserved lesson references under `lessons/` keep their original single-crate module layout until the instructor finalizes the change.
 
 ### Lesson directories
 
@@ -385,7 +390,7 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-**Current root (2026-11-11):** root `src/` is ephemeral and currently matches the complete modularized **Lesson 13** reference, including module-local test directories. The combined Lessons 12–14 modularization (2026-10-22) finished with Lesson 14 active; the instructor later moved the root for per-lesson review, and the 2026-10-28 records below had it at Lesson 12. The instructor marked Lessons 1–12 complete on 2026-11-11. Replace the entire source tree when activating a lesson; no backup or restoration is required. The final hello-world reset remains deferred until all review is complete. Use the active lesson's source map and recursive activation instructions, for example [Lesson 13](lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path) or [Lesson 14](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path).
+**Current root (2026-11-11):** root `src/` is ephemeral and currently holds the complete modularized **Lesson 13** implementation with the [2026-11-11 root-only shared-library split](#root-source) (`src/lib.rs` library target `gdk_hello` plus `src/main.rs`), including module-local test directories. The combined Lessons 12–14 modularization (2026-10-22) finished with Lesson 14 active; the instructor later moved the root for per-lesson review, and the 2026-10-28 records below had it at Lesson 12. The instructor marked Lessons 1–12 complete on 2026-11-11. Replace the entire source tree when activating a lesson; no backup or restoration is required. The final hello-world reset remains deferred until all review is complete. Use the active lesson's source map and recursive activation instructions, for example [Lesson 13](lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path) or [Lesson 14](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path).
 
 The current root uses the [Lesson 13](lessons/13-context-compaction/LESSON.md) workflow: `/learned <concept name>` records learner-declared completion (not mastery), compacts eligible older working context and returns to the same conversation. Bounded source retrieval, optional calculator, consent-based memory, clean dialogue and private diagnostics remain. Start the matching local services. Lessons 12–14 supply the three service defaults as constants at the top of main; environment variables override them, and no private connection file or exports are required for the defaults. The instructor-supplied reader password is plaintext in source/binaries, not secret storage; see the Lesson 12 prerequisites. Lessons 1–12 are complete per the instructor's 2026-11-11 decision; Lessons 13 and 14 remain implemented with instructor review pending. From the repository root:
 
@@ -395,7 +400,7 @@ umask 077
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
 
-Use your own compatible literal-loopback OpenAI provider JSON path when needed; the application rejects remote tutor endpoints and ambient proxies and constrains redirects to the local origin. To reactivate a lesson's reference, replace the ephemeral root with its complete source tree, including child test directories, for example `rm -rf src; mkdir src; cp -R lessons/13-context-compaction/src/. src/`. Teaching files must remain under the active lesson's content directory; missing files cause an error.
+Use your own compatible literal-loopback OpenAI provider JSON path when needed; the application rejects remote tutor endpoints and ambient proxies and constrains redirects to the local origin. To reactivate a lesson's reference, replace the ephemeral root with its complete source tree, including child test directories, for example `rm -rf src; mkdir src; cp -R lessons/13-context-compaction/src/. src/`. Reactivating from a preserved reference restores that lesson's own single-crate module layout (no `src/lib.rs`); the 2026-11-11 shared-library split exists only in the current working copy. Teaching files must remain under the active lesson's content directory; missing files cause an error.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
