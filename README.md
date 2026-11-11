@@ -10,6 +10,41 @@ This repository consumes the public [`goose-providers`](https://crates.io/crates
 > [!IMPORTANT]
 > This course is under active development. The root source is the exercise currently being worked on and may be incomplete. The numbered lesson directories contain the accompanying explanations and complete reference implementations.
 
+## One-command infrastructure startup
+
+For the instructor-led workshops, `presentation/start-infra.sh` starts **everything** the final lessons need with a single command. Run it once at the beginning of a session; the later pieces (retrieval, evaluation) are not used until late, but everything is already up by then:
+
+```shell
+presentation/start-infra.sh
+```
+
+It starts, health-checks, and verifies four services:
+
+| Service | Endpoint | How it runs |
+|---|---|---|
+| PostgreSQL/pgvector with the preloaded 511-passage test corpus | `127.0.0.1:55432` | `podman` container `gdk-harrier-postgres` from the preloaded image; the script queries the corpus counts as `retrieval_reader` and expects 511 per collection |
+| MLflow tracking server (Lesson 14 evaluation traces) | `http://127.0.0.1:5000` | `podman` container `gdk-dev-mlflow` from a digest-pinned MLflow v3.17.1 image; traces persist in the `gdk-dev-mlflow` volume |
+| Qwen 3.6 tutor model (`qwen3.6-35b-a3b`) | `http://127.0.0.1:8080` | local `llama serve` process, same flags as the manual commands below |
+| Harrier embedding model | `http://127.0.0.1:9999` | local `llama-server` process, same flags as the manual commands below |
+
+The script is idempotent: rerunning it skips anything already healthy, and a port held by some other process is reported and left untouched rather than failing. The first tutor load can take a few minutes; subsequent starts are usually much faster.
+
+Other subcommands:
+
+```shell
+presentation/start-infra.sh status       # per-service health check; exit 0 means all four are up
+presentation/start-infra.sh restart      # stop everything, then start again
+presentation/start-infra.sh logs tutor   # also: harrier | postgres | mlflow
+```
+
+When the session is over:
+
+```shell
+presentation/start-infra.sh stop
+```
+
+`stop` terminates the two model processes via saved PID files (logs remain in `/tmp/gdk-presentation-infra/`), removes the `--rm` postgres container (its data lives in the image, so nothing is lost), and stops — but does not remove — the MLflow container so saved traces survive. Requirements: `podman` and the `llama`/`llama-server` CLI on `PATH`, as set up below.
+
 ## Who this is for
 
 The primary format is an **in-person course or workshop** led by an instructor. Lessons are small conceptual units, so several may be taught in one class session.
@@ -57,6 +92,8 @@ Rust concepts such as `Result`, `match`, ownership of conversation history, and 
 | 14 | Evaluate the complete agentic application | **Implemented; instructor review pending** | [Lesson](lessons/14-agent-evaluation/LESSON.md), [dataset catalog](lessons/14-agent-evaluation/DATASETS.md), [validation](lessons/14-agent-evaluation/VALIDATION.md) |
 
 ## Commands to run before the workshops
+
+Prefer `presentation/start-infra.sh` (above): it runs the same commands below and additionally starts the MLflow tracking server used by Lesson 14. The manual commands remain valid when you want to start services individually:
 ```shell
 llama serve   -hf unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q6_K_XL   --alias qwen3.6-35b-a3b   --host 127.0.0.1 --port 8080   --jinja   --reasoning-format deepseek   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0   --presence-penalty 1.5 --repeat-penalty 1.0   --gpu-layers all --kv-offload --flash-attn auto   --ctx-size 131072 --parallel 1   --batch-size 2048 --ubatch-size 512   --cache-prompt --metrics
 
@@ -71,6 +108,8 @@ podman run -d --rm \
 ```
 
 ## Commands to run after the workshops
+
+If you used `presentation/start-infra.sh`, stop everything with `presentation/start-infra.sh stop` instead. To stop only the container started by the manual command below:
 ```shell
 podman stop gdk-harrier-postgres
 
