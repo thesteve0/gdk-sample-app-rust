@@ -1,4 +1,4 @@
-// Lesson 12
+// Lesson 13
 use crate::{chooser::read_line, REPOSITORY_ROOT};
 use rmcp::model::{JsonObject, Tool};
 use serde::Deserialize;
@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 pub(super) const RECORD_TOOL: &str = "propose_learning_record";
-const MAX_RECORD_BYTES: usize = 32_768;
+pub(super) const MAX_RECORD_BYTES: usize = 32_768;
 const RECORD_FILE: &str = "learner-record.md";
 // The record is purposefully smaller than the transcript and remains editable Markdown.
 pub(super) fn record_path() -> PathBuf {
@@ -100,7 +100,7 @@ fn approval_value(input: Option<&str>) -> bool {
     }
 }
 
-fn markdown_note(text: &str) -> String {
+pub(super) fn markdown_note(text: &str) -> String {
     let mut escaped = String::new();
     for character in text.chars() {
         if "\\`*_{}[]<>#!|".contains(character) {

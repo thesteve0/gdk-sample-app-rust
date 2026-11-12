@@ -1,4 +1,4 @@
-// Lesson 12
+// Lesson 13
 use crate::{
     calculator::tool_definition, learning_record::record_tool_definition, ChatSession,
     LessonContext, REPOSITORY_ROOT,
@@ -80,7 +80,7 @@ impl DiagnosticLog {
         };
         self.block(heading, "text", &input.as_concat_text())?;
         self.block(
-            "Per-turn grounding state (set before this run; no retrieval on kickoff)",
+            "Per-turn grounding summary",
             "text",
             &session.turn_grounding.grounding_summary(),
         )?;
@@ -189,11 +189,12 @@ fn markdown_block(heading: &str, language: &str, text: &str) -> String {
 
 // Debug formatting includes fields that JSON serialization can omit.
 pub(super) fn session_fields(session: &ChatSession) -> String {
-    format!(
-        "id: {:?}\nconversation: {:#?}\nusage: {:#?}\napplied_passes: {:?}\nhalt_reason: {:?}\nlesson: {:#?}\nturn_grounding: {:#?}\n",
+    let existing = format!(
+        "id: {:?}\nconversation: {:#?}\nusage: {:#?}\napplied_passes: {:?}\nhalt_reason: {:?}\nlesson: {:#?}\n",
         session.id, session.conversation.messages(), session.usage,
-        session.applied_passes, session.halt_reason, session.lesson, session.turn_grounding,
-    )
+        session.applied_passes, session.halt_reason, session.lesson,
+    );
+    format!("{}revision: {:?}\ngenuine_reply_ids: {:#?}\nsettled_approvals: {:#?}\ncompleted_concepts: {:#?}\npolicy: {:#?}\nturn_grounding: {:#?}\nmaintenance: {:#?}\nmaintenance_report: {:#?}\n", existing, session.revision, session.genuine_reply_ids, session.settled_approvals, session.completed_concepts, session.policy, session.turn_grounding, session.maintenance, session.maintenance_report)
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 // Lesson 13
 use crate::{
-    calculator::tool_definition, learning_record::record_tool_definition, retrieval, ChatSession,
+    calculator::tool_definition, learning_record::record_tool_definition, ChatSession,
     LessonContext, REPOSITORY_ROOT,
 };
 use goose_agent::operation::messages_since_kickoff;
@@ -56,11 +56,6 @@ impl DiagnosticLog {
             "json",
             &serde_json::to_string_pretty(&tool_definition())?,
         )?;
-        self.block(
-            "Available educational retrieval definition",
-            "json",
-            &serde_json::to_string_pretty(&retrieval::tool_definition())?,
-        )?;
         if context.persistence_enabled {
             self.block(
                 "Available proposal definition",
@@ -84,6 +79,11 @@ impl DiagnosticLog {
             "Learner input → application → provider"
         };
         self.block(heading, "text", &input.as_concat_text())?;
+        self.block(
+            "Per-turn grounding summary",
+            "text",
+            &session.turn_grounding.grounding_summary(),
+        )?;
         self.block(
             "Complete Session before run",
             "rust",
@@ -194,7 +194,7 @@ pub(super) fn session_fields(session: &ChatSession) -> String {
         session.id, session.conversation.messages(), session.usage,
         session.applied_passes, session.halt_reason, session.lesson,
     );
-    format!("{}revision: {:?}\ngenuine_reply_ids: {:#?}\nsettled_approvals: {:#?}\ncompleted_concepts: {:#?}\npolicy: {:#?}\nmaintenance: {:#?}\nmaintenance_report: {:#?}\n", existing, session.revision, session.genuine_reply_ids, session.settled_approvals, session.completed_concepts, session.policy, session.maintenance, session.maintenance_report)
+    format!("{}revision: {:?}\ngenuine_reply_ids: {:#?}\nsettled_approvals: {:#?}\ncompleted_concepts: {:#?}\npolicy: {:#?}\nturn_grounding: {:#?}\nmaintenance: {:#?}\nmaintenance_report: {:#?}\n", existing, session.revision, session.genuine_reply_ids, session.settled_approvals, session.completed_concepts, session.policy, session.turn_grounding, session.maintenance, session.maintenance_report)
 }
 
 #[cfg(test)]

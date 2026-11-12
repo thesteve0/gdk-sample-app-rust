@@ -6,7 +6,7 @@ Continue a learning conversation without sending an ever-growing transcript to t
 
 Use the complete supplied Lesson 13 reference and root working copy, including the compaction, retrieval, concurrency and presentation helpers. **No missing Rust scaffolding is assigned.** The classroom rhythm is predict → run → explain → tweak → run again. Day trading remains introductory education, not a trading recommendation or competence certification.
 
-**Implementation supplied; instructor review pending.** The complete source and policy are supplied; the validation record below distinguishes checks from remaining gaps. Historical planning-only wording in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) precedes this task, not a claim that validation has occurred. This preserved Lesson 13 reference does not include Lesson 14 instrumentation; [Lesson 14](../14-agent-evaluation/LESSON.md) is separately authorized and implemented. The combined modularization pass finishes with root activated from Lesson 14, not this reference.
+**Implementation supplied; instructor review pending.** The complete source and policy are supplied; the validation record below distinguishes checks from remaining gaps. Historical planning-only wording in [PLAN.md](PLAN.md) and [the handoff](../final-lessons-handoff.md) precedes this task, not a claim that validation has occurred. This preserved Lesson 13 reference does not include Lesson 14 instrumentation; [Lesson 14](../14-agent-evaluation/LESSON.md) is separately authorized and implemented. Lesson 12 is complete. This continuation uses its final automatic retrieval and acknowledgment behavior plus a newly approved RAG-only Rust library; Lesson 13 remains pending instructor review. The current source map below supersedes earlier layouts, not their dated evidence.
 
 ## Concepts introduced
 
@@ -24,7 +24,7 @@ A **context window** is the bounded input a model can consider in one inference.
 
 **Genuine learner provenance** means a statement came from an actual learner reply, with its original identity and role. A summary quoting that reply is derived text, not a second genuine reply. Book excerpts, tool output, application opening messages and local commands are not eligible learner quotations.
 
-A **safe boundary** is a point where an older complete exchange can be replaced without splitting pending tool work or disrupting current-turn inspection and local approvals. An **exchange** includes a genuine learner reply and the tutor's completed response, including any intervening correlated tool requests/results. Requests and responses must remain together.
+A **safe boundary** is a point where an older complete exchange can be replaced without splitting pending tool work or disrupting current-turn inspection and local approvals. An **exchange** starts with one genuine learner reply and includes its completed tutor attempt(s), application reminder if needed, and correlated tool requests/results. Both attempts belong to that same genuine exchange. Pair validation uses each protocol kickoff window, so a calculator ID may be reused across attempts without splitting or confusing either pair. Requests and responses must remain together.
 
 An **Operation** is a GDK decision unit that examines state and proposes work. An **Effect** describes a change that the application runtime applies. The compaction Operation prepares a replacement; its replacement Effect changes working history only after validation. An **Event** is live presentation activity, not that saved change. GDK still owns re-evaluation through `StateMachine::run`; this application supplies the policy, not full Goose's automatic compaction assembly.
 
@@ -42,7 +42,7 @@ mkdir src
 cp -R lessons/13-context-compaction/src/. src/
 ```
 
-This intentionally replaces the exercise copy. No backup/restore or final hello-world reset is required. Preserve unrelated work outside `src/`; the combined Lessons 12–14 pass ultimately leaves root matching Lesson 14. To run this activated Lesson 13 copy:
+This intentionally replaces the exercise copy. No backup/restore or final hello-world reset is required. Preserve unrelated work outside `src/`. Activate Lesson 13 only when taking this lesson; do not reset or automatically advance to another lesson. To run this activated Lesson 13 copy:
 
 ```bash
 umask 077
@@ -58,9 +58,9 @@ Maintenance checks, not classroom fill-ins:
 
 ```bash
 cargo fmt --check
-cargo check
+cargo check --all-targets
 cargo clippy --all-targets
-cargo test
+cargo test --all-targets
 cargo build
 ```
 
@@ -68,44 +68,70 @@ The lesson sources share the root manifest; they are not a separate Cargo packag
 
 ## Supplied module map and teaching reading path
 
-A **Rust module** groups related code under a local name. Here modules keep previously taught mechanics and supplied support out of the main teaching path; they do not create a shared course library or a new application framework. A declaration such as `mod calculator;` loads the sibling `calculator.rs`. The first support declarations in [main.rs](src/main.rs) are:
+A **Rust module** groups related code under a local name. A **library target** compiles reusable code as a separate crate within this same Cargo package; the binary target owns the interactive application. This is not a new workspace, framework or shared course service. The library contains only previously taught retrieval-augmented generation (**RAG**) support: retrieving relevant text and supplying it as evidence for generation. Selection, context assembly and every Lesson 13 authority decision remain in the binary.
+
+After defining that boundary, read [lib.rs](src/lib.rs):
 
 ```rust
-mod calculator;
-mod chooser;
-mod diagnostics;
-mod learning_record;
-mod presentation;
-mod provider_setup;
+pub mod rag;
 ```
 
-The same main file also declares the cohesive `compaction` and `retrieval` modules and a test-only `tests` module. A **child test module** keeps tests beside the production module they exercise without splitting that module's algorithm. For example, `compaction.rs` ends with `#[cfg(test)] mod tests;`, which loads `compaction/tests.rs` only for tests. All supplied Rust files start with `// Lesson 13`.
+The binary imports this library through `gdk_hello::rag`. A library cannot read binary-crate constants: main therefore supplies service defaults and retrieval limits through `retrieval_defaults()`/`RetrievalDefaults`, selection policy through `grounding_policy()`/`GroundingPolicy`, the authored contract to `TurnGrounding::prompt_part`, and the model-name bound to `validate_local_tutor`. Environment overrides still apply. Fixed protocol, collection/profile/model identities and SQL safety checks remain library implementation details, not adjustable classroom defaults.
+
+Compaction is deliberately **binary-local**, not part of the reusable RAG library. Main's `compaction_policy()` supplies a `compaction::Policy` to `Policy::from_env`; `compaction.rs` can also import its binary parent's summary, ledger and safety constants. Do not confuse this local module access with library access to main.
+
+A **grounding policy** is the application's choice of similarity cutoff, maximum grounded statements and retrieval-response token budget. Main constructs it, rather than making those teaching choices library defaults:
+
+```rust
+fn grounding_policy() -> GroundingPolicy {
+    GroundingPolicy {
+        min_similarity: grounding_threshold(),
+        max_statements: GROUNDING_MAX_STATEMENTS,
+        token_budget: GROUNDING_TOKEN_BUDGET,
+    }
+}
+```
+
+`retrieval_defaults()` similarly passes the service origins/reader connection and `RetrievalLimits` to `Retrieval::from_env_with`. Keep the credential-bearing constructor off the projector.
+
+A **child test module** is a test file owned by its production module; `#[cfg(test)] mod tests;` in `compaction.rs` loads `compaction/tests.rs`. Every supplied Rust source starts `// Lesson 13`.
 
 | Complete source map | Responsibility |
 | --- | --- |
-| [main.rs](src/main.rs) | Context loading/prompt assembly; selection and commands; Session, authoritative state, provenance and revisions; preflight/maintenance call sites; runtime/Effects; concurrent Events; dispatch/allowlists/limits; evidence budget, tool registration and current-turn citation inspection; successful-run inspection and local approval order. |
-| [compaction.rs](src/compaction.rs) | Cohesive declaration, ordinary-content projection, partition/budget policy, isolated summary run, revision-checked replacement and maintenance implementation. |
-| [compaction/tests.rs](src/compaction/tests.rs) | Child tests for compaction, declarations, provenance, budgets, revision and failure boundaries. |
-| [retrieval.rs](src/retrieval.rs) | Cohesive local read-only retrieval, transport/profile/provenance validation, token accounting and cancellation/Drop guards. |
-| [retrieval/tests.rs](src/retrieval/tests.rs) | Child retrieval tests, including the explicitly opt-in actual-service test. |
-| [calculator.rs](src/calculator.rs) | Inherited exact-decimal calculator/schema/validation and local tests. |
-| [chooser.rs](src/chooser.rs) | Inherited arrow/numbered chooser, line input and raw-mode cleanup. |
-| [diagnostics.rs](src/diagnostics.rs) | Inherited plain Markdown diagnostics, complete Session formatting and local tests; never learner memory. |
-| [learning_record.rs](src/learning_record.rs) | Inherited record types/schema, bounded read/append and confirmation-input mechanics, with local tests; no model write authority. |
-| [presentation.rs](src/presentation.rs) | Inherited terminal styles/gates and `TerminalProse`, with local tests; not Event consumption or saved-text rewriting. |
-| [provider_setup.rs](src/provider_setup.rs) | Inherited provider path and first-configured-model selection. |
-| [tests.rs](src/tests.rs) | Main's test-only application/runtime/dispatch/approval/Event/citation tests, including the opt-in same-snapshot live search test. |
+| [main.rs](src/main.rs) | Classroom constants/policy construction; context/prompt assembly; selection/commands; Session, authoritative state/provenance/revisions; retrieval/preflight/atomic append and maintenance call sites; runtime/Effects; concurrent Events; tools/limits; attempt/escalation/inspection and approval lifecycle. |
+| [lib.rs](src/lib.rs), [rag/mod.rs](src/rag/mod.rs) | Library target and public RAG module/exports only. |
+| [rag/grounding.rs](src/rag/grounding.rs) | Per-question retrieval preparation, threshold selection and ephemeral evidence/prompt formatting; no Session mutation or note authority. |
+| [rag/citations.rs](src/rag/citations.rs) | Lexical acknowledgment classification, selected-ID warnings and citation footer; not semantic support verification. |
+| [rag/transport.rs](src/rag/transport.rs) | Literal-loopback tutor, proxy/redirect and declared-output-override checks. |
+| [rag/retrieval.rs](src/rag/retrieval.rs) | Cohesive read-only retrieval, runtime/profile/provenance checks, tokenizer accounting and cancellation/Drop guards. |
+| [rag/tests.rs](src/rag/tests.rs), [rag/retrieval/tests.rs](src/rag/retrieval/tests.rs) | Library boundary and retrieval tests, including opt-in `live_local_smoke`. |
+| [compaction.rs](src/compaction.rs), [compaction/tests.rs](src/compaction/tests.rs) | Binary-local declarations, projection/partition/budgets, isolated summary, revision-checked replacement, maintenance and child tests. |
+| [calculator.rs](src/calculator.rs) | Binary-local exact-decimal calculator/schema/validation and local tests. |
+| [chooser.rs](src/chooser.rs) | Binary-local selection/input/raw-mode cleanup. |
+| [diagnostics.rs](src/diagnostics.rs) | Complete plain Markdown diagnostics and local tests; never learner memory. |
+| [learning_record.rs](src/learning_record.rs) | Record types/schema/storage/confirmation mechanics and local tests; not permission to write. |
+| [presentation.rs](src/presentation.rs) | Styles/gates/`TerminalProse` and local tests; not Event consumption or saved-text rewriting. |
+| [provider_setup.rs](src/provider_setup.rs) | Provider path/first-model support, still binary-local. |
+| [tests.rs](src/tests.rs) | Application/runtime/dispatch/approval/orchestration tests, including opt-in `live_forced_grounding_obeys_budget_and_current_turn_selection`. |
 
 **Teaching reading path:**
 
-1. Begin in `main.rs`: `LessonContext::load`, `run_learning_partner` and `reply_action`. Trace consent, fresh selection, `/learned`, declaration-before-maintenance and automatic preflight-before-genuine-reply append. Context assembly stays here, not in support modules.
-2. Read `ChatSession`, `ChatRuntime`, its append/policy methods and Effect handler. Identify genuine reply IDs, settled approvals, revisions and application authority before visiting compaction internals.
-3. Follow the `compaction::BudgetPreparer`/maintenance wiring from main into `compaction.rs`: projection → partition → isolated summary → validation → `apply_outcome` revision check. Return to main's `ChatEffect::Maintenance` application boundary. Compaction stays cohesive, not scattered into generic helpers.
-4. Follow `run_turn`, `cooperative_run` and `display_events_bounded`: GDK run and Event consumption execute concurrently; sender closure, draining, saved partial-state diagnostics, successful run and `inspect_turn` precede approval. Event consumption and cancellation ordering remain visible in main, not `presentation.rs`.
-5. Read `EvidenceBudget`, `RetrievalToolProvider`, `LossToolProvider`, `SafeTools`, `RunLimit` and `inspect_citations` in main. Visit `retrieval.rs` only for its supplied cohesive implementation; visit `calculator.rs` to recall the already-taught decimal tool. Current-turn citation/evidence decisions and tool registration remain in main.
-6. Finish in main with `parse_record_proposal`, `approval_pending` and `approve_record_proposals`: retained genuine-learner-source validation → independent default-no decision after successful inspection → decision log → approved append call → Session record refresh/revision → settled decision/revision → complete post-approval diagnostics. Storage/confirmation mechanics are support, not permission. Read the three separate test files and module-local inline tests as boundary evidence, not class fill-ins.
+1. Start in main: `LessonContext::load`, `run_learning_partner`, `reply_action`, and the three policy/default constructors. Trace fresh selection/consent and `/learned` before opening support files.
+2. Trace `prepare_turn_grounding` → `compaction::prospective_bytes` → optional `compaction::maintain` with `PendingReply` → `ChatRuntime::append_grounded_user`. Then read `ChatSession::prompt_parts`, the runtime's revision/genuine-ID ledgers and separate `append_application` boundary.
+3. Follow `BudgetPreparer` and maintenance into compaction's projection → partition → isolated summary → validation → `apply_outcome`; return to `ChatEffect::Maintenance`. Compaction/provenance stay application-owned.
+4. Trace `run_turn` → `run_attempt` → `cooperative_run` with concurrent `display_events_bounded`, sender closure/draining, partial diagnostics and `inspect_turn`. A successful first attempt settles approvals before any one-time reminder; an unsuccessful/incomplete attempt cannot approve or escalate.
+5. Read main's `LossToolProvider`, `SafeTools` and `RunLimit`. Retrieval is automatic before genuine questions, **not a model search tool**: there is no `RetrievalToolProvider` or `EvidenceBudget`. Visit the library only for the reusable retrieval/grounding/citation mechanics; decisions to append, inspect, retry and approve remain in main.
+6. Finish with `parse_record_proposal`, `approval_pending`, `approve_record_proposals`: genuine-source validation → successful-run inspection → independent default-no decision → decision log → approved append → Session record refresh/revision → settled decision/revision → post-approval diagnostics. Read tests as boundary evidence, not class fill-ins.
 
-The six inherited support modules are supplied unchanged in behavior. Modularization changes reading locations and visibility/import boundaries, not prompts, policy, limits, authority, privacy or runtime behavior.
+Activation must copy the **complete recursive tree**, including `lib.rs`, `rag/` and child test directories, not just main or top-level files. The instructor calibration example now imports `gdk_hello::rag::retrieval` and needs this library layout active; these checks do not establish all-target compatibility when an older lesson without that library is activated.
+
+## 13.0 — Carry forward Lesson 12 grounding
+
+A **grounding attachment** is the selected book evidence for one genuine learner question, kept separately from conversation history. Before recording that question, the application performs one retrieval: default similarity threshold **0.55**, at most **three excerpts**, **2,500 tutor-token serialized search-response budget**, and **1,000 tutor tokens per excerpt**. These token limits are distinct from compaction's byte estimate. The threshold is provisional, not a relevance or truth guarantee. Kickoff, blank input and local commands do not trigger this question retrieval. The model cannot elect to skip it or request arbitrary SQL/search.
+
+An **acknowledgment** is a visible citation or explicit decline of supplied excerpts. `ChatSession::prompt_parts` places the authored source-grounding contract first. A grounded answer must cite used excerpts with their exact `[source:<id>]` markers, or state that they did not support the answer with `[source:none]`. Evidence replaces the previous question's attachment and is not appended as a learner message.
+
+An **attempt** is one bounded GDK run for the current question. `run_turn` classifies its successful final answer through `grounding_outcome`. A silent ignore receives **exactly one** application-authored reminder and a second attempt, with the same evidence and fresh attempt bounds; no third attempt occurs, even if the second answer silently ignores it too. Before appending that reminder, the application settles first-attempt proposals under the original learner quotation window. `append_application` does not add a genuine learner ID. Cite/decline contradictions and unselected source IDs are warnings, not more retries. Lexically, any non-sentinel citation counts as `Cited`; membership is checked separately, and neither check proves the adjacent claim is supported.
 
 ## 13.1 — Predict the three domains
 
@@ -139,6 +165,17 @@ Ordinary note proposals remain separate: strict actual-learner quotation, succes
 
 The application retains the original opening and the **latest two complete genuine learner exchanges**, including their tool pairs, original message IDs and metadata. It summarizes only eligible older history. At later compactions, the previous summary and newly eligible history produce **one replacement summary**, not an accumulating stack of summaries.
 
+An optional **pending reply** is the upcoming genuine question and its selected grounding attachment, not yet recorded in history. `PendingReply` makes prospective maintenance count that question and replacement attachment before and after compaction. It does not make either item summary source material: isolated summary input contains only eligible historical messages, never the pending question or current evidence. `append_grounded_user` then validates a candidate containing both question and attachment before atomically changing stored history/evidence/genuine IDs and revision. A refused append leaves those unchanged. After defining the pending reply, inspect this focused argument from main's automatic `compaction::maintain` call:
+
+```rust
+Some(compaction::PendingReply {
+    input: input.clone(),
+    grounding: grounding.clone(),
+}),
+```
+
+Then follow `append_grounded_user` to its candidate-budget check **before** any stored assignment. This order prevents a newly appended question from falsely becoming an incomplete historical exchange during maintenance.
+
 The summary is assistant-derived, fallible **data**, not a genuine learner message or higher-priority prompt instruction. Common instructions, teaching guidance and consented record context stay separate. Summary generation uses a **tool-free isolated inference coordinated through the GDK**: it cannot search, calculate, propose notes or authorize writes. Its generated text is checked before the replacement Effect is applied.
 
 The summarizer now receives an **ordinary-content projection**: a temporary input view with original message IDs, speaker roles and explicit provenance labels. Genuine learner replies are identified using application-owned reply IDs, not user role alone. Tutor text is labeled as explanation, prior summaries as fallible derived data, and tool requests/results as correlated historical data. Provider reasoning, redacted reasoning and internal message metadata are excluded from this view; originals remain unchanged in stored history and diagnostics. The projected request plus source-boundary instructions and editable guidance is checked against the same input allowance.
@@ -165,7 +202,7 @@ If preparation, validation or revision checking fails, the original working hist
 
 **Quotation boundary:** a model proposal may quote only retained real learner replies. It may not quote the summary, a tool response, the opening or a command. Once an old real reply is no longer retained, its summary quotation does not restore eligibility. This bounded provenance rule trades older quotation availability for safe shortening.
 
-**Citation boundary:** historical passage IDs in a summary are reminders of past evidence, not current citation support. If a later answer needs book evidence, search again during that learner turn. A valid old ID cannot substitute for the actual returned excerpt, its clipping and source qualifications.
+**Citation boundary:** historical passage IDs in a summary are reminders of past evidence, not current citation support. Each later genuine learner question triggers a new retrieval before append; only that question's selected attachment can support its current citations. A valid old ID cannot substitute for the actual returned excerpt, its clipping and source qualifications.
 
 ## 13.4 — Observe the conservative budget
 
@@ -177,11 +214,12 @@ The supplied application policy is:
 | Default automatic compaction trigger | 60,000 bytes; adjustable by `COMPACTION_TRIGGER_BYTES` |
 | Generated summary | At most 6,000 UTF-8 bytes; model output request capped at 4,096 tokens |
 | One compaction attempt | 180-second deadline, up to 5-second cooperative cancellation grace; no repeated attempt loop |
-| Existing ordinary tutor run | Four aggregate tool requests, eight applied work passes plus possible halt batch; 180-second deadline plus ≤5-second cancellation grace |
+| Each tutor attempt (at most two per genuine question) | Four aggregate tool requests, eight applied work passes plus possible halt batch; 180-second deadline plus ≤5-second cancellation grace; fresh bounds on the one permitted escalation |
+| Per-question retrieval | One search before append; threshold 0.55, at most three excerpts, 2,500 serialized-response tokens and 1,000 tokens per excerpt |
 
 The trigger must be a positive integer at most 84,000. Eligible older serialized history must contain at least 8,000 bytes, with more than two genuine complete learner exchanges overall. A candidate must save at least 1,024 bytes and reduce total measured input by at least 10%, while still fitting the input allowance. Otherwise history remains unchanged.
 
-The conservative estimate counts native serialized static instructions, consented record/declaration context, tool definitions and messages including metadata. It adds a JSON-string allowance for each tool-call argument object (OpenAI serializes these again), conservative thinking replay, 512 bytes per message/content block/tool, and a 4,096-byte model/options/stream envelope allowance. Ordinary escaped text is not duplicated wholesale. A fixture compares it with the pinned OpenAI formatter on escape-heavy calls. This is not an exact wire capture, a proof of an upper bound for arbitrary providers, or tokenizer accounting; preserve the local provider restrictions and reserved headroom. Guard **every inference**, including the isolated summarization request; do not count only conversation prose. Tutor requests also cap output at 4,096 tokens, with 65,536 cumulative streamed text bytes and 2,000,000 serialized Event bytes per ordinary turn. The summary has the same Event-byte cap but a 6,000-byte text cap. Truncated/cancelled answers cannot authorize proposal approval or summary replacement. Provider reasoning metadata is allowed for inspection but only ordinary text becomes summary data; reasoning-only output fails. Per-turn retrieval tokens remain a separate Lesson 12 cap. Serialized bytes are not model tokens, an exact context-window size or a promise that every provider accepts that amount. The unchanged provider JSON declares no context limit. The local tutor reported 131,072 tokens and one slot during validation, but that observation is not a portable capacity promise or exact full-request count. Declared model request parameters that could override output limits are rejected; this is not a general configurable-provider lesson.
+The conservative estimate counts native serialized static instructions, consented record/declaration context, tool definitions and messages including metadata. It adds a JSON-string allowance for each tool-call argument object (OpenAI serializes these again), conservative thinking replay, 512 bytes per message/content block/tool, and a 4,096-byte model/options/stream envelope allowance. Ordinary escaped text is not duplicated wholesale. A fixture compares it with the pinned OpenAI formatter on escape-heavy calls. This is not an exact wire capture, a proof of an upper bound for arbitrary providers, or tokenizer accounting; preserve the local provider restrictions and reserved headroom. Guard **every inference**, including the isolated summarization request; do not count only conversation prose. Tutor requests also cap output at 4,096 tokens, with 65,536 cumulative streamed text bytes and 2,000,000 serialized Event bytes per tutor attempt. The summary has the same Event-byte cap but a 6,000-byte text cap. Truncated/cancelled answers cannot authorize proposal approval or summary replacement. Provider reasoning metadata is allowed for inspection but only ordinary text becomes summary data; reasoning-only output fails. The 2,500-token serialized retrieval-response budget and 1,000-token excerpt cap remain separate; the upcoming selected attachment is included in prospective byte counting, not summarized as historical dialogue. Serialized bytes are not model tokens, an exact context-window size or a promise that every provider accepts that amount. The unchanged provider JSON declares no context limit. The local tutor reported 131,072 tokens and one slot during validation, but that observation is not a portable capacity promise or exact full-request count. Declared model request parameters that could override output limits are rejected; this is not a general configurable-provider lesson.
 
 Automatic compaction happens at a safe boundary when eligible history and the trigger permit it. It does not ask the model to keep compacting until something fits. If static content, retained exchanges or summary input cannot fit safely, the application stops rather than sending oversized input or silently dropping protected messages. At deadline the application cancels cooperatively and polls for at most five more seconds to let the pinned SDK save available partial Effects/usage. If hard-aborted, received usage may be unavailable and is reported honestly. Timeout/cancellation is not proof that a service stopped doing work.
 
@@ -193,7 +231,7 @@ After actual compaction, ask: “What question was I still unsure about, and wha
 
 Optionally ask for maximum planned loss at entry `51.20`, stop `50.70`, `200` shares. Expect the preserved exact-decimal calculator to return **$100.00**, excluding fees, slippage and gaps. This is not statistical expected loss or a guaranteed realized ceiling. Inspect actual tool selection/correlation; do not force a request or hide a wrong result. If that exchange later becomes eligible for summary, verify that the qualifications survive.
 
-Ask a fresh source-grounded question such as “What do the supplied books say about liquidity and the bid-ask spread?” Predict a new search before citations, not reuse of summary IDs. Inspect current returned passages and adjacent claims separately: citation membership does not prove semantic support.
+Ask a fresh source-grounded question such as “What do the supplied books say about liquidity and the bid-ask spread?” Predict one application-driven retrieval before the genuine question is appended, not a model search request or reuse of summary IDs. Inspect current returned passages and adjacent claims separately: citation membership does not prove semantic support.
 
 ## 13.6 — Tweak and run again
 
@@ -206,7 +244,7 @@ Guidance is model input, not a hard enforcement mechanism. Do not relax source/p
 
 ## Diagnostics, privacy and unchanged boundaries
 
-`session-output.md` is private plain Markdown overwritten at launch, never read as learner memory. It should retain complete Session Debug fields/defaults/nested metadata and usage, loaded guidance/context, compaction reason and counting method, before/after sizes, eligible history/source coverage, summary, replacement/revision decisions, approvals, correlated tools/results, assembled answers and available partial failures. Diagnostics can contain learner words and private book excerpts. Git ignore is not encryption or access control; obtain permission and sanitize before projecting.
+`session-output.md` is private plain Markdown overwritten at launch, never read as learner memory. It should retain complete Session Debug fields/defaults/nested metadata and usage, loaded guidance/context, selected grounding/candidates and outcome, each attempt's exact prepared system prompt, compaction reason and counting method, before/after sizes, eligible history/source coverage, summary, replacement/revision decisions, approvals, correlated tools/results, assembled answers and available partial failures. BudgetPreparer checks the full prepared input before capturing its exact system prompt; a capture is not proof the request reached the network/provider. Diagnostics can contain learner words and private book excerpts. Git ignore is not encryption or access control; obtain permission and sanitize before projecting.
 
 The learner UI stays simple: Tutor/Learner labels, brief status, ordinary streamed text and readable source markers. No application-added fences, arrows, raw arguments, IDs, summaries or Session dumps. Course colors are presentation-only, with independent stdout/stderr gating and plain fallback for redirection, any `NO_COLOR` and `TERM=dumb`. Saved/provider content stays unchanged. Log/storage failures stop the application; compaction adds no transactional or crash-recovery guarantee.
 
@@ -290,10 +328,42 @@ The three editable content files retain this lesson's own capability and authori
 Validation for this content-only revision: static scope/capability/original-section checks passed across Lessons 10–14. The active Lesson 12 context-loading test and all-target tests passed (41 application tests and seven unchanged dataset-seeder tests; two opt-in real-service tests were not run). No new live teaching, approval, retrieval, compaction or telemetry validation is claimed.
 
 
-## Root-only library split — 2026-11-11
+## Historical root-only library split — 2026-11-11 (withdrawn)
+
+> Historical record only. The Lesson 12 restoration withdrew this broad support-library layout. The approved RAG-only continuation below supersedes it; calculator/chooser/presentation/provider support remain binary-local. Its root/reference/telemetry statements describe that earlier checkpoint, not the current source map.
 
 After this lesson's modularization, the instructor approved a root-only extraction that separates previously taught support from the Lesson 13 focus. The active root now declares a library target in `src/lib.rs` (`gdk_hello`) owning `calculator`, `chooser`, `evidence`, `presentation`, `provider_setup` and `retrieval`; `main.rs` keeps the Lesson 13 application (compaction, diagnostics, learning_record, providers, runtime, limits, evidence/citation decisions and approvals) and consumes the library through `use gdk_hello::…`. The `RetrievalToolProvider` and `LossToolProvider` remain in main.
 
 A Rust **library target** compiles as its own crate inside the same package, so its modules cannot read binary-crate constants. The application therefore passes classroom defaults into library calls as parameters: `Retrieval::from_env_with(RetrievalDefaults { database_url, embedding_url, tutor_url })` (environment variables still override each default) and `choose_lesson(LESSON_TITLE)`. The four RAG glue helpers moved verbatim into `evidence.rs` with their tests in `evidence/tests.rs`; behavior, output, limits and the 69-function test inventory are unchanged.
 
 Validation for this structural change: formatting, check, all-target Clippy, all-target tests and build passed; both opt-in actual-service tests passed against the live local services; the documented launch reached the chooser and exited on EOF. The preserved reference tree under this lesson's `src/` still shows the earlier single-crate module layout and is unchanged; activating this lesson from its reference reproduces that layout, not the library split. When the root later advances to Lesson 14, its telemetry source-hash inventory must be updated for the new lib/bin layout before telemetry evidence is trusted.
+
+
+## Final Lesson 12 RAG continuation and RAG-only library — 2026-11-11
+
+The instructor approved continuing from completed Lesson 12's final automatic grounding/acknowledgment implementation into Lesson 13, with a **RAG-only** library and main-owned policy passed as parameters. The current source map/reading path above describes the supplied continuation; the complete checked root source has been copied to the Lesson 13 reference and verified byte-identical. This supersedes the withdrawn broad root-only extraction, not the dated behavioral findings. Lesson 13 remains **implemented; instructor review pending**; Lesson 12's completion stands.
+
+### Structural checks and actual-service evidence
+
+- Formatting, all-target check/Clippy/tests and build passed: **105 deterministic application/library tests (25 library + 80 binary)**; two service tests ignored normally. **Seven unchanged dataset-seeder tests** also passed, with no catalog calls. New orchestration tests execute a real `StateMachine` with a scripted `Operation`, not a live provider: exactly two attempts/fresh bounds, reused actual calculator IDs, and no approval/escalation after error, halt, incomplete output or invalid first-attempt proposal. Pending/settled/revision/atomic-append boundaries are covered separately.
+- Both opt-in actual-service tests explicitly passed again after the scoped-approval fix: `live_local_smoke` and `live_forced_grounding_obeys_budget_and_current_turn_selection`. Library live testing requires the three service variables supplied explicitly (privately from main's defaults); do not echo the reader connection. The documented root launch accepted `q`, reached the chooser and exited **0**.
+- Live UI/conversation checks used a temporary staging package with byte-identical production sources; only Cargo's manifest-root location changed to isolate record/diagnostics. Root production sources were not altered for the runs. Plain, empty `NO_COLOR`, `TERM=dumb` and true colored-arrow modes, source question, blank input, ephemeral `/learned`, `/finish`/fresh selection and quit passed structurally. No real learner record was touched.
+- A fresh calculator-only turn produced a correlated **$100.00** and final explanation with exclusions. Consented `/learned` saved to a new **0600** record; an inspected exact stated-goal proposal was approved; a rejected goal preserved bytes; a fresh memory-declined Session excluded the saved record.
+- Live escalation **was exercised**: a rejected-note run first silently ignored supplied evidence; the local note decline occurred **before** the single reminder, then the second answer cited an exact source marker, without repeated approval/write. Another silent-ignore → `[source:none]` second answer was recorded as a decline; no third attempt occurred. A lexical acknowledgment still does not establish correct source support.
+
+### Compaction, controlled stop and remaining teaching findings
+
+With the rehearsed **50,000-byte trigger** (default remains **60,000**), a successful run reduced prospective input **79,546 → 64,475 estimated bytes**, then answered a fresh journal question with grounding in the **same Session**, exit **0**. Another run reduced **78,338 → 62,589** and ended with a valid decline, exit **0**. Uncertainty/activity follow-ups recalled the gap question/comparison **before** final compaction; they were not re-tested after that compaction. Do not claim a new post-compaction uncertainty/scope pass from the successful source follow-up alone.
+
+An initial long run compacted prospective input **75,912 → 62,372**, then calculated **$100.00**, but a subsequent inference was refused at **86,314 > 84,000** estimated input bytes. There was **no final answer or new approval**; history was not silently truncated and partial diagnostics survived. Other runs honestly no-op'd because fewer than **8,000 eligible older serialized bytes** existed. Compaction is neither guaranteed after N turns nor a mid-attempt rescue or promise that protected context will fit.
+
+Retain observed defects: wrong/unselected citation IDs warned; `[source:none]` on an ungrounded answer warned; execution wording included **“certainty of leaving”** despite guidance; source-scope/emotional-support claims were embellished; the tutor echoed raw proposal-acknowledgment wording; a consented welcome ignored loaded memory. Historical semantic findings and earlier failure evidence above remain relevant. Any non-sentinel marker still counts lexically as `Cited`; membership warnings are separate, with no semantic verification or extra retries.
+
+No new live service-outage/failure injection, network-isolation, full-context/parity/corpus-quality benchmark, IDE/projector/teaching review, catalog write, dependency change or service restart is claimed. This evidence establishes specific structural/live outcomes, not semantic reliability, release approval or completed Lesson 14 evaluation.
+
+
+### Final scoped-approval and validation follow-up — 2026-11-11
+
+Settled note decisions now use the stable kickoff message ID together with the request ID, not a Session-global correlation ID. Five added regressions cover accepted/rejected prior decisions with reused IDs, independent new-proposal validation, and same-attempt pending-response scans. A reused ID cannot suppress a new local decision or make unsettled work compactable. The final inventory is 105 deterministic application/library tests plus seven unchanged seeder tests; both opt-in real-service tests passed again (17.05s library, 16.29s application). Formatting, all-target check/Clippy/tests and build remain warning-free. Complete root and Lesson 13 source trees match byte-for-byte.
+
+A final memory-run retry approved the inspected exact goal and saved `/learned`, then rejected a fresh proposal before escalation. The second attempt proposed another note but hit the unchanged input guard at 96,721 > 84,000; there was no final answer or second local approval, and partial diagnostics survived. This is additional failure evidence, not a successful whole-workflow rerun. A validation-harness artifact-reuse mistake initially ran a root-bound binary instead of the isolated one, created only the known test record (the root record was absent initially), and overwrote diagnostics. That known test record was removed and the pre-test diagnostic file restored; a forced isolated compilation and manifest-root verification preceded the retry. No pre-existing learner record was read or modified. Earlier isolated successes remain separate evidence; no fresh final colored/compaction rerun is claimed.

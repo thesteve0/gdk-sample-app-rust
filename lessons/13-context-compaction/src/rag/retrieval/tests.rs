@@ -1,15 +1,57 @@
-// Lesson 12
+// Lesson 13
 use super::*;
+
+fn limits() -> RetrievalLimits {
+    RetrievalLimits {
+        max_query_bytes: 2000,
+        max_http_bytes: 2 * 1024 * 1024,
+        sql_timeout: Duration::from_secs(5),
+        http_timeout: Duration::from_secs(15),
+        max_excerpt_tokens: 1000,
+        token_accounting_attempts: 8,
+    }
+}
 #[test]
 fn strict_query_and_bytes() {
-    assert_eq!(validate_query("public question"), Ok(()));
+    assert_eq!(
+        validate_query("public question", limits().max_query_bytes),
+        Ok(())
+    );
     for query in ["", " ", "\t", "ok\0hidden", &"é".repeat(1001)] {
         assert!(
-            validate_query(query).is_err(),
+            validate_query(query, limits().max_query_bytes).is_err(),
             "expected rejection: {:?}",
             query
         );
     }
+}
+#[test]
+fn caller_query_limit_counts_utf8_bytes() {
+    assert_eq!(validate_query("éé", 4), Ok(()));
+    assert_eq!(
+        validate_query("éé", 3),
+        Err("retrieval query must be nonblank and at most 3 UTF-8 bytes".to_string())
+    );
+    assert!(validate_query("a", 0).is_err());
+}
+#[test]
+fn caller_http_and_database_limits_are_retained() {
+    let mut configured = limits();
+    configured.max_http_bytes = 512;
+    configured.sql_timeout = Duration::from_millis(750);
+    let http = match LocalHttp::new(&[], configured) {
+        Ok(http) => http,
+        Err(failure) => panic!("{}", failure),
+    };
+    assert_eq!(http.max_http_bytes, configured.max_http_bytes);
+    let config = match database_config(
+        "host=localhost user=retrieval_reader",
+        configured.sql_timeout,
+    ) {
+        Ok(config) => config,
+        Err(failure) => panic!("{}", failure),
+    };
+    assert_eq!(config.get_connect_timeout(), Some(&configured.sql_timeout));
 }
 #[test]
 fn local_urls_reject_normalization_and_secrets() {
@@ -35,14 +77,14 @@ fn local_urls_reject_normalization_and_secrets() {
 }
 #[test]
 fn database_hosts_are_local() {
-    assert!(database_config("host=localhost user=retrieval_reader").is_ok());
+    assert!(database_config("host=localhost user=retrieval_reader", limits().sql_timeout).is_ok());
     for raw in [
         "host=example.com user=x",
         "host=/tmp user=x",
         "user=x",
         "host=localhost hostaddr=8.8.8.8",
     ] {
-        assert!(database_config(raw).is_err());
+        assert!(database_config(raw, limits().sql_timeout).is_err());
     }
 }
 #[test]
@@ -230,7 +272,19 @@ async fn cancelled_query_guard_terminates_driver() {
 #[tokio::test]
 #[ignore = "requires explicitly configured local reader, Harrier and tutor services"]
 async fn live_local_smoke() {
-    let retrieval = match Retrieval::from_env().await {
+    let database_url = env::var("RETRIEVAL_DATABASE_URL")
+        .expect("set RETRIEVAL_DATABASE_URL explicitly for this ignored real-service test");
+    let embedding_url = env::var("HARRIER_URL")
+        .expect("set HARRIER_URL explicitly for this ignored real-service test");
+    let tutor_url =
+        env::var("TUTOR_URL").expect("set TUTOR_URL explicitly for this ignored real-service test");
+    let defaults = RetrievalDefaults {
+        database_url: &database_url,
+        embedding_url: &embedding_url,
+        tutor_url: &tutor_url,
+        limits: limits(),
+    };
+    let retrieval = match Retrieval::from_env_with(defaults).await {
         Ok(value) => value,
         Err(error) => panic!("{}", error),
     };
@@ -263,7 +317,7 @@ async fn live_local_smoke() {
             Ok(value) => value,
             Err(error) => panic!("{}", error),
         };
-        assert!(counted <= 1000);
+        assert!(counted <= limits().max_excerpt_tokens);
     }
     let limited = match retrieval.search("What does a stop order do?", 400).await {
         Ok(value) => value,
@@ -278,8 +332,16 @@ async fn live_local_smoke() {
 }
 
 #[test]
-fn classroom_defaults_are_valid_local_reader_and_service_settings() {
-    let config = match database_config(crate::RETRIEVAL_DATABASE_URL) {
+fn caller_defaults_are_valid_local_reader_and_service_settings() {
+    // Synthetic settings test parameter plumbing without copying the classroom credential.
+    let defaults = RetrievalDefaults {
+        database_url:
+            "host=127.0.0.1 user=retrieval_reader dbname=harrier port=55432 password=fixture",
+        embedding_url: "http://127.0.0.1:9999",
+        tutor_url: "http://127.0.0.1:8080",
+        limits: limits(),
+    };
+    let config = match database_config(defaults.database_url, defaults.limits.sql_timeout) {
         Ok(config) => config,
         Err(failure) => panic!("{}", failure),
     };
@@ -287,7 +349,7 @@ fn classroom_defaults_are_valid_local_reader_and_service_settings() {
     assert_eq!(config.get_dbname(), Some("harrier"));
     assert_eq!(config.get_ports(), &[55432]);
     assert!(config.get_password().is_some());
-    for (raw, expected_port) in [(crate::HARRIER_URL, 9999), (crate::TUTOR_URL, 8080)] {
+    for (raw, expected_port) in [(defaults.embedding_url, 9999), (defaults.tutor_url, 8080)] {
         let url = match validate_local_url(raw) {
             Ok(url) => url,
             Err(failure) => panic!("{}", failure),
@@ -296,15 +358,15 @@ fn classroom_defaults_are_valid_local_reader_and_service_settings() {
     }
     // Use an invalid environment name: it cannot be set, so no process-global mutation is needed.
     assert_eq!(
-        environment("LESSON_DEFAULT_TEST=ABSENT", crate::RETRIEVAL_DATABASE_URL),
-        Ok(crate::RETRIEVAL_DATABASE_URL.to_string())
+        environment("LESSON_DEFAULT_TEST=ABSENT", defaults.database_url),
+        Ok(defaults.database_url.to_string())
     );
     assert_eq!(
-        environment("LESSON_DEFAULT_TEST=ABSENT", crate::HARRIER_URL),
-        Ok(crate::HARRIER_URL.to_string())
+        environment("LESSON_DEFAULT_TEST=ABSENT", defaults.embedding_url),
+        Ok(defaults.embedding_url.to_string())
     );
     assert_eq!(
-        environment("LESSON_DEFAULT_TEST=ABSENT", crate::TUTOR_URL),
-        Ok(crate::TUTOR_URL.to_string())
+        environment("LESSON_DEFAULT_TEST=ABSENT", defaults.tutor_url),
+        Ok(defaults.tutor_url.to_string())
     );
 }

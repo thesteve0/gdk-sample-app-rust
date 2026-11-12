@@ -10,6 +10,8 @@ This repository consumes the public [`goose-providers`](https://crates.io/crates
 > [!IMPORTANT]
 > This course is under active development. The root source is the exercise currently being worked on and may be incomplete. The numbered lesson directories contain the accompanying explanations and complete reference implementations.
 
+**Current working copy (2026-11-11): Lesson 13 with the same-package RAG-only library.** See [root source](#root-source) and [current workflow](#current-root-workflow); these supersede older dated activation descriptions below. Lessons 1–12 are complete; Lessons 13–14 await instructor review.
+
 ## One-command infrastructure startup
 
 For the instructor-led workshops, `presentation/start-infra.sh` starts **everything** the final lessons need with a single command. Run it once at the beginning of a session; the later pieces (retrieval, evaluation) are not used until late, but everything is already up by then:
@@ -276,6 +278,8 @@ Lessons 12–13 are separately authorized and supplied; Lesson 14 was authorized
 
 ### Implementation handoff and review gates
 
+**Current continuation (2026-11-11): Lesson 13, with the authorized RAG-only library described below.** Lessons 1–12 are complete; Lessons 13–14 await instructor review. The following dated authorization history describes earlier activations, not the current root.
+
 **Authorization history and review status (current continuation: Lesson14, 2026-10-13):** the instructor authorized Lessons 7 and 8 using this README and the Working Mental Model, including replacing root `src/main.rs` with Lesson 8. Lesson 7 is complete; the instructor clarified on 2026-10-07 that Lessons 8 and 9 still need review. Lesson 8 uses `StateMachine::run` without a loop safeguard, with the agreed production-caution comment. The instructor subsequently authorized Lesson 9 on 2026-10-06. Root previously contained its two-turn implementation. The instructor authorized Lesson 10 and root replacement on 2026-10-07; root now contains the separately authorized Lesson 14 compaction continuation of the interactive tutor. GDK versions, provider configuration, earlier references, and archived drafts remain unchanged; crossterm 0.29.0 was added for terminal input. Lesson 9’s default live scenario passed; the live 100-share tweak passed on 2026-10-22. Lessons 8 and 9 were marked complete by the instructor on 2026-11-11, as were Lessons 10–12. Lesson 10's recorded teaching/content observations remain part of its record. Do not infer release approval for Lessons 13–14 from that decision.
 
 For a new implementation chat:
@@ -283,7 +287,7 @@ For a new implementation chat:
 1. Read this README first, then `AGENTS.md`, the current-decision/handoff sections of `post-lesson4-plan.md`, and the mental-model reference. Inspect Git status/diffs and preserve unrelated work.
 2. Read the manifest, lockfile, toolchain, provider JSON, root source, and complete Lessons 3–6 with their instructor notes. Read archived drafts only to identify useful evidence and pitfalls, not as accepted curriculum.
 3. Verify the exact pinned GDK/RMCP sources and official documentation: machine loading/run/application, inference streaming, Events/Emitter, effect requirements, tool registration/dispatch and correlation. The mental-model reference's upstream claims and open questions are not substitutes for this verification.
-4. Lessons 1–12 are complete per the instructor's 2026-11-11 decision; Lessons 13 and 14 are implemented and await instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the root activation changes per lesson, and on 2026-11-11 the root was restored to the cleaned Lesson 12 reference, not the withdrawn draft.
+4. Lessons 1–12 are complete per the instructor's 2026-11-11 decision; Lessons 13 and 14 are implemented and await instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the current root is Lesson 13 with the authorized same-package RAG-only library; preserve the complete Lesson 12 reference.
 5. Preserve Lesson 8’s concurrent streaming consumer and sender-closure/drain lifecycle. **Instructor decision (2026-10-05): do not add a loop safeguard to Lesson 8.** Keep `StateMachine::run` and add a concise source comment beside the call noting that production users may want a safeguard to prevent a runaway loop. Do not add a load budget or restore the old bounded manual loop. Before Lesson 9, separately resolve execution bounds and verify safe unknown-name handling, all-request handling, and request limits in the chosen tool adapter. Exact limit values are implementation decisions to document, not inherited guarantees from old spikes.
 6. Supply complete source, explanations, expected traces, instructor pacing, and the small predict/run/tweak activities together. Publish a precise root-based run workflow for the shared manifest; lesson sources are not independent Cargo packages. Keep sample output honest about streamed versus persisted data.
 7. For coding changes run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test`, and the documented live-provider run. Unit tests cover deterministic validation, effect application, state continuity, and safeguards; they do not replace live streaming/tool-selection validation. If the provider is unavailable, ask the instructor to start or supply one. Record what passed, failed, or remains unvalidated before changing lesson status.
@@ -296,7 +300,9 @@ For a new implementation chat:
 .
 ├── src/                        # current exercise; changes as the course advances
 │   ├── main.rs                 # application binary: the active lesson's focus
-│   └── …                       # support modules, app-specific modules, child test files
+│   ├── lib.rs                  # same-package gdk_hello::rag library (Lesson 13)
+│   ├── rag/                    # retrieval, grounding, citations, transport and child tests
+│   └── …                       # binary-local support, compaction and child tests
 ├── lessons/                    # explanation plus complete reference source
 ├── instructor-notes/           # instructor-only pacing and teaching guidance
 ├── potential-lesson-15/        # documentation-only simulator draft, outside required course
@@ -315,9 +321,18 @@ For a new implementation chat:
 
 ### Root source
 
-The root `src/main.rs` is the runnable classroom working copy, not a stable or production-ready application. Learners run and tweak complete supplied code rather than fill in missing implementation. The instructor authorized replacement Lessons 8 and 9. The preserved Lesson 14 reference supplies the evaluation-ready learning partner with learner-declared completion, bounded working-context compaction, source retrieval and learner-approved notes; the withdrawn draft remains unchanged under `drafts/`. Earlier references and provider configuration are unchanged. Lesson 12 adds async HTTP/database and checksum dependencies; GDK, RMCP and toolchain pins are unchanged. Lesson 7 is no-code and does not run this working copy.
+The root is the runnable, ephemeral **Lesson 13** classroom working copy, not a production application. Its library target belongs to the same Cargo package; it is not a common course crate, workspace, or SDK migration. The complete lib/bin/RAG source tree is being synchronized to the [Lesson 13 reference](lessons/13-context-compaction/src/); the completed Lesson 12 reference remains unchanged.
 
-**Shared library split removed (2026-11-11).** A root-only shared-library split briefly separated previously taught support into a `gdk_hello` library target during Lesson 13 review. The instructor subsequently had the root restored to the complete single-crate Lesson 12 reference, and the split's orphaned files were removed. No preserved lesson reference uses a library target; each lesson's own single-crate module layout remains the rule.
+| Source | Responsibility |
+| --- | --- |
+| [`src/main.rs`](src/main.rs) | Context/prompt assembly, classroom constants, Session/runtime/Effects, concurrent Events, dispatch/limits, grounding lifecycle, genuine learner provenance, approvals and compaction decisions |
+| [`src/lib.rs`](src/lib.rs), [`src/rag/`](src/rag/) | `gdk_hello::rag`: retrieval, grounding, citations and local transport, with child tests |
+| Binary-local support | `calculator`, `chooser`, `diagnostics`, `learning_record`, `presentation`, `provider_setup`; application tests remain binary-local |
+| [`src/compaction.rs`](src/compaction.rs), [`src/compaction/`](src/compaction/) | Cohesive binary-local compaction implementation and child tests |
+
+Main passes `RetrievalDefaults` (including `RetrievalLimits`), a `GroundingPolicy`, and the grounding contract explicitly to library functions; compaction policy/constants also stay in main. Every supplied Rust source starts `// Lesson 13`. Read the [Lesson 13 source map](lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path) alongside main.
+
+**Prior split, not the current design:** the earlier broad library extraction of calculator/chooser/presentation/provider support was withdrawn. The authorized replacement exports RAG only. Lesson 14 has **not** been adapted: its telemetry source-hash inventory and prompt continuation require separate updates before trusting it with this library layout. No Lesson 14 changes are authorized by this pass.
 
 ### Lesson directories
 
@@ -389,17 +404,30 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-**Current root (2026-11-11):** root `src/` is ephemeral and currently holds the restored, cleaned single-crate **Lesson 12** implementation (no `src/lib.rs` and no shared-library split), including module-local test directories; it was validated at 49 deterministic tests plus two passing opt-in live tests (46 at restoration, 49 after the 2026-11-11 grounding acknowledgment-enforcement pass). The combined Lessons 12–14 modularization (2026-10-22) finished with Lesson 14 active, and a brief 2026-11-11 shared-library split existed during Lesson 13 review; the instructor had the root restored to Lesson 12 and marked Lessons 1–12 complete on 2026-11-11. The instructor verified the root and the [Lesson 12 reference](lessons/12-specialized-retrieval/LESSON.md) mirror byte-identical as the completion checkpoint. Replace the entire source tree when activating a lesson; no backup or restoration is required. The final hello-world reset remains deferred until all review is complete. Use the active lesson's source map and recursive activation instructions, for example [Lesson 12](lessons/12-specialized-retrieval/LESSON.md#supplied-source-map-and-teaching-reading-path), [Lesson 13](lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path) or [Lesson 14](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path).
+**Current root (2026-11-11): Lesson 13 with a RAG-only library.** The implementation was already Lesson 13 at the start of this pass despite stale Lesson 12 root descriptions. Lessons 1–12 remain complete; Lessons 13–14 remain implemented with instructor review pending. This supersedes earlier root-activation descriptions, not their dated validation evidence.
 
-The current root uses the [Lesson 12](lessons/12-specialized-retrieval/LESSON.md) workflow: forced per-turn source grounding retrieves draft excerpts for every genuine learner question; acknowledgment of supplied excerpts is **enforced by the application** — the grounding contract leads the system prompt, the tutor must cite with exact `[source:<id>]` markers or decline with `[source:none]`, a reply that does neither is classified as a silent ignore and re-asked exactly once, and diagnostics capture every genuine inference request's exact system prompt; the optional calculator, consent-based memory, clean dialogue and private diagnostics remain. Start the matching local services. Lessons 12–14 supply the three service defaults as constants at the top of main; environment variables override them, and no private connection file or exports are required for the defaults. The instructor-supplied reader password is plaintext in source/binaries, not secret storage; see the Lesson 12 prerequisites. Lessons 1–12 are complete per the instructor's 2026-11-11 decision; Lessons 13 and 14 remain implemented with instructor review pending. From the repository root:
+Automatic grounding runs once per genuine learner question; there is **no model-facing source-search tool**. Genuine learner message IDs remain authoritative. When excerpts are supplied, the leading grounding contract requires exact `[source:<id>]` citations or a legitimate decline ending `[source:none]`. Silent acknowledgment failure permits **exactly one** reminder/retry, never another search for the same question. Settle first-attempt proposal approvals before appending that reminder; application-authored reminders are never learner quotation evidence. Approval decisions are scoped by kickoff message ID plus request ID, so a reused request ID cannot suppress a new decision. Diagnostics retain exact per-request system prompts.
+
+Before appending a learner question, compaction preflight accounts for both the prospective `PendingReply` question and its replacement grounding attachment. Safe summaries read only stored history, never that not-yet-appended question. Continuing the same Session preserves authoritative state, approved memory, actual learner provenance, tool correlation, and existing input/output/request/pass/deadline limits; `/learned` retains its explicit local authorization boundary. Generated summaries authorize neither notes nor current citations.
+
+Start the compatible local services. Main supplies classroom reader/Harrier/tutor defaults; `RETRIEVAL_DATABASE_URL`, `HARRIER_URL` and `TUTOR_URL` still override them. The supplied local reader password is intentionally plaintext in source/binaries, not secure credential storage; never echo it in diagnostics. From the repository root:
 
 ```bash
-# The three service defaults are built in; RETRIEVAL_DATABASE_URL / HARRIER_URL / TUTOR_URL override them.
 umask 077
-cargo run -- custom_aa_llama_qwen3_6-35b.json
+cargo run --bin gdk-hello -- custom_aa_llama_qwen3_6-35b.json
 ```
 
-Use your own compatible literal-loopback OpenAI provider JSON path when needed; the application rejects remote tutor endpoints and ambient proxies and constrains redirects to the local origin. To reactivate a lesson's reference, replace the ephemeral root with its complete source tree, including child test directories, for example `rm -rf src; mkdir src; cp -R lessons/12-specialized-retrieval/src/. src/`. Reactivating from a preserved reference restores that lesson's own single-crate module layout (no `src/lib.rs`); the brief 2026-11-11 shared-library split was removed when the root was restored to Lesson 12. Teaching files must remain under the active lesson's content directory; missing files cause an error.
+Use a compatible literal-loopback OpenAI provider JSON if overriding the path; local-origin/proxy/redirect checks remain. Activate a reference recursively, including `lib.rs`, `rag/` and all child test directories for Lesson 13:
+
+```bash
+rm -rf src
+mkdir src
+cp -R lessons/13-context-compaction/src/. src/
+```
+
+The complete root/reference source trees now match byte-for-byte. No backup/restoration or final hello-world reset is required now; the reset remains deferred until review is complete. Keep each active lesson's teaching files in its own content directory.
+
+The [calibration example](examples/rag_calibration.rs) imports the active `gdk_hello::rag` library and supplies its own explicit defaults. It requires the Lesson 13 library tree. When activating an earlier lesson without that library, target the tutor with `cargo check --bin gdk-hello` / `cargo build --bin gdk-hello` rather than building all targets/examples; reactivate Lesson 13 before running calibration. The standalone Lesson 14 dataset seeder and assets are unchanged; running tutor tests does not authorize catalog writes.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
@@ -567,3 +595,9 @@ Root Lesson 12 and staged Lessons 13–14 passed fmt/check/all-target Clippy/tes
 ### Instructor completion decision — 2026-11-11
 
 The instructor marked Lessons 1–12 complete in the roadmap. This is a curriculum-status decision only: no source, dependency, provider, service, corpus, catalog or root-activation change was made for it, and it does not approve Lessons 13–14, which remain implemented with instructor review pending. The recorded validation evidence, known teaching defects, open preparation items (corpus freeze, model/policy comparison, evaluation branches) and per-lesson limitations remain part of each lesson's dated record and are not erased by this status. README current-status prose, the five lesson status lines, instructor-note status paragraphs, the shared teaching-content provenance line, and AGENTS.md were synchronized; dated historical records were left unchanged. When recorded, the root held the complete Lesson 13 reference, and the current-root workflow section was synchronized to that state.
+
+### Lesson 13 RAG-only library continuation — 2026-11-11
+
+Superseding current pass: the already-active Lesson 13 now separates only retrieval/grounding/citations/transport into the same-package library; main retains policy, compaction and learner authority. The complete root source tree is now synchronized byte-for-byte to Lesson 13, not Lesson 12 or Lesson 14. Current checks report 105 deterministic tests (25 library, 80 binary), seven unchanged seeder tests with no catalog API calls, and warning-free format/check/Clippy/test/build. Both opt-in real-service tests passed again after the final five scoped-approval regressions; see [Lesson 13 validation](lessons/13-context-compaction/LESSON.md).
+
+Live same-source temporary staging isolated memory/diagnostics from the real learner record: cited grounding, legitimate decline, one escalation after settling a rejected proposal, calculator $100 with exclusions, inspected approved/rejected memory and `/learned`, fresh declined-memory selection, and colored/plain/empty-NO_COLOR/dumb interaction were checked. Prospective compactions 79,546→64,475 and 78,338→62,589 bytes continued the same Session; another 75,912→62,372 run later stopped safely at 86,314 > 84,000, retaining partial diagnostics without a final answer. Wrong IDs, ungrounded `[source:none]`, execution-certainty wording, proposal echo and ignored loaded memory remain observed defects. These structural checks are not teaching approval, parity or corpus-quality evidence. No IDE/teaching review, service restarts, corpus/catalog writes, pin changes, commits or Lesson 14 adaptation are claimed; detailed evidence belongs in Lesson 13.

@@ -1,20 +1,37 @@
+// Lesson 13
 // Rag calibration harness (instructor experimentation tool; not part of the tutor).
-// Includes the application's retrieval module source so calibration exercises the
+// Uses the application's retrieval library so calibration exercises the
 // exact same embedding, SQL, provenance, and budget path the tutor will use.
 // Feedback goes to rag-calibration.jsonl (gitignored; no excerpts are written to it).
 #![allow(clippy::too_many_lines)]
 
-// The included retrieval module reads these crate-level defaults; environment
-// variables still override them, exactly as in the tutor application.
+// The application supplies these defaults explicitly; environment variables
+// still override them, exactly as in the tutor application.
 const RETRIEVAL_DATABASE_URL: &str = "postgresql://retrieval_reader:7297cb0587b95545f039df77dc32684e75f73093a444895c@127.0.0.1:55432/harrier";
 const HARRIER_URL: &str = "http://127.0.0.1:9999";
 const TUTOR_URL: &str = "http://127.0.0.1:8080";
+const MAX_QUERY_BYTES: usize = 2000;
+const HTTP_LIMIT: usize = 2 * 1024 * 1024;
+const SQL_TIMEOUT: Duration = Duration::from_secs(5);
+const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+const MAX_EXCERPT_TOKENS: usize = 1000;
+const TOKEN_ACCOUNTING_ATTEMPTS: usize = 8;
 
-#[path = "../src/retrieval.rs"]
-mod retrieval;
+use gdk_hello::rag::retrieval;
 
 use serde::Serialize;
-use std::fs;
+use std::{fs, time::Duration};
+
+fn retrieval_limits() -> retrieval::RetrievalLimits {
+    retrieval::RetrievalLimits {
+        max_query_bytes: MAX_QUERY_BYTES,
+        max_http_bytes: HTTP_LIMIT,
+        sql_timeout: SQL_TIMEOUT,
+        http_timeout: HTTP_TIMEOUT,
+        max_excerpt_tokens: MAX_EXCERPT_TOKENS,
+        token_accounting_attempts: TOKEN_ACCOUNTING_ATTEMPTS,
+    }
+}
 
 const FEEDBACK_PATH: &str = "rag-calibration.jsonl";
 // Show every SQL candidate regardless of serialized size so nothing is hidden
@@ -68,7 +85,14 @@ async fn main() {
         FEEDBACK_PATH
     );
     println!("Commands: type a query, 'summary', or empty line to quit.");
-    let retrieval = match retrieval::Retrieval::from_env().await {
+    let retrieval = match retrieval::Retrieval::from_env_with(retrieval::RetrievalDefaults {
+        database_url: RETRIEVAL_DATABASE_URL,
+        embedding_url: HARRIER_URL,
+        tutor_url: TUTOR_URL,
+        limits: retrieval_limits(),
+    })
+    .await
+    {
         Ok(retrieval) => retrieval,
         Err(failure) => {
             eprintln!("Cannot start retrieval services: {}", failure);

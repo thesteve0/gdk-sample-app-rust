@@ -13,7 +13,7 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 1. Read `README.md`.
 2. Inspect `git status` and preserve unrelated staged and unstaged work.
 3. Read `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`.
-4. Read the active root implementation in `src/main.rs`.
+4. Read the active root implementation in `src/main.rs`, `src/lib.rs` when present, and the complete local module/test tree.
 5. Read the relevant `lessons/<number>-<topic>/LESSON.md` and its complete reference solution (`src/main.rs` and any lesson-local modules).
 6. Read the corresponding `instructor-notes/` file when one exists.
 7. Read the provider JSON used by the active lesson.
@@ -21,11 +21,11 @@ Optimize first for a live class taught by an instructor. Goose-assisted self-stu
 
 ## Repository model
 
-- Root `src/` is always an ephemeral exercise working copy and may be incomplete. Activate a lesson by replacing it with all reference `.rs` files, not main alone; no backup or restoration is required. Preserve authoritative lesson references and unrelated work elsewhere. The final hello-world root reset occurs only after all review, not now.
+- Root `src/` is always an ephemeral exercise working copy and may be incomplete. Activate a lesson by replacing it recursively with the complete reference source tree, including `lib.rs`, `rag/` and child tests when supplied, not main alone; no backup or restoration is required. Preserve authoritative lesson references and unrelated work elsewhere. The final hello-world root reset occurs only after all review, not now.
 - `lessons/` contains numbered instructional units.
 - A lesson's `LESSON.md` contains explanations and important snippets.
 - A coding lesson's `src/` supplies its complete reference solution from the outset (`main.rs` plus any lesson-local modules). It is not an independently packaged application. Replacement Lesson 7 is intentionally no-code and has no `src/main.rs`.
-- Do **not** copy root source into a lesson directory at lesson completion.
+- Do **not** copy root source into a lesson directory at lesson completion unless explicitly authorized; the current Lesson 13 lib/bin/RAG synchronization is an authorized exception.
 - `instructor-notes/` contains one instructor guide per implemented lesson.
 - Keep numeric prefixes on lesson directories.
 
@@ -445,3 +445,17 @@ Validation: `cargo fmt --check`, `cargo check --all-targets`, `cargo clippy --al
 ## Lesson 12 completion confirmed — 2026-11-11
 
 The instructor verified the root `src/` tree and `lessons/12-specialized-retrieval/src/` as byte-identical (`diff -r` over all ten files: `main.rs`, `tests.rs`, `calculator.rs`, `chooser.rs`, `diagnostics.rs`, `learning_record.rs`, `presentation.rs`, `provider_setup.rs`, `retrieval.rs` and `retrieval/tests.rs`) and marked Lesson 12 complete on 2026-11-11, with the grounding acknowledgment-enforcement record above as the lesson's final validated state. This also resolves the stale second clause of the instructor completion decision above: the root holds the restored cleaned single-crate Lesson 12 reference — the 2026-11-11 restoration removed the shared-library split — not the Lesson 13 reference. No source, dependency, content or service change was made for this confirmation. The recorded limitations stand: the escalation/decline/contradiction branches have deterministic coverage only; known teaching defects and the deferred end-of-course review remain; Lessons 13–14 are not approved by this completion. Committing and pushing the change set is the instructor's action.
+
+
+## Lesson 13 RAG-only library continuation — 2026-11-11
+
+This supersedes stale current-root/library claims above without rewriting their dated history. Root was already Lesson 13 when this pass began, not Lesson 12. The instructor authorizes the **same-package `gdk_hello::rag` library only**, plus synchronization of its complete lib/bin/RAG tree to Lesson 13. The earlier broad support-library extraction is prior/withdrawn, not this design. Preserve the complete Lesson 12 reference and its completion status; Lessons 13–14 remain pending instructor review. No common course crate, workspace, SDK migration, dependency/pin change or Lesson 14 adaptation is authorized.
+
+- `lib.rs` exposes `rag`: retrieval, grounding, citations, local transport and child tests. The six support modules (calculator/chooser/diagnostics/learning_record/presentation/provider_setup) and compaction remain binary-local. Main retains context/prompt assembly, runtime/Effects, concurrent Events, dispatch/limits, grounding/provenance/approval and compaction boundaries. Every supplied Rust source begins `// Lesson 13`.
+- Keep classroom constants mainly in main and pass them explicitly: `RetrievalDefaults` includes `RetrievalLimits`; main also supplies `GroundingPolicy`, grounding contract and compaction policy/constants. Environment overrides and local service compatibility/privacy checks remain.
+- Ground automatically once per genuine learner question, not through a search tool. Preserve genuine message IDs. Require exact source citations or legitimate `[source:none]` acknowledgment; silent ignore gets at most one reminder/retry. Settle pending proposal approvals before the reminder, exclude it from learner provenance, and key settled decisions by kickoff message ID plus request ID. Reused request IDs in a new kickoff must not suppress decisions; pending scans must still detect same-attempt unsettled proposals.
+- Prospective preflight includes `PendingReply` question plus replacement grounding attachment without appending either to history first. Summary input contains stored history only. Keep authoritative/approved/derived state separate, same-Session continuity, settled-approval boundaries, existing budgets, cancellation/Drop/failure behavior and local `/learned` authority.
+- Activate complete reference trees recursively, including library and child tests; no hello-world reset now. Calibration imports the active library with its own explicit defaults and requires Lesson 13 active. Earlier lessons without that library should build/check the tutor with `--bin gdk-hello`, not all-target examples; reactivate Lesson 13 before calibration. Leave the standalone seeder/assets untouched.
+- Before trusting Lesson 14 under this layout, separately update its telemetry source-hash inventory **and prompt continuation**. Historical inventory evidence is not evidence for this layout; this pass does not authorize those changes.
+
+Current validation inventory is 105 deterministic tests (25 lib/80 bin), plus two ignored real-service tests and seven unchanged seeder tests (no catalog calls); format/check/Clippy/test/build report zero warnings. Both real-service tests passed again after the final five scoped-approval regressions (accepted/rejected reused IDs and same-attempt pending scans). Root/reference now match byte-for-byte. Same-source isolated live staging checked grounding/cited/declined/single escalation (rejected proposal settled first), calculator $100 with exclusions, approved goal/new0600, `/learned` save, rejected bytes unchanged, fresh declined-memory exclusion, colored arrows/plain/empty-NO_COLOR/dumb and conversation commands. Prospective compaction continued at 79,546→64,475 and 78,338→62,589; another 75,912→62,372 run later hit 86,314 > 84,000 and safely retained partial diagnostics without a final answer. No real learner record was used. Preserve wrong-ID/ungrounded-none, execution-guarantee wording, proposal echo and ignored-memory defects; see Lesson 13 for full evidence. No teaching/IDE review, parity/corpus-quality claim, catalog writes, service restart, pin change, commit or release approval.
