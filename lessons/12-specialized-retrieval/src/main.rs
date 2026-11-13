@@ -8,6 +8,7 @@ const TUTOR_URL: &str = "http://127.0.0.1:8080";
 // Local modules hold previously taught code, record mechanics, and supplied UI/logging support.
 mod calculator;
 mod chooser;
+mod citations;
 mod diagnostics;
 mod learning_record;
 mod presentation;
@@ -17,6 +18,10 @@ mod tests;
 
 use calculator::{execute_allowed_tool, tool_definition, TOOL_NAME};
 use chooser::{choose_lesson, read_line};
+use citations::{
+    citation_footer, grounding_outcome, inspect_citations, invalid_citation_markers,
+    source_file_name, CitationRegistry, GroundingOutcome,
+};
 use diagnostics::{session_fields, DiagnosticLog};
 use learning_record::{
     append_approved_note, confirmation, read_record, record_path, record_tool_definition,
@@ -241,6 +246,9 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
             "Ask questions and explore at your pace. /finish returns to lessons; /quit exits."
         );
         let mut turn_number = 1;
+        // Every ID the application supplies is remembered for the whole
+        // conversation so citations reused from earlier turns still resolve.
+        let mut citation_registry = CitationRegistry::new();
         // Selection initiates the welcome; this is application input, not a learner reply.
         // The kickoff question is application-authored, so no grounding search runs for it.
         run_turn(
@@ -250,6 +258,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
             &session_id,
             turn_number,
             &captures,
+            &citation_registry,
             diagnostics,
         )
         .await?;
@@ -285,7 +294,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
             runtime.append_user(&session_id, &input).await?;
             turn_number += 1;
             // Forced grounding: retrieve for this learner question before the machine runs.
-            prepare_turn_grounding(
+            let grounding = prepare_turn_grounding(
                 &runtime,
                 &session_id,
                 &retrieval,
@@ -294,6 +303,11 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
                 diagnostics,
             )
             .await?;
+            // Remember this turn's supplied IDs before the preparation moves
+            // into the runtime; later turns resolve citations against them.
+            for passage in &grounding.evidence {
+                citation_registry.record(passage);
+            }
             run_turn(
                 &machine,
                 &runtime,
@@ -301,6 +315,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
                 &session_id,
                 turn_number,
                 &captures,
+                &citation_registry,
                 diagnostics,
             )
             .await?;
@@ -347,9 +362,12 @@ impl InferenceRequestPreparer<ChatSession> for PromptDiagnosticsPreparer {
     }
 }
 
-// One machine run within a turn. Returns the post-run Session and this
-// attempt's inspection warnings; warning printing and proposal approval stay
+// One machine run within a turn. Returns the post-run Session, this attempt's
+// inspection warnings, whether the reply was withheld by the citation gate,
+// and the buffered reply text; warning printing and proposal approval stay
 // with run_turn so the escalation path can order them explicitly.
+// Each machine-boundary input stays distinct, matching the existing retrieval allow.
+#[allow(clippy::too_many_arguments)]
 async fn run_attempt(
     machine: &StateMachine<'_, ChatSession, ChatEffect>,
     runtime: &ChatRuntime,
@@ -357,8 +375,9 @@ async fn run_attempt(
     session_id: &str,
     attempt_label: &str,
     captures: &PromptCaptures,
+    citation_registry: &CitationRegistry,
     diagnostics: &mut DiagnosticLog,
-) -> anyhow::Result<(ChatSession, Vec<String>)> {
+) -> anyhow::Result<(ChatSession, Vec<String>, bool, Vec<u8>)> {
     let (event_tx, event_rx) = mpsc::channel::<AgentEvent>(32);
     let emit = Emitter::new(event_tx, cancel.clone());
     // The GDK owns all passes within a turn; the application waits for input afterward.
@@ -398,8 +417,8 @@ async fn run_attempt(
     }
     let saved = runtime.load(session_id).await?;
     diagnostics.after(&saved)?;
-    let summary = match display_result {
-        Ok(summary) => summary,
+    let (summary, display_buffer) = match display_result {
+        Ok((summary, buffer)) => (summary, buffer),
         Err(error) => {
             diagnostics.block(
                 "Display failure (partial Session above)",
@@ -445,10 +464,28 @@ async fn run_attempt(
         .last()
         .map(|message| message.as_concat_text())
         .unwrap_or_default();
-    if let Some(footer) = citation_footer(&final_session.turn_grounding, &answer) {
-        print_status(&footer);
+    // Citation gate: withhold the whole reply before it reaches the learner
+    // if any cited marker was never supplied (fabricated reference).
+    let invalid_markers =
+        invalid_citation_markers(&final_session.turn_grounding, citation_registry, &answer);
+    let response_held = !invalid_markers.is_empty();
+    if response_held {
+        for marker in &invalid_markers {
+            print_warning(&format!(
+                "Withheld the tutor's reply: it cited {} which the application never supplied (fabricated reference).",
+                marker
+            ));
+        }
+    } else {
+        io::stdout().write_all(&display_buffer)?;
+        io::stdout().flush()?;
+        if let Some(footer) =
+            citation_footer(&final_session.turn_grounding, citation_registry, &answer)
+        {
+            print_status(&footer);
+        }
     }
-    let validation = inspect_turn(&final_session, &summary);
+    let validation = inspect_turn(&final_session, citation_registry, &summary);
     let warnings = match validation {
         Ok(warnings) => warnings,
         Err(error) => {
@@ -460,9 +497,10 @@ async fn run_attempt(
             return Err(error);
         }
     };
-    Ok((final_session, warnings))
+    Ok((final_session, warnings, response_held, display_buffer))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_turn(
     machine: &StateMachine<'_, ChatSession, ChatEffect>,
     runtime: &ChatRuntime,
@@ -470,17 +508,19 @@ async fn run_turn(
     session_id: &str,
     turn_number: usize,
     captures: &PromptCaptures,
+    citation_registry: &CitationRegistry,
     diagnostics: &mut DiagnosticLog,
 ) -> anyhow::Result<()> {
     let before = runtime.load(session_id).await?;
     diagnostics.turn(turn_number, &before)?;
-    let (first_session, first_warnings) = run_attempt(
+    let (first_session, first_warnings, _first_held, _first_buffer) = run_attempt(
         machine,
         runtime,
         cancel,
         session_id,
         "initial run",
         captures,
+        citation_registry,
         diagnostics,
     )
     .await?;
@@ -491,7 +531,7 @@ async fn run_turn(
         .last()
         .map(|message| message.as_concat_text())
         .unwrap_or_default();
-    let outcome = grounding_outcome(&first_session.turn_grounding, &answer);
+    let outcome = grounding_outcome(&first_session.turn_grounding, citation_registry, &answer);
     diagnostics.block(
         "Grounding outcome (application classification)",
         "text",
@@ -518,17 +558,75 @@ async fn run_turn(
             runtime
                 .append_user(session_id, GROUNDING_ESCALATION_MESSAGE)
                 .await?;
-            let (_second_session, second_warnings) = run_attempt(
+            let (_second_session, second_warnings, _second_held, _second_buffer) = run_attempt(
                 machine,
                 runtime,
                 cancel,
                 session_id,
                 "escalated re-run",
                 captures,
+                citation_registry,
                 diagnostics,
             )
             .await?;
             report_warnings(&second_warnings, diagnostics)?;
+            approve_record_proposals(runtime, session_id, diagnostics).await?;
+        }
+        GroundingOutcome::InvalidAcknowledgment => {
+            // One bounded correction for fabricated, stale, or malformed
+            // markers: the reminder lists the exact IDs the application
+            // supplied, so the re-ask can only use real references.
+            // Attempt-1 proposals are approved BEFORE appending: the escalation
+            // user message moves the messages_since_kickoff window forward.
+            approve_record_proposals(runtime, session_id, diagnostics).await?;
+            let mut valid_markers: Vec<String> = first_session
+                .turn_grounding
+                .evidence
+                .iter()
+                .map(|passage| passage.citation_id.clone())
+                .collect();
+            for id in citation_registry.citation_ids() {
+                if !valid_markers.contains(&id.to_string()) {
+                    valid_markers.push(format!("{} (supplied with an earlier turn)", id));
+                }
+            }
+            let reminder = format!(
+                "Your previous reply used a [source:<id>] marker that the application never supplied in this conversation, so no reference exists for it. Application rule: cite only exact markers the application supplied in this conversation — never construct or alter an ID — or decline with the exact marker [source:none]. Valid markers: {}. Answer the learner's most recent question again now, using only those markers.",
+                valid_markers.join(", ")
+            );
+            print_warning(
+                "The tutor cited a source ID the application never supplied; asking once more with the exact valid markers.",
+            );
+            diagnostics.block(
+                "Grounding escalation (application-authored, one only)",
+                "text",
+                &format!(
+                    "Outcome: {}\nAppending the escalation as a user message; no further retries after this.",
+                    outcome.summary()
+                ),
+            )?;
+            runtime.append_user(session_id, &reminder).await?;
+            let (_second_session, second_warnings, second_held, second_buffer) = run_attempt(
+                machine,
+                runtime,
+                cancel,
+                session_id,
+                "escalated re-run",
+                captures,
+                citation_registry,
+                diagnostics,
+            )
+            .await?;
+            report_warnings(&second_warnings, diagnostics)?;
+            // Bounded honesty: after the one re-ask, a still-fabricated reply is
+            // shown unverified rather than silently dropped; the warnings say why.
+            if second_held {
+                print_warning(
+                    "The re-asked reply still cites a fabricated reference; showing it unverified. No further retries.",
+                );
+                io::stdout().write_all(&second_buffer)?;
+                io::stdout().flush()?;
+            }
             approve_record_proposals(runtime, session_id, diagnostics).await?;
         }
         GroundingOutcome::Declined => {
@@ -760,9 +858,14 @@ fn is_reconstructed_request_display(message: &Message) -> bool {
         == Some(&json!(true))
 }
 
-async fn display_events(receiver: mpsc::Receiver<AgentEvent>) -> io::Result<EventSummary> {
-    let mut stdout = io::stdout();
-    display_events_to(receiver, &mut stdout, stdout_color_enabled()).await
+async fn display_events(
+    receiver: mpsc::Receiver<AgentEvent>,
+) -> io::Result<(EventSummary, Vec<u8>)> {
+    // The reply is buffered, not streamed: the citation gate decides below
+    // whether the learner ever sees it.
+    let mut buffer = Vec::new();
+    let summary = display_events_to(receiver, &mut buffer, stdout_color_enabled()).await?;
+    Ok((summary, buffer))
 }
 
 async fn display_events_to<W: Write>(
@@ -869,7 +972,11 @@ fn close_stream<W: Write>(summary: &mut EventSummary, output: &mut W) -> io::Res
     Ok(())
 }
 
-fn inspect_turn(session: &ChatSession, summary: &EventSummary) -> anyhow::Result<Vec<String>> {
+fn inspect_turn(
+    session: &ChatSession,
+    citation_registry: &CitationRegistry,
+    summary: &EventSummary,
+) -> anyhow::Result<Vec<String>> {
     if let Some(reason) = &session.halt_reason {
         return Err(anyhow::anyhow!("run stopped at a safeguard: {}", reason));
     }
@@ -932,6 +1039,7 @@ fn inspect_turn(session: &ChatSession, summary: &EventSummary) -> anyhow::Result
     }
     warnings.extend(inspect_citations(
         &session.turn_grounding,
+        citation_registry,
         &last.as_concat_text(),
     ));
     // Tool selection and citation support still require human review, not a forced script.
@@ -1067,7 +1175,7 @@ async fn prepare_turn_grounding(
     learner_input: &str,
     threshold: f64,
     diagnostics: &mut DiagnosticLog,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<TurnGrounding> {
     let search_result = retrieval
         .search(learner_input, GROUNDING_TOKEN_BUDGET)
         .await;
@@ -1094,8 +1202,10 @@ async fn prepare_turn_grounding(
         "rust",
         &format!("{:#?}", grounding),
     )?;
-    runtime.set_turn_grounding(session_id, grounding).await?;
-    Ok(())
+    runtime
+        .set_turn_grounding(session_id, grounding.clone())
+        .await?;
+    Ok(grounding)
 }
 
 // Local private-book evidence must not be sent to an arbitrary configured tutor endpoint.
@@ -1156,98 +1266,6 @@ fn local_tutor_transport(
     client: goose_providers::api_client::ApiClient,
 ) -> anyhow::Result<goose_providers::api_client::ApiClient> {
     client.with_same_origin_redirects()
-}
-
-// Only excerpt IDs selected as this turn's grounding authorize [source:<id>] citations.
-// The [source:none] sentinel is the sanctioned decline marker on grounded turns.
-fn inspect_citations(grounding: &TurnGrounding, answer: &str) -> Vec<String> {
-    let allowed: HashSet<&str> = grounding
-        .evidence
-        .iter()
-        .map(|passage| passage.citation_id.as_str())
-        .collect();
-    let mut warnings = Vec::new();
-    let mut cited = false;
-    let mut declined = false;
-    for tail in answer.split("[source:").skip(1) {
-        let id = match tail.split_once(']') {
-            Some((id, _rest)) => id.to_string(),
-            None => {
-                warnings.push(
-                    "Tutor output contains an incomplete source citation; inspect diagnostics."
-                        .to_string(),
-                );
-                continue;
-            }
-        };
-        if id == "none" {
-            // The application-supplied decline sentinel is never an invalid ID.
-            declined = true;
-            if allowed.is_empty() {
-                warnings.push("Tutor output used the decline marker [source:none] but no source excerpts were supplied this turn.".to_string());
-            }
-            continue;
-        }
-        cited = true;
-        let marker = format!("source:{}", id);
-        if !allowed.contains(marker.as_str()) {
-            warnings.push("Tutor output cites an ID not selected as this turn's grounding; source support is unverified.".to_string());
-        }
-    }
-    if cited && declined {
-        warnings.push("Tutor output both cited source IDs and declared the excerpts unsupported ([source:none]); these statements contradict each other.".to_string());
-    }
-    // A grounded turn that cites nothing is NOT warned here: run_turn classifies
-    // it as a silent ignore and escalates once, application-side.
-    warnings
-}
-
-// The application — not the model — classifies whether this turn's supplied
-// excerpts were acknowledged. Models are overconfident about relevance, so
-// "the tutor decided the excerpts did not matter" is never trusted silently.
-enum GroundingOutcome {
-    // No excerpts were supplied for this turn (kickoff, no_evidence, unavailable).
-    NotSupplied,
-    // At least one grounding-selected source ID was cited.
-    Cited,
-    // The tutor explicitly declined the excerpts with [source:none].
-    Declined,
-    // Excerpts were supplied but the reply neither cited nor declined them.
-    SilentIgnore,
-}
-
-impl GroundingOutcome {
-    // Human-readable classification for diagnostics; the escalation decision
-    // itself is made by run_turn, not by the model.
-    fn summary(&self) -> String {
-        match self {
-            GroundingOutcome::NotSupplied => "no excerpts were supplied for this turn".to_string(),
-            GroundingOutcome::Cited => "the tutor cited supplied excerpts".to_string(),
-            GroundingOutcome::Declined => "the tutor declined the supplied excerpts".to_string(),
-            GroundingOutcome::SilentIgnore => {
-                "the tutor neither cited nor declined the supplied excerpts".to_string()
-            }
-        }
-    }
-}
-
-fn grounding_outcome(grounding: &TurnGrounding, answer: &str) -> GroundingOutcome {
-    if grounding.evidence.is_empty() {
-        return GroundingOutcome::NotSupplied;
-    }
-    // extract_citations("[source:none]") yields the sentinel "source:none".
-    let citations = retrieval::extract_citations(answer);
-    let declined = citations.iter().any(|id| id == "source:none");
-    let cited = citations.iter().any(|id| id != "source:none");
-    if cited {
-        // Citing still acknowledges the evidence even when the reply also
-        // declines it; inspect_citations flags that contradiction separately.
-        return GroundingOutcome::Cited;
-    }
-    if declined {
-        return GroundingOutcome::Declined;
-    }
-    GroundingOutcome::SilentIgnore
 }
 
 // The typed domain shape remains LossArguments; this provider reuses Lesson 6 validation.
@@ -1484,46 +1502,6 @@ fn parse_record_proposal(
         );
     }
     Ok(proposal)
-}
-
-// Learner-readable provenance for the IDs the tutor actually cited this turn.
-// Only valid, grounding-selected IDs appear; invalid citations are covered by
-// inspect_citations warnings instead.
-fn citation_footer(grounding: &TurnGrounding, answer: &str) -> Option<String> {
-    if grounding.evidence.is_empty() {
-        return None;
-    }
-    let cited = retrieval::extract_citations(answer);
-    if cited.is_empty() {
-        return None;
-    }
-    let mut lines = Vec::new();
-    for id in cited {
-        let passage = grounding
-            .evidence
-            .iter()
-            .find(|passage| passage.citation_id == id);
-        let passage = match passage {
-            Some(passage) => passage,
-            None => continue,
-        };
-        lines.push(format!(
-            "{}: {} pages {}-{} (similarity {:.2})",
-            id,
-            source_file_name(&passage.source_file),
-            passage.page_start,
-            passage.page_end,
-            passage.similarity
-        ));
-    }
-    if lines.is_empty() {
-        return None;
-    }
-    Some(format!("Sources cited this turn:\n{}", lines.join("\n")))
-}
-
-fn source_file_name(path: &str) -> String {
-    path.rsplit('/').next().unwrap_or(path).to_string()
 }
 
 fn tool_response_succeeded(result: &ToolResult<CallToolResult>) -> bool {

@@ -294,7 +294,7 @@ async fn stream_text_protocol_and_token_limits_cancel_and_prevent_approval() -> 
         let state = ChatRuntime::new(SESSION_ID, LessonContext::load()?)
             .load(SESSION_ID)
             .await?;
-        assert!(inspect_turn(&state, &summary).is_err());
+        assert!(inspect_turn(&state, &CitationRegistry::new(), &summary).is_err());
     }
     let mut message = Message::assistant().with_text("truncated");
     message.metadata.output_token_limit_reached = true;
@@ -1077,7 +1077,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary)?.is_empty());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary)?.is_empty());
     // Orphan responses cannot masquerade as a valid completed round trip.
     session
         .conversation
@@ -1085,7 +1085,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
     session
         .conversation
         .push(Message::assistant().with_text("Done"));
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary).is_err());
     Ok(())
 }
 use super::*;
@@ -1182,7 +1182,7 @@ async fn empty_response_diagnostic_is_not_an_ordinary_answer() -> anyhow::Result
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary).is_err());
     Ok(())
 }
 
@@ -1686,6 +1686,15 @@ fn orchestration_reminders(session: &ChatSession) -> usize {
         .count()
 }
 
+// The estimator only formats stored state; fixtures use a locally declared model.
+fn estimation_sizer() -> context_size::ContextSize {
+    let config = deserialize_provider_config(
+        r#"{"name":"local","engine":"openai","display_name":"Local","base_url":"http://127.0.0.1:8080","requires_auth":false,"preserves_thinking":false,"models":[{"name":"fixture-model"}]}"#,
+    )
+    .expect("fixture provider config");
+    context_size::ContextSize::new(&ModelConfig::new("fixture-model"), &config)
+}
+
 #[tokio::test]
 async fn deterministic_orchestration_silent_ignore_retries_once_with_fresh_bounds(
 ) -> anyhow::Result<()> {
@@ -1725,6 +1734,9 @@ async fn deterministic_orchestration_silent_ignore_retries_once_with_fresh_bound
         SESSION_ID,
         2,
         &PromptCaptures::default(),
+        &estimation_sizer(),
+        &LossToolProvider,
+        &CitationRegistry::new(),
         &mut diagnostics,
     )
     .await?;
@@ -1811,6 +1823,9 @@ async fn orchestration_acknowledged_once(answer: &str) -> anyhow::Result<()> {
         SESSION_ID,
         2,
         &PromptCaptures::default(),
+        &estimation_sizer(),
+        &LossToolProvider,
+        &CitationRegistry::new(),
         &mut diagnostics,
     )
     .await?;
@@ -1833,6 +1848,10 @@ async fn orchestration_acknowledged_once(answer: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+// A bare decline is accepted without retry: the strengthened grounding
+// instruction asks the tutor to take the added context from the excerpts
+// unless there is a very strong stated reason, but a valid [source:none]
+// answer still ends the turn with no application re-ask.
 #[tokio::test]
 async fn deterministic_orchestration_declined_excerpts_finish_without_retry() -> anyhow::Result<()>
 {
@@ -1903,6 +1922,9 @@ async fn deterministic_orchestration_failed_halted_or_incomplete_attempt_never_a
             SESSION_ID,
             2,
             &PromptCaptures::default(),
+            &estimation_sizer(),
+            &LossToolProvider,
+            &CitationRegistry::new(),
             &mut diagnostics,
         )
         .await;
@@ -1988,6 +2010,9 @@ async fn deterministic_orchestration_first_approval_validation_failure_prevents_
         SESSION_ID,
         2,
         &PromptCaptures::default(),
+        &estimation_sizer(),
+        &LossToolProvider,
+        &CitationRegistry::new(),
         &mut diagnostics,
     )
     .await;

@@ -32,6 +32,12 @@ fn grounding_response(evidence: Vec<retrieval::Evidence>) -> retrieval::SearchRe
     }
 }
 
+// A fresh registry per call: tests that never record IDs see only the current
+// turn's grounding, matching a conversation's first turn.
+fn fresh_registry() -> CitationRegistry {
+    CitationRegistry::new()
+}
+
 #[test]
 fn grounding_selection_filters_by_threshold_and_caps_statements() {
     let response = grounding_response(vec![
@@ -78,8 +84,8 @@ fn grounding_selection_reports_no_evidence_without_candidates() {
     assert!(grounding.notice.is_none());
     // Nothing qualifies, so no prompt part, footer, or citation allowlist appears.
     assert!(grounding.prompt_part().is_none());
-    assert!(citation_footer(&grounding, "Answer [source:source:a]").is_none());
-    assert!(inspect_citations(&grounding, "Answer without markers").is_empty());
+    assert!(citation_footer(&grounding, &fresh_registry(), "Answer [source:source:a]").is_none());
+    assert!(inspect_citations(&grounding, &fresh_registry(), "Answer without markers").is_empty());
 }
 
 #[test]
@@ -94,7 +100,7 @@ fn grounding_selection_marks_unavailable_search_without_evidence() {
     };
     // A degraded turn proceeds without excerpts; no citation is authorized.
     assert!(grounding.prompt_part().is_none());
-    assert!(inspect_citations(&grounding, "Answer").is_empty());
+    assert!(inspect_citations(&grounding, &fresh_registry(), "Answer").is_empty());
     let summary = grounding.grounding_summary();
     assert!(summary.contains("status: unavailable"));
     assert!(summary.contains(&failure));
@@ -153,22 +159,25 @@ fn citation_membership_uses_only_this_turns_selected_grounding() {
         ],
         ..TurnGrounding::default()
     };
-    assert!(inspect_citations(&grounding, "Example [source:selected-a]").is_empty());
+    assert!(
+        inspect_citations(&grounding, &fresh_registry(), "Example [source:selected-a]").is_empty()
+    );
     assert_eq!(
-        inspect_citations(&grounding, "Example [source:invented]").len(),
+        inspect_citations(&grounding, &fresh_registry(), "Example [source:invented]").len(),
         1
     );
     // An unclosed marker is never silently accepted as a citation.
     assert_eq!(
-        inspect_citations(&grounding, "Example [source:selected-a").len(),
+        inspect_citations(&grounding, &fresh_registry(), "Example [source:selected-a").len(),
         1
     );
     // A grounded turn that cites nothing is NOT warned here: run_turn
     // classifies it as a silent ignore and escalates once, application-side.
-    assert!(inspect_citations(&grounding, "Plain answer").is_empty());
+    assert!(inspect_citations(&grounding, &fresh_registry(), "Plain answer").is_empty());
     // The decline sentinel is sanctioned on a grounded turn.
     assert!(inspect_citations(
         &grounding,
+        &fresh_registry(),
         "The excerpts did not support this. [source:none]"
     )
     .is_empty());
@@ -176,23 +185,43 @@ fn citation_membership_uses_only_this_turns_selected_grounding() {
     assert_eq!(
         inspect_citations(
             &grounding,
+            &fresh_registry(),
             "Claim [source:selected-a], though the excerpts did not support this. [source:none]"
         )
         .len(),
         1
     );
-    // An ungrounded turn has an empty allowlist; any marker is unverified.
+    // An ID the application supplied in an earlier turn resolves through the
+    // registry; it is never warned about and stays citable.
+    let mut registry = CitationRegistry::new();
+    registry.record(&grounding_evidence(
+        "source:earlier-turn-id",
+        0.71,
+        "public-a.pdf",
+    ));
+    assert!(inspect_citations(
+        &grounding,
+        &registry,
+        "Crash-resistant software [source:earlier-turn-id]."
+    )
+    .is_empty());
+    // An ungrounded turn has an empty allowlist; only never-supplied markers warn.
     let ungrounded = TurnGrounding::default();
     assert_eq!(
-        inspect_citations(&ungrounded, "Example [source:selected-a]").len(),
+        inspect_citations(
+            &ungrounded,
+            &fresh_registry(),
+            "Example [source:selected-a]"
+        )
+        .len(),
         1
     );
     // The decline sentinel outside a grounded turn is a stray marker.
     assert_eq!(
-        inspect_citations(&ungrounded, "Declined. [source:none]").len(),
+        inspect_citations(&ungrounded, &fresh_registry(), "Declined. [source:none]").len(),
         1
     );
-    assert!(inspect_citations(&ungrounded, "Plain answer").is_empty());
+    assert!(inspect_citations(&ungrounded, &fresh_registry(), "Plain answer").is_empty());
 }
 
 #[test]
@@ -243,12 +272,13 @@ fn grounding_outcome_classifies_acknowledgment() {
         ..TurnGrounding::default()
     };
     assert!(matches!(
-        grounding_outcome(&grounding, "Claim [source:selected-a]."),
+        grounding_outcome(&grounding, &fresh_registry(), "Claim [source:selected-a]."),
         GroundingOutcome::Cited
     ));
     assert!(matches!(
         grounding_outcome(
             &grounding,
+            &fresh_registry(),
             "The excerpts did not support this answer. [source:none]"
         ),
         GroundingOutcome::Declined
@@ -256,19 +286,127 @@ fn grounding_outcome_classifies_acknowledgment() {
     // Citing wins over a simultaneous decline; inspect_citations flags the
     // contradiction separately.
     assert!(matches!(
-        grounding_outcome(&grounding, "Claim [source:selected-a]. [source:none]"),
+        grounding_outcome(
+            &grounding,
+            &fresh_registry(),
+            "Claim [source:selected-a]. [source:none]"
+        ),
         GroundingOutcome::Cited
     ));
     assert!(matches!(
-        grounding_outcome(&grounding, "A confident answer with no markers."),
+        grounding_outcome(
+            &grounding,
+            &fresh_registry(),
+            "A confident answer with no markers."
+        ),
         GroundingOutcome::SilentIgnore
     ));
     // No excerpts supplied means nothing to acknowledge, on any reply.
     let ungrounded = TurnGrounding::default();
     assert!(matches!(
-        grounding_outcome(&ungrounded, "Anything [source:selected-a]"),
+        grounding_outcome(
+            &ungrounded,
+            &fresh_registry(),
+            "Anything [source:selected-a]"
+        ),
         GroundingOutcome::NotSupplied
     ));
+}
+
+// Membership, not marker presence, decides compliance: a fabricated ID has no
+// reference and must not count as acknowledgment, while an ID the application
+// supplied in an earlier turn still resolves through the registry.
+#[test]
+fn grounding_outcome_requires_supplied_marker_membership() {
+    let evidence = vec![grounding_evidence(
+        "source:selected-a",
+        0.90,
+        "public-a.pdf",
+    )];
+    let grounding = TurnGrounding {
+        status: "grounded".to_string(),
+        evidence,
+        ..TurnGrounding::default()
+    };
+    let mut registry = CitationRegistry::new();
+    registry.record(&grounding_evidence(
+        "source:earlier-turn-id",
+        0.71,
+        "public-a.pdf",
+    ));
+    // Fabricated well-formed ID: invalid, not Cited.
+    let fabricated = grounding_outcome(
+        &grounding,
+        &registry,
+        "Stable hardware matters [source:fabricated0000].",
+    );
+    assert!(matches!(
+        fabricated,
+        GroundingOutcome::InvalidAcknowledgment
+    ));
+    // Current-turn ID stays Cited.
+    let current = grounding_outcome(
+        &grounding,
+        &registry,
+        "Stable hardware matters [source:selected-a].",
+    );
+    assert!(matches!(current, GroundingOutcome::Cited));
+    // Earlier-turn ID resolves through the registry and stays Cited.
+    let prior = grounding_outcome(
+        &grounding,
+        &registry,
+        "Crash-resistant software [source:earlier-turn-id].",
+    );
+    assert!(matches!(prior, GroundingOutcome::Cited));
+    // Mixed valid and fabricated: the fabricated ID invalidates the reply.
+    let mixed = grounding_outcome(
+        &grounding,
+        &registry,
+        "One [source:selected-a] and two [source:fabricated0000].",
+    );
+    assert!(matches!(mixed, GroundingOutcome::InvalidAcknowledgment));
+    // Decline-only replies keep the sanctioned Declined classification.
+    let declined = grounding_outcome(
+        &grounding,
+        &registry,
+        "The excerpts did not support this [source:none].",
+    );
+    assert!(matches!(declined, GroundingOutcome::Declined));
+}
+
+// The pre-display gate lists the exact fabricated markers so warnings can name
+// them; supplied IDs (current turn or earlier) and the decline sentinel must
+// never appear, and repeated fabrications are reported once.
+#[test]
+fn invalid_citation_markers_lists_only_never_supplied_ids() {
+    let evidence = vec![grounding_evidence(
+        "source:selected-a",
+        0.90,
+        "public-a.pdf",
+    )];
+    let grounding = TurnGrounding {
+        status: "grounded".to_string(),
+        evidence,
+        ..TurnGrounding::default()
+    };
+    let mut registry = CitationRegistry::new();
+    registry.record(&grounding_evidence(
+        "source:earlier-turn-id",
+        0.71,
+        "public-a.pdf",
+    ));
+    let answer = "Keep [source:selected-a] and [source:earlier-turn-id]; the \
+                  platform needs [source:fabricated0000] again \
+                  [source:fabricated0000], or decline [source:none].";
+    let invalid = invalid_citation_markers(&grounding, &registry, answer);
+    assert_eq!(invalid, vec!["source:fabricated0000".to_string()]);
+    // A fully grounded reply lists nothing, so the gate shows it.
+    let clean = invalid_citation_markers(
+        &grounding,
+        &registry,
+        "One [source:selected-a], one [source:earlier-turn-id].",
+    );
+    assert!(clean.is_empty());
 }
 
 #[tokio::test]
@@ -395,11 +533,12 @@ fn citation_footer_lists_only_grounding_selected_sources() {
     };
     // No evidence or no citations means no footer.
     let empty = TurnGrounding::default();
-    assert!(citation_footer(&empty, "Answer [source:selected-a]").is_none());
-    assert!(citation_footer(&grounding, "Answer without markers").is_none());
+    assert!(citation_footer(&empty, &fresh_registry(), "Answer [source:selected-a]").is_none());
+    assert!(citation_footer(&grounding, &fresh_registry(), "Answer without markers").is_none());
     // Cited grounding IDs render with file, pages, and similarity.
     let footer = citation_footer(
         &grounding,
+        &fresh_registry(),
         "Excerpt claim [source:selected-b] and [source:selected-a].",
     )
     .expect("footer");
@@ -408,7 +547,23 @@ fn citation_footer_lists_only_grounding_selected_sources() {
     assert!(footer.contains("source:selected-b: public-b.pdf pages 3-4 (similarity 0.80)"));
     // A citation outside the grounding never renders in the footer; invalid
     // citations are surfaced by inspect_citations warnings instead.
-    assert!(citation_footer(&grounding, "Answer [source:invented]").is_none());
+    assert!(citation_footer(&grounding, &fresh_registry(), "Answer [source:invented]").is_none());
+    // An ID the application supplied in an earlier turn resolves through the
+    // registry and renders with the same reference, marked by its origin turn.
+    let mut registry = CitationRegistry::new();
+    registry.record(&grounding_evidence(
+        "source:earlier-turn-id",
+        0.71,
+        "public-a.pdf",
+    ));
+    let earlier = citation_footer(
+        &TurnGrounding::default(),
+        &registry,
+        "Answer [source:earlier-turn-id]",
+    )
+    .expect("footer");
+    assert!(earlier.contains("source:earlier-turn-id: public-a.pdf pages 3-4 (similarity 0.71)"));
+    assert!(earlier.contains("(from an earlier turn's excerpts)"));
 }
 
 #[tokio::test]
@@ -768,7 +923,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary)?.is_empty());
+    assert!(inspect_turn(&session, &fresh_registry(), &summary)?.is_empty());
     // Orphan responses cannot masquerade as a valid completed round trip.
     session
         .conversation
@@ -776,7 +931,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
     session
         .conversation
         .push(Message::assistant().with_text("Done"));
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &fresh_registry(), &summary).is_err());
     Ok(())
 }
 use super::*;
@@ -875,7 +1030,7 @@ async fn empty_response_diagnostic_is_not_an_ordinary_answer() -> anyhow::Result
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &fresh_registry(), &summary).is_err());
     Ok(())
 }
 

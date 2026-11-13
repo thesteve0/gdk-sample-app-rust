@@ -436,19 +436,21 @@ async fn local_declaration_saves_once_without_tutor_turn_and_survives_maintenanc
 }
 
 #[tokio::test]
-async fn declaration_without_consent_is_ephemeral_and_never_quote_evidence() -> anyhow::Result<()> {
+async fn declaration_without_consent_still_saves_but_never_reloads_context() -> anyhow::Result<()> {
     let directory = env::temp_dir().join(format!("l13-ephemeral-{}", std::process::id()));
     fs::create_dir_all(&directory)?;
-    let path = directory.join("never-written.md");
+    let path = directory.join("record.md");
     let mut log = DiagnosticLog::create_at(directory.join("diagnostics.md"))?;
     let runtime = ChatRuntime::seeded();
     declare(&runtime, SESSION_ID, "Orders", &mut log, &path).await?;
-    assert!(!path.exists());
+    // Always writes now; consent only gates loading the record into context.
+    assert!(path.exists());
     let state = runtime.load(SESSION_ID).await?;
     assert_eq!(
         state.completed_concepts["orders"],
-        "ephemeral (memory consent disabled)"
+        "saved; memory consent declined (context not reloaded)"
     );
+    assert!(state.lesson.learner_record.is_empty());
     let call = CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(
         json!({"category":"learner_evidence","note":"Orders completed", "learner_quote":"Orders"}),
     )?);
@@ -691,7 +693,7 @@ async fn full_byte_budget_counts_static_tools_metadata_and_tool_results() -> any
     .await
     .is_err());
     assert!(partition(&state).is_err());
-    assert_eq!(compaction_policy().trigger_bytes, 60000);
+    assert_eq!(compaction_policy().trigger_bytes, 84000);
     assert_eq!(compaction_policy().total_bytes, 100000);
     assert_eq!(compaction_policy().headroom_bytes, 16000);
     Ok(())

@@ -344,15 +344,14 @@ pub async fn declare(
         return Ok(());
     }
     diagnostics.block("Learner completion intent BEFORE local append", "text", &format!("Concept: {}\nMemory consent: {}\nExplicit local learner declaration, not mastery or model authority.", concept, session.lesson.persistence_enabled))?;
-    let updated = if session.lesson.persistence_enabled {
-        Some(append_completion(path, concept)?)
-    } else {
-        None
-    };
-    let disposition = if updated.is_some() {
+    // Instructor decision 2026-11-12: /learned always appends to the learning
+    // record, even when the learner declined to load the record this session.
+    // Consent still gates reading saved notes into tutor context, not this write.
+    let updated = append_completion(path, concept)?;
+    let disposition = if session.lesson.persistence_enabled {
         "saved"
     } else {
-        "ephemeral (memory consent disabled)"
+        "saved; memory consent declined (context not reloaded)"
     };
     {
         let mut sessions = runtime.sessions.lock().await;
@@ -360,7 +359,9 @@ pub async fn declare(
             Some(stored) => stored,
             None => return Err(anyhow::anyhow!("missing Session")),
         };
-        if let Some(updated) = updated {
+        // Declining consent keeps the record's contents out of tutor context;
+        // the declaration itself is still written to disk above.
+        if session.lesson.persistence_enabled {
             stored.lesson.learner_record = updated;
         }
         stored
@@ -382,7 +383,7 @@ pub async fn declare(
         print_status("Completion declaration saved (not assessed mastery).");
     } else {
         print_status(
-            "Completion declared for this conversation only (not saved; not assessed mastery).",
+            "Completion declaration saved to learner-record.md (not assessed mastery). This conversation did not load the record, so its saved notes are not in tutor context.",
         );
     }
     Ok(())
@@ -835,7 +836,7 @@ impl Operation<ChatSession, ChatEffect> for Compaction {
                     Err(error) => report.disposition = format!("summary not applied: {}", error),
                 }
             }
-            Ok(None) => report.disposition = "no-op: insufficient eligible older history (retain latest two genuine exchanges; at least 8000 eligible serialized bytes needed)".to_string(),
+            Ok(None) => report.disposition = "no-op: insufficient eligible older history (retain latest two genuine exchanges; at least 4000 eligible serialized bytes needed)".to_string(),
             Err(error) => report.disposition = format!("unsafe boundary: {}; history retained", error),
         }
         yielded_with([ChatEffect::Maintenance(Outcome {

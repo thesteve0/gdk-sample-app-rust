@@ -1,9 +1,53 @@
 // Lesson 13
 //! Lexical acknowledgment and selected-source membership; not semantic support validation.
 use super::{retrieval, TurnGrounding};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-pub fn inspect_citations(grounding: &TurnGrounding, answer: &str) -> Vec<String> {
+// Provenance for one source ID the application supplied in some turn's
+// grounding, kept for the whole conversation so a citation the tutor reuses
+// from an earlier turn still resolves to its reference.
+pub struct CitationOrigin {
+    pub source_file: String,
+    pub page_start: i32,
+    pub page_end: i32,
+    pub similarity: f64,
+}
+
+#[derive(Default)]
+pub struct CitationRegistry {
+    origins: HashMap<String, CitationOrigin>,
+}
+
+impl CitationRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    // First origin wins: the ID keeps the reference it was first shown with.
+    pub fn record(&mut self, evidence: &retrieval::Evidence) {
+        self.origins
+            .entry(evidence.citation_id.clone())
+            .or_insert_with(|| CitationOrigin {
+                source_file: evidence.source_file.clone(),
+                page_start: evidence.page_start,
+                page_end: evidence.page_end,
+                similarity: evidence.similarity,
+            });
+    }
+    pub fn get(&self, citation_id: &str) -> Option<&CitationOrigin> {
+        self.origins.get(citation_id)
+    }
+    // Every ID ever recorded, for application reminders that list the exact
+    // markers the tutor is allowed to cite.
+    pub fn citation_ids(&self) -> Vec<&str> {
+        self.origins.keys().map(|id| id.as_str()).collect()
+    }
+}
+
+pub fn inspect_citations(
+    grounding: &TurnGrounding,
+    registry: &CitationRegistry,
+    answer: &str,
+) -> Vec<String> {
     let allowed: HashSet<&str> = grounding
         .evidence
         .iter()
@@ -33,8 +77,8 @@ pub fn inspect_citations(grounding: &TurnGrounding, answer: &str) -> Vec<String>
         }
         cited = true;
         let marker = format!("source:{}", id);
-        if !allowed.contains(marker.as_str()) {
-            warnings.push("Tutor output cites an ID not selected as this turn's grounding; source support is unverified.".to_string());
+        if !allowed.contains(marker.as_str()) && registry.get(&marker).is_none() {
+            warnings.push("Tutor output cites an ID the application never supplied in this conversation; no reference is available and support is unverified.".to_string());
         }
     }
     if cited && declined {
@@ -54,6 +98,9 @@ pub enum GroundingOutcome {
     Declined,
     // Excerpts were supplied but the reply neither cited nor declined them.
     SilentIgnore,
+    // At least one cited marker was never supplied in this conversation
+    // (fabricated, stale, or malformed); no reference can exist for it.
+    InvalidAcknowledgment,
 }
 
 impl GroundingOutcome {
@@ -67,22 +114,66 @@ impl GroundingOutcome {
             GroundingOutcome::SilentIgnore => {
                 "the tutor neither cited nor declined the supplied excerpts".to_string()
             }
+            GroundingOutcome::InvalidAcknowledgment => {
+                "the tutor cited a source ID the application never supplied; no reference exists for it"
+                    .to_string()
+            }
         }
     }
 }
 
-pub fn grounding_outcome(grounding: &TurnGrounding, answer: &str) -> GroundingOutcome {
+// Markers cited in the reply that the application never supplied in this
+// conversation (fabricated, stale, or malformed). The caller decides whether
+// to withhold the reply or escalate.
+pub fn invalid_citation_markers(
+    grounding: &TurnGrounding,
+    registry: &CitationRegistry,
+    answer: &str,
+) -> Vec<String> {
+    let mut invalid = Vec::new();
+    for marker in retrieval::extract_citations(answer) {
+        if marker == "source:none" {
+            continue;
+        }
+        let supplied = grounding
+            .evidence
+            .iter()
+            .any(|passage| passage.citation_id == marker)
+            || registry.get(&marker).is_some();
+        if !supplied && !invalid.contains(&marker) {
+            invalid.push(marker);
+        }
+    }
+    invalid
+}
+
+pub fn grounding_outcome(
+    grounding: &TurnGrounding,
+    registry: &CitationRegistry,
+    answer: &str,
+) -> GroundingOutcome {
     if grounding.evidence.is_empty() {
         return GroundingOutcome::NotSupplied;
     }
     // extract_citations("[source:none]") yields the sentinel "source:none".
     let citations = retrieval::extract_citations(answer);
     let declined = citations.iter().any(|id| id == "source:none");
-    let cited = citations.iter().any(|id| id != "source:none");
-    if cited {
-        // Citing still acknowledges the evidence even when the reply also
-        // declines it; inspect_citations flags that contradiction separately.
-        return GroundingOutcome::Cited;
+    let cited: Vec<&str> = citations
+        .iter()
+        .map(|id| id.as_str())
+        .filter(|id| *id != "source:none")
+        .collect();
+    if !cited.is_empty() {
+        // Membership, not marker presence, decides compliance: a fabricated
+        // or stale ID has no reference and must not count as acknowledgment.
+        // Current-turn IDs and every ID the application supplied in an
+        // earlier turn of this conversation are both valid.
+        if invalid_citation_markers(grounding, registry, answer).is_empty() {
+            // Citing still acknowledges the evidence even when the reply also
+            // declines it; inspect_citations flags that contradiction separately.
+            return GroundingOutcome::Cited;
+        }
+        return GroundingOutcome::InvalidAcknowledgment;
     }
     if declined {
         return GroundingOutcome::Declined;
@@ -90,32 +181,49 @@ pub fn grounding_outcome(grounding: &TurnGrounding, answer: &str) -> GroundingOu
     GroundingOutcome::SilentIgnore
 }
 
-pub fn citation_footer(grounding: &TurnGrounding, answer: &str) -> Option<String> {
-    if grounding.evidence.is_empty() {
-        return None;
-    }
+pub fn citation_footer(
+    grounding: &TurnGrounding,
+    registry: &CitationRegistry,
+    answer: &str,
+) -> Option<String> {
     let cited = retrieval::extract_citations(answer);
     if cited.is_empty() {
         return None;
     }
     let mut lines = Vec::new();
     for id in cited {
-        let passage = grounding
+        if id == "source:none" {
+            continue;
+        }
+        if let Some(passage) = grounding
             .evidence
             .iter()
-            .find(|passage| passage.citation_id == id);
-        let passage = match passage {
-            Some(passage) => passage,
-            None => continue,
-        };
-        lines.push(format!(
-            "{}: {} pages {}-{} (similarity {:.2})",
-            id,
-            source_file_name(&passage.source_file),
-            passage.page_start,
-            passage.page_end,
-            passage.similarity
-        ));
+            .find(|passage| passage.citation_id == id)
+        {
+            lines.push(format!(
+                "{}: {} pages {}-{} (similarity {:.2})",
+                id,
+                source_file_name(&passage.source_file),
+                passage.page_start,
+                passage.page_end,
+                passage.similarity
+            ));
+            continue;
+        }
+        // Supplied in an earlier turn of this conversation: resolve the same
+        // reference so no citation the application ever supplied goes
+        // without one. IDs never supplied stay unexplained here;
+        // inspect_citations warns about them instead.
+        if let Some(origin) = registry.get(&id) {
+            lines.push(format!(
+                "{}: {} pages {}-{} (similarity {:.2}) (from an earlier turn's excerpts)",
+                id,
+                source_file_name(&origin.source_file),
+                origin.page_start,
+                origin.page_end,
+                origin.similarity
+            ));
+        }
     }
     if lines.is_empty() {
         return None;

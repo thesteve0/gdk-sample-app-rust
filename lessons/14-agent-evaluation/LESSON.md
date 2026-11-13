@@ -28,6 +28,8 @@ A **deterministic invariant** is a boundary enforced and testable without relyin
 
 A **held-back case** is a case not used to choose the tweak. Inspecting it afterward helps reveal narrow tuning to the rehearsed examples. Model behavior varies; repeated live observations support limited claims, not universal guarantees.
 
+A **token estimate** is an informational approximation of the full active model working context, not a tokenizer measurement. The supplied display counts UTF-8 bytes in the serialized messages/tools projection produced by the OpenAI formatter, divides by four and rounds up. It uses the selected model's formatting and configured thinking-replay behavior, including whether replay is enabled and any model-specific preservation format. This is neither an exact token count, an upper bound nor an actual wire-byte count. It is separate from conservative byte safety budgets and cumulative provider usage; it does not show a context-window percentage or remaining tokens.
+
 ## Supplied modules and reading path
 
 A **module** is a named part of the same Rust application: it groups related code so we can read the current lesson's decisions without repeatedly reading already-taught mechanics. A `mod` declaration loads that local code; `use` brings selected names into scope. These are local source files, not separate applications, dependencies or a shared course framework. They are supplied, not fill-in exercises. In `main.rs`, for example:
@@ -35,6 +37,7 @@ A **module** is a named part of the same Rust application: it groups related cod
 ```rust
 mod calculator;
 mod chooser;
+mod context_size;
 mod diagnostics;
 mod learning_record;
 mod presentation;
@@ -58,11 +61,12 @@ The same file also declares the cohesive `compaction`, `retrieval` and `telemetr
 | 9. [presentation.rs](src/presentation.rs) | Terminal colors/gating and `TerminalProse`, with local tests. This is rendering support, not Event consumption or saved/provider-text rewriting. |
 | 10. [diagnostics.rs](src/diagnostics.rs) | Complete plain Markdown diagnostics, isolated-path routing and local tests; diagnostics are never learner memory. |
 | 11. [tests.rs](src/tests.rs) | Application orchestration/authority tests. |
+| Display support. [context_size.rs](src/context_size.rs), [context_size/tests.rs](src/context_size/tests.rs) | Binary-local full-active-context estimate and child tests; informational only, not a safety-budget replacement. Trace main's Learner-prompt call through `compaction::context_status` to this module, then compaction's applied-replacement measurements. |
 | 12. [retrieval/tests.rs](src/retrieval/tests.rs), [compaction/tests.rs](src/compaction/tests.rs), [telemetry/tests.rs](src/telemetry/tests.rs) | Module-local child tests retain access to their parent's implementation without splitting cohesive production algorithms. |
 
 The six inherited support modules are calculator, chooser, diagnostics, learning_record, presentation and provider_setup. Moving mechanics does not move authority: storage isolation helpers route both files, but main still shows the consent/approval/lifecycle decisions and their instrumentation. Resource cleanup and cancellation/Drop ordering are unchanged.
 
-Telemetry's explicit production-source inventory now also hashes `src/calculator.rs`, `src/chooser.rs`, `src/diagnostics.rs`, `src/learning_record.rs`, `src/presentation.rs` and `src/provider_setup.rs`. The `course.content_sha256` metadata schema and identification purpose are unchanged; source locations and resulting hashes change. No test file is in that inventory. The standalone [dataset seeder](seed_dataset.rs) and [dataset assets](datasets/) are unchanged and remain separate from tutor execution.
+Telemetry's explicit production-source inventory now also hashes `src/calculator.rs`, `src/chooser.rs`, `src/diagnostics.rs`, `src/learning_record.rs`, `src/presentation.rs` and `src/provider_setup.rs`. The inventory also includes the new binary-local `src/context_size.rs`, not its child tests. The `course.content_sha256` metadata schema and identification purpose are unchanged; source locations and resulting hashes change. No test file is in that inventory. The standalone [dataset seeder](seed_dataset.rs) and [dataset assets](datasets/) are unchanged and remain separate from tutor execution.
 
 ### Activate the complete working copy
 
@@ -113,11 +117,13 @@ Run the standard checks from the root:
 
 ```bash
 cargo fmt --check
-cargo check
-cargo clippy --all-targets
-cargo test --all-targets
-cargo build
+cargo check --bin gdk-hello
+cargo clippy --bin gdk-hello
+cargo test --bin gdk-hello
+cargo build --bin gdk-hello
 ```
+
+The instructor calibration example imports Lesson 13's RAG library. This preserved Lesson 14 layout has no such library, so target its tutor binary as above rather than using all-target checks after root activation. Reactivate the complete Lesson 13 tree before calibration. The dated all-target validation below used temporary staging with the explicit unchanged seeder and without the calibration example; it is not an all-target compatibility claim for this older layout in the root package.
 
 The explicitly opt-in real-service tests are separate from ordinary tests. With the configured real services above:
 
@@ -174,6 +180,29 @@ Read the selected dataset record's setup and inputs alongside its scenario befor
 In MLflow inspect a learner-turn parent and its available inference/tool children. Compare span inputs/outputs with the local correlated requests/results and final ordinary answer. Record observed token usage and timing when present; missing or partial usage is **unknown**, not zero. Summary work is extra inference, not a free reduction in cost. The trace is a debugging/evidence view, not a learner transcript or private chain-of-thought review exercise.
 
 The established minimal infrastructure proof is narrow: official v3.17.1 accepted native Rust OTLP traces, inference/usage and parent/tool relationships were observed, and named numeric feedback entered in the native UI persisted. This does **not** establish that every application path exports completely or that every evaluation case passed. Consult [VALIDATION.md](VALIDATION.md) for the actual final checks and gaps.
+
+## Observe the informational context estimate
+
+The terminal shows the estimate after the welcome and every completed tutor exchange, immediately before each `Learner > ` prompt. Blank replies, local commands and refused appends return to that same prompt boundary and display the current estimate again; an unknown upcoming reply is never counted. The estimate includes actual joined instructions, static teaching context, consented notes, local declarations, advertised tool schemas, history and the latest completed answer. It uses the agent-visible, repaired and merged conversation projection. A temporary user boundary protects a completed trailing assistant answer during repair, then is removed **before** measurement: neither a placeholder nor future learner text is counted.
+
+Lesson 14 counts its actual advertised search-tool definitions and retained search results. It keeps its **existing stored-state maintenance boundary** for before/after compaction estimates; this change does not migrate Lesson 14 to Lesson 13's RAG-only library, automatic grounding or prospective `PendingReply` design. Treat those layouts and measurement boundaries as distinct when comparing lessons.
+
+Cumulative usage, application-only metadata, output headroom and safety margins are excluded. No extra provider or tokenizer call is made. Estimation failure is nonfatal and prints `Context: token estimate unavailable`. Status uses the existing bold-cyan heading style only when terminal/color gates allow it; redirected output, any `NO_COLOR` and `TERM=dumb` remain plain. Saved/provider content is unchanged.
+
+Run with the lesson command above. Observe the line before the first prompt, send an ordinary question, then observe it again after the completed answer. A blank reply or local command should bring it back without inventing a new exchange. During a rehearsed eligible compaction, compare the before/after display with diagnostics, then inspect summary fidelity separately. The following is **illustrative, not captured output**; the values are not expected results:
+
+```text
+Tutor: What would you like to explore?
+Context: ~12000 tokens (estimate)
+Learner > ...
+...
+Context compacted: ~18000 → ~14000 tokens (estimate)
+...
+Context: ~14000 tokens (estimate)
+Learner >
+```
+
+The compacted line accompanies, rather than replaces, the existing fallibility status. It is printed only for an **applied history replacement**; no-op, failed or rejected replacement must not claim compaction. If an applied replacement's estimate is unavailable, the status says so rather than inventing numbers. A smaller estimate is not proof of faithful meaning, reduced billed usage or guaranteed capacity. All existing byte triggers/allowances, approvals, provenance and runtime behavior remain unchanged.
 
 ## 14.3 — Explain: attach judgments to evidence
 
@@ -275,3 +304,12 @@ The four supplied teaching units are optional background examples, not a topic w
 The three editable content files retain this lesson's own capability and authority instructions; do not replace later-lesson contracts with Lesson 10's calculator-only contract. Content changes take effect on a fresh selection, not in an already-running selected conversation. Historical teaching findings remain evidence about earlier content, not proof that this revision fixes model behavior.
 
 Validation for this content-only revision: static scope/capability/original-section checks passed across Lessons 10–14. The active Lesson 12 context-loading test and all-target tests passed (41 application tests and seven unchanged dataset-seeder tests; two opt-in real-service tests were not run). No new live teaching, approval, retrieval, compaction or telemetry validation is claimed.
+
+
+## CLI context estimates — 2026-11-12
+
+The approved display is supplied in this reference's existing binary-local layout, without migrating it to Lesson 13's library or changing prompts, byte guards, approval/provenance or tool behavior. Warning-free format/check/all-target Clippy/tests/build passed in isolated staging: **85 deterministic application tests** (16 new), two actual-service tests normally ignored, plus seven unchanged seeder tests with no catalog calls. Both actual-service tests passed explicitly. Staging omits the Lesson 13-only calibration example; use the binary-target maintenance commands above after activating this reference.
+
+An isolated live rehearsal completed exit 0 in **211.2 seconds**, showing **13 correctly ordered estimate/prompt pairs** and applied stored-context reductions **~12,617 → ~11,153** and **~12,096 → ~10,662 tokens**. Their separate conservative byte measurements were **70,329 → 59,790** and **69,501 → 57,826**. Blank input, invalid `/learned`, ephemeral declaration, no-op maintenance and same-Session continuation were checked. A separate `TERM=dumb` run returned correlated **$100.00** with exclusions, and a colored-arrow PTY run showed five bold-cyan status/prompt pairs with independently plain redirected stderr. Plain/diagnostic output had no application-added ANSI. Memory was declined; no actual learner record was accessed.
+
+The old MLflow experiment 1 returned 404 despite health/version readiness, so tracing was left disabled: no fresh export/identity-receipt, catalog mutation, experiment creation or review evidence is claimed. See [the detailed validation entry](VALIDATION.md#cli-context-estimates--2026-11-12) for initial test-fixture corrections and remaining semantic findings. No fresh live approved/rejected-note save, formatter failure, rejected replacement, colored actual compaction, held-back/rubric/teaching/IDE/projector review, service restart, corpus change, pin/dependency change or release approval. Historic findings remain; estimates are not measured tokens or summary-fidelity proof.
