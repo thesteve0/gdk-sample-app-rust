@@ -1,7 +1,7 @@
-// Lesson 13
+// Lesson 14
 use crate::{
-    calculator::tool_definition, learning_record::record_tool_definition, ChatSession,
-    LessonContext, REPOSITORY_ROOT,
+    calculator::tool_definition, learning_record::record_tool_definition, telemetry, ChatSession,
+    LessonContext,
 };
 use goose_agent::operation::messages_since_kickoff;
 use std::{fs, io::Write, path::PathBuf};
@@ -12,7 +12,7 @@ pub(super) struct DiagnosticLog {
 
 impl DiagnosticLog {
     pub(super) fn create() -> anyhow::Result<Self> {
-        let path = PathBuf::from(REPOSITORY_ROOT).join("session-output.md");
+        let path = telemetry::storage_path("session-output.md");
         Self::create_at(path)
     }
 
@@ -29,6 +29,16 @@ impl DiagnosticLog {
         language: &str,
         text: &str,
     ) -> anyhow::Result<()> {
+        // Diagnostics are already complete locally; export only ordinary evaluation boundaries.
+        if matches!(
+            heading,
+            "Learning note decision"
+                | "Learner completion disposition AFTER local append"
+                | "Warning"
+                | "Session ended"
+        ) {
+            tracing::info!("course.diagnostic" = heading, "course.evidence" = text);
+        }
         let block = markdown_block(heading, language, text);
         self.file.write_all(block.as_bytes())?;
         // Surface a logging failure now rather than hiding it until process exit.
@@ -194,7 +204,7 @@ pub(super) fn session_fields(session: &ChatSession) -> String {
         session.id, session.conversation.messages(), session.usage,
         session.applied_passes, session.halt_reason, session.lesson,
     );
-    format!("{}revision: {:?}\ngenuine_reply_ids: {:#?}\nsettled_approvals: {:#?}\ncompleted_concepts: {:#?}\npolicy: {:#?}\nturn_grounding: {:#?}\nmaintenance: {:#?}\nmaintenance_report: {:#?}\n", existing, session.revision, session.genuine_reply_ids, session.settled_approvals, session.completed_concepts, session.policy, session.turn_grounding, session.maintenance, session.maintenance_report)
+    format!("{}revision: {:?}\ngenuine_reply_ids: {:#?}\nsettled_approvals: {:#?}\ncompleted_concepts: {:#?}\npolicy: {:#?}\nmaintenance: {:#?}\nmaintenance_report: {:#?}\nturn_grounding: {:#?}\n", existing, session.revision, session.genuine_reply_ids, session.settled_approvals, session.completed_concepts, session.policy, session.maintenance, session.maintenance_report, session.turn_grounding)
 }
 
 #[cfg(test)]

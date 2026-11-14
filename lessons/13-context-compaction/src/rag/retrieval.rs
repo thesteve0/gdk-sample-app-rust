@@ -14,6 +14,11 @@ const REVISION: &str = "f9b9dc8d367d443f2479d27aa5d8d2850c0774ee";
 const RUNTIME_MODEL: &str = "TheSteve0/harrier-oss-v1-0.6b-GGUF";
 const GGUF_SHA256: &str = "02b8bc790139170d3710b411777342945c0b36d35fdaf0e24684c2d3e135a23b";
 const PROFILE: &str = "harrier-llamacpp-f16-last-l2-web-search-v1-gguf-02b8bc790139170d3710b411777342945c0b36d35fdaf0e24684c2d3e135a23b-build-b11429-d81235049";
+/// Nonsecret preparation profile identity for application evaluation metadata.
+pub fn profile_identity() -> &'static str {
+    PROFILE
+}
+
 const QUERY_PREFIX: &str =
     "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ";
 const DRAFT: &str = "draft_pending_layout_and_tokenizer_review";

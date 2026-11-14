@@ -10,7 +10,7 @@ This repository consumes the public [`goose-providers`](https://crates.io/crates
 > [!IMPORTANT]
 > This course is under active development. The root source is the exercise currently being worked on and may be incomplete. The numbered lesson directories contain the accompanying explanations and complete reference implementations.
 
-**Current working copy (2026-11-12): Lesson 13 with the RAG-only library; research-informed activity and source-review continuation is authorized and in progress (validation pending).** See [root source](#root-source) and [current workflow](#current-root-workflow); these supersede older dated activation descriptions below. Lessons 1–13 are complete; Lesson 14 awaits instructor review.
+**Current working copy (2026-11-13): Lesson 14 with Lesson 13's inherited RAG-only library and evaluation instrumentation.** The RAG integration is implemented; the four editable teaching prompts and broader compaction/memory integration remain deferred. See [root source](#root-source), [current workflow](#current-root-workflow) and the [integration validation record](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13). Lessons 1–13 remain complete; Lesson 14 awaits instructor review.
 
 ## One-command infrastructure startup
 
@@ -287,7 +287,7 @@ For a new implementation chat:
 1. Read this README first, then `AGENTS.md`, the current-decision/handoff sections of `post-lesson4-plan.md`, and the mental-model reference. Inspect Git status/diffs and preserve unrelated work.
 2. Read the manifest, lockfile, toolchain, provider JSON, root source, and complete Lessons 3–6 with their instructor notes. Read archived drafts only to identify useful evidence and pitfalls, not as accepted curriculum.
 3. Verify the exact pinned GDK/RMCP sources and official documentation: machine loading/run/application, inference streaming, Events/Emitter, effect requirements, tool registration/dispatch and correlation. The mental-model reference's upstream claims and open questions are not substitutes for this verification.
-4. Lessons 1–13 are complete per the instructor's 2026-11-11 and 2026-11-12 decisions; Lesson 14 is implemented and awaits instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the current root is Lesson 13 with the authorized same-package RAG-only library; preserve the complete Lesson 12 reference.
+4. Lessons 1–13 are complete per the instructor's 2026-11-11 and 2026-11-12 decisions; Lesson 14 is implemented and awaits instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the current root is Lesson 14 with inherited same-package RAG-only functionality; preserve the complete Lessons 12–13 references.
 5. Preserve Lesson 8’s concurrent streaming consumer and sender-closure/drain lifecycle. **Instructor decision (2026-10-05): do not add a loop safeguard to Lesson 8.** Keep `StateMachine::run` and add a concise source comment beside the call noting that production users may want a safeguard to prevent a runaway loop. Do not add a load budget or restore the old bounded manual loop. Before Lesson 9, separately resolve execution bounds and verify safe unknown-name handling, all-request handling, and request limits in the chosen tool adapter. Exact limit values are implementation decisions to document, not inherited guarantees from old spikes.
 6. Supply complete source, explanations, expected traces, instructor pacing, and the small predict/run/tweak activities together. Publish a precise root-based run workflow for the shared manifest; lesson sources are not independent Cargo packages. Keep sample output honest about streamed versus persisted data.
 7. For coding changes run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test`, and the documented live-provider run. Unit tests cover deterministic validation, effect application, state continuity, and safeguards; they do not replace live streaming/tool-selection validation. If the provider is unavailable, ask the instructor to start or supply one. Record what passed, failed, or remains unvalidated before changing lesson status.
@@ -300,7 +300,7 @@ For a new implementation chat:
 .
 ├── src/                        # current exercise; changes as the course advances
 │   ├── main.rs                 # application binary: the active lesson's focus
-│   ├── lib.rs                  # same-package gdk_hello::rag library (Lesson 13)
+│   ├── lib.rs                  # same-package gdk_hello::rag library (Lessons 13–14)
 │   ├── rag/                    # retrieval, grounding, citations, transport and child tests
 │   └── …                       # binary-local support, compaction and child tests
 ├── lessons/                    # explanation plus complete reference source
@@ -321,34 +321,17 @@ For a new implementation chat:
 
 ### Root source
 
-The root is the runnable, ephemeral **Lesson 13** classroom working copy, not a production application. Its library target belongs to the same Cargo package; it is not a common course crate, workspace, or SDK migration. The complete lib/bin/RAG source tree belongs with the [Lesson 13 reference](lessons/13-context-compaction/src/); synchronization and validation of the current continuation remain pending. The completed Lesson 12 reference remains unchanged.
+The root is the runnable, ephemeral **Lesson 14** classroom working copy, not a production application. It byte-matches the [complete Lesson 14 reference](lessons/14-agent-evaluation/src/). Its `gdk_hello::rag` library belongs to the same Cargo package, not a workspace, separate retrieval package or shared course framework. The completed Lesson 12 and Lesson 13 references are preserved; the only Lesson 13 addition in this phase is an identical nonsecret profile-identity accessor.
 
 | Source | Responsibility |
 | --- | --- |
-| [`src/main.rs`](src/main.rs) | Context/prompt assembly, classroom constants, Session/runtime/Effects, concurrent Events, dispatch/limits, grounding lifecycle, genuine learner provenance, default-no approvals, compaction decisions and expected-revision/hard-budget atomic state updates |
-| [`src/lib.rs`](src/lib.rs), [`src/rag/`](src/rag/) | `gdk_hello::rag`: retrieval, grounding, citations and local transport, with child tests |
+| [`src/main.rs`](src/main.rs) | Context and explicit RAG policy; telemetry/application lifecycle; Session/runtime/Effects; concurrent Event consumption; dispatch/limits; automatic grounding, prospective acceptance and buffered citation correction; genuine provenance and independent approvals |
+| [`src/lib.rs`](src/lib.rs), [`src/rag/`](src/rag/) | Inherited retrieval, grounding, citations and local transport, with child tests |
 | Binary-local support | `calculator`, `chooser`, `diagnostics`, `learning_record`, `presentation`, `provider_setup`; application tests remain binary-local |
-| [`src/compaction.rs`](src/compaction.rs), [`src/compaction/`](src/compaction/) | Cohesive binary-local compaction implementation and child tests |
-| [`src/context_size.rs`](src/context_size.rs), [`src/context_size/`](src/context_size/) | Binary-local informational token estimate; not a safety budget or measured usage |
-| [`src/continuity.rs`](src/continuity.rs), [`src/continuity/`](src/continuity/) | Bounded exact learner wording/IDs outside lossy history; only omitted originals projected, without semantic or write authority |
-| [`src/activities.rs`](src/activities.rs), [`src/activities/`](src/activities/) | Binary-local ephemeral activity-plan mechanics and child tests; addition, selection, execution and persistence remain separate |
-| [`src/source_review.rs`](src/source_review.rs), [`src/source_review/`](src/source_review/) | Binary-local current-excerpt inspection, exact UTF-8 line offsets and candidate citation-adjacent paragraphs; not a semantic support verdict |
-| [`src/teaching.rs`](src/teaching.rs), [`src/teaching/`](src/teaching/) | Binary-local authored public-primary conceptual checks and child tests; understanding remains unassessed |
+| [`src/compaction.rs`](src/compaction.rs), [`src/compaction/`](src/compaction/) | Existing Lesson 14 compaction/declaration policies with minimal pending-input and attempt-scoped compatibility |
+| [`src/telemetry.rs`](src/telemetry.rs), [`src/telemetry/`](src/telemetry/) | Native local traces, isolated storage, nonreasoning projections and explicit source inventory |
 
-Main passes `RetrievalDefaults` (including `RetrievalLimits`), a `GroundingPolicy`, and the grounding contract explicitly to library functions; compaction policy/constants also stay in main. Every supplied Rust source starts `// Lesson 13`. Read the [Lesson 13 source map](lessons/13-context-compaction/LESSON.md#supplied-module-map-and-teaching-reading-path) alongside main.
-
-**Prior split, not the current design:** the earlier broad library extraction of calculator/chooser/presentation/provider support was withdrawn. The authorized replacement exports RAG only. Lesson 14 has **not** been adapted: its telemetry source-hash inventory and prompt continuation require separate updates before trusting it with this library layout. The separately authorized 2026-11-12 context-display change updates Lesson 14 in its existing layout only; it does not authorize that library/prompt migration.
-
-### Lesson directories
-
-Coding lessons are instructional references with complete supplied applications:
-
-- `LESSON.md` explains the lesson and highlights important code snippets.
-- `src/` contains the complete reference implementation from the outset (`main.rs` and any lesson-local modules), ready to run and tweak.
-
-Lesson 7 is intentionally conceptual: it has prose, diagrams, and instructor notes, but no Rust source. Lesson 12 supplies complete main/retrieval references, editable teaching content, lesson and instructor notes. Lesson 13 supplies complete reference modules, editable summary guidance, lesson, visual and instructor notes. Lesson 14 supplies synchronized complete modules, local MLflow setup, a native evaluation dataset catalog with supplied Rust seeder/manual execution guide, editable rubric/scenarios and comparison materials; the shared handoff is `lessons/final-lessons-handoff.md`.
-
-Lesson source is reference material, not an independently packaged application. The root manifest and locked dependencies are shared. The complete solution is already present in each lesson directory; it is not copied from the root at the end of class.
+Every supplied source starts `// Lesson 14`. Main supplies service defaults, retrieval limits, selection policy and RAG contract explicitly. Follow the [Lesson 14 source map](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path). This phase does not migrate the editable teaching prompts, broader memory/compaction policies, activity/source-review/continuity features or context display. Older records describe a context display, but the tracked Lesson 14 baseline inspected here contains no sizing module/calls; see its documented discrepancy. Do not infer those features from Lesson 13's historic records.
 
 ## Prerequisites and setup
 
@@ -409,34 +392,30 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-**Current root (2026-11-12): Lesson 13 with a RAG-only library, informational context display and source/continuity safeguards; the activity/source-review teaching continuation is authorized, with validation pending.** The implementation was already Lesson 13 at the start of this pass despite stale Lesson 12 root descriptions. Lessons 1–12 remain complete; Lesson 13 is complete (2026-11-12); Lesson 14 remains implemented with instructor review pending. This supersedes earlier root-activation descriptions, not their dated validation evidence.
+**Current root (2026-11-13): Lesson 14, RAG-only integration checkpoint.** Root and the full Lesson 14 reference match recursively. Lessons 1–13 remain complete; Lesson 14 remains implemented with instructor review pending. Earlier dated activation and validation records remain historical.
 
-Automatic grounding runs once per genuine learner question; there is **no model-facing source-search tool**. Genuine learner message IDs remain authoritative. When excerpts are supplied, the leading grounding contract requires exact `[source:<id>]` citations or a legitimate decline ending `[source:none]`. Silent acknowledgment failure permits **exactly one** reminder/retry, never another search for the same question. Settle first-attempt proposal approvals before appending that reminder; application-authored reminders are never learner quotation evidence. Approval decisions are scoped by kickoff message ID plus request ID, so a reused request ID cannot suppress a new decision. Diagnostics retain exact per-request system prompts.
+Automatic grounding runs once per genuine learner reply, not on kickoff or correction; there is no advertised source-search tool. Selection inherits Lesson 13's explicit 0.55 threshold, at most three excerpts and 2,500-token retrieval-response budget. Replacement evidence stays outside history, is counted with the pending question in preflight, and is accepted atomically with the question. Summaries see stored history only.
 
-Before appending a learner question, compaction preflight accounts for both the prospective `PendingReply` question and its replacement grounding attachment. Safe summaries read only stored history, never that not-yet-appended question. Continuing the same Session preserves authoritative state, approved memory, actual learner provenance, tool correlation, and existing input/output/request/pass/deadline limits; `/learned` retains its explicit local authorization boundary. Generated summaries authorize neither notes nor current citations.
+The application buffers provider Events before learner presentation and checks citation-registry membership. On grounded silent acknowledgment failure or invalid IDs it permits one correction, without retrieving again. First-attempt notes require separate default-no decisions before the application reminder, which never counts as a genuine quotation. Registry membership, citations and accepted declines are not semantic-support certification; the inherited edge cases are documented in the [integration plan](lessons/14-agent-evaluation/RAG-INTEGRATION-PLAN.md).
 
-Lessons 13–14 show `Context: ~N tokens (estimate)` after the welcome and every completed tutor exchange, just before each learner prompt. The full active instructions, consented notes, tools, history/latest answer and current evidence are approximated from formatted messages/tools JSON UTF-8 bytes divided by four (rounded up). This is not tokenizer usage, cumulative consumption, a guaranteed bound or remaining capacity. Applied compaction also shows `Context compacted: ~N → ~M tokens (estimate)`; no-op/failure does not claim a replacement. The existing byte triggers, safety guards and authority boundaries are unchanged. See each lesson for its measurement boundary and actual validation.
+Lesson 14 preserves its older 60,000-byte trigger, 8,000-byte eligible-history minimum and consent-dependent `/learned` persistence, not Lesson 13's later policies. The four existing editable prompts remain untouched, including conflicts with automatic retrieval. Their reconciliation, broader compaction/memory migration, context display and revised evaluation baselines are **deferred**, not validated by this intermediate integration.
 
-Start the compatible local services. Main supplies classroom reader/Harrier/tutor defaults; `RETRIEVAL_DATABASE_URL`, `HARRIER_URL` and `TUTOR_URL` still override them. The supplied local reader password is intentionally plaintext in source/binaries, not secure credential storage; never echo it in diagnostics. From the repository root:
+Main retains classroom reader/Harrier/tutor defaults and environment overrides. The supplied reader credential is plaintext in source/binaries, not secure credential storage; never echo it into diagnostics/traces. Isolate **both** notes and overwritten diagnostics for evaluation with a unique name before launching; the [Lesson 14 guide](lessons/14-agent-evaluation/LESSON.md#prerequisites-services-and-exact-commands) explains the existing service and optional telemetry prerequisites:
 
 ```bash
 umask 077
-cargo run --bin gdk-hello -- custom_aa_llama_qwen3_6-35b.json
+EVALUATION_STORAGE=rag14-review-unique cargo run --bin gdk-hello -- custom_aa_llama_qwen3_6-35b.json
 ```
 
-Use a compatible literal-loopback OpenAI provider JSON if overriding the path; local-origin/proxy/redirect checks remain. Activate a reference recursively, including `lib.rs`, `rag/` and all child test directories for Lesson 13:
+Activate a full reference recursively, including the library, `rag/` and child tests, never main alone:
 
 ```bash
 rm -rf src
 mkdir src
-cp -R lessons/13-context-compaction/src/. src/
+cp -R lessons/14-agent-evaluation/src/. src/
 ```
 
-Lesson 13 now checks exact current source-ID membership and invalid acknowledgment with at most one correction attempt, recording each supplied ID's lexical use without certifying support. Its bounded in-Session learner archive preserves exact wording across summaries; new memory proposals must be verbatim quotations from the latest genuine exchange and still require default-no category/usefulness approval. Consented recognized saved activities are visibly offered by the application, not automatically selected or completed. Ordinary answers no longer repeat blanket source caveats or the full activity plan; full details remain in private diagnostics and on-request `/sources`, `/checks` and `/activity list` views. Concrete source warnings, retry/decline notices and approval prompts remain visible. See the [lesson](lessons/13-context-compaction/LESSON.md#exact-continuity-without-new-authority) for caps, irreducible input cost and remaining semantic limits.
-
-The preceding completed checkpoint recorded byte-identical root/reference trees; the current continuation requires fresh recursive synchronization and validation before claiming that result again. No backup/restoration or final hello-world reset is required now; the reset remains deferred until review is complete. Keep each active lesson's teaching files in its own content directory.
-
-The [calibration example](examples/rag_calibration.rs) imports the active `gdk_hello::rag` library and supplies its own explicit defaults. It requires the Lesson 13 library tree. When activating another lesson without that library (including the preserved Lesson 14 layout), target the tutor with `cargo check --bin gdk-hello` / `cargo build --bin gdk-hello` rather than building all targets/examples; reactivate Lesson 13 before running calibration. The standalone Lesson 14 dataset seeder and assets are unchanged; running tutor tests does not authorize catalog writes.
+No backup/restoration or final hello-world reset now; review remains pending. The [calibration example](examples/rag_calibration.rs) compiles against the same RAG API in Lessons 13 **and 14** and passes its own defaults. Earlier references without that library require binary-target maintenance commands rather than all-target examples. The standalone dataset seeder/assets are unchanged; compiling/testing the seeder does not authorize catalog calls. Native traces identify application preparation, attempts, correction and actual learner-visible output separately; exact prompt captures stay in isolated diagnostics. See [actual validation](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13) for structural evidence, live limitations and preserved semantic defects.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
@@ -653,3 +632,9 @@ No model judge, training, retrieval-threshold or budget changes, dependency/pin 
 ### Research-informed Lesson 13 validation checkpoint — 2026-11-12
 
 Root/reference recursively match with the three new binary-local modules/child tests.215 deterministic application tests(37lib+178bin)+7 unchanged seeder passed; both explicitly enabled actual-service tests passed with existing local settings. Warning-free fmt/check/all-target Clippy/tests/build passed. Isolated verified-manifest package `/var/tmp/gdk-research13-2lop7H` used its own target and disposable diagnostics/record. Real67.6s workflow checked declined/approved exact Add, separate Select, source inspection/course checks, rejected Complete/approved Cancel, consent-disabled import refusal,14status/prompt pairs and plain output. Separate consented saved-option import/select/complete left record bytes/0600 unchanged; plain/emptyNO_COLOR/dumb Cargo launches exited0. Activity scopes reject invisible/bidi/control text; plan decisions remain in private diagnostics, not a resumable saved plan or learner-record write. Retain halt “simply waits” overgeneralization, unverified decline, requested-length failure and generic welcome ignoring saved activity. No fresh live compaction/PTY/calculator/model-note save, failure matrix, expert/held-back/learning/IDE/projector evidence or release approval. Detailed actual scope and initial fixture corrections are in Lesson13/notes. Real files/process, L12/L14/preparation/examples/pins/provider/services preserved; no restart/corpus/catalog mutation/commit. Structural success is not semantic reliability.
+
+### Lesson 14 RAG-only integration — 2026-11-13
+
+Root/reference now match the complete Lesson14 lib/bin/RAG tree; Lesson13's canonical RAG is inherited rather than reimplemented. Automatic grounding, pending-input/replacement evidence, buffered citation correction and independent approvals coexist with native evaluation telemetry/isolation. Completed Lessons12–13 remain preserved (only a shared nonsecret profile accessor added to13); pins, seeder/assets and four editable Lesson14 prompts are unchanged. Prompt reconciliation and broader memory/compaction/display/evaluation-baseline integration remain deferred.
+
+Final root/staging checks pass:121 deterministic application tests+7 unchanged seeder; both actual-service tests passed. Isolated live grounding/reference resolution, correlated$100 calculator, one acknowledgment correction and approved/rejected notes completed; actual MLflow readback verified trace relationships and source hashes. Source-scope and execution-wording defects remain; fabricated-reference withholding and several failure branches are deterministic-only this pass. See [exact validation](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13). No services restarted, corpus/catalog changed, commits or release approval. Stop for instructor review.

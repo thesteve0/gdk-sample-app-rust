@@ -1,5 +1,7 @@
 // Lesson 14
 
+const TEST_MODEL_NAME_BYTES: usize = 512;
+
 fn genuine_fixture(ids: &mut Vec<String>, text: &str) -> Message {
     let message = Message::user()
         .with_text(text)
@@ -10,7 +12,7 @@ fn genuine_fixture(ids: &mut Vec<String>, text: &str) -> Message {
 
 #[test]
 fn declared_provider_overrides_cannot_defeat_model_output_limit() {
-    let error = validate_local_tutor(&json!({"engine":"openai", "base_url":"http://127.0.0.1:8080", "models":[{"name":"local", "request_params":{"max_tokens":999999}}]})).expect_err("override rejected before provider creation");
+    let error = validate_local_tutor(&json!({"engine":"openai", "base_url":"http://127.0.0.1:8080", "models":[{"name":"local", "request_params":{"max_tokens":999999}}]}), TEST_MODEL_NAME_BYTES).expect_err("override rejected before provider creation");
     assert!(error.to_string().contains("request_params"));
     assert_eq!(TUTOR_MAX_TOKENS, 4096);
 }
@@ -119,7 +121,7 @@ async fn stream_text_protocol_and_token_limits_cancel_and_prevent_approval() -> 
         let state = ChatRuntime::new(SESSION_ID, LessonContext::load()?)
             .load(SESSION_ID)
             .await?;
-        assert!(inspect_turn(&state, &summary).is_err());
+        assert!(inspect_turn(&state, &CitationRegistry::new(), &summary).is_err());
     }
     let mut message = Message::assistant().with_text("truncated");
     message.metadata.output_token_limit_reached = true;
@@ -132,153 +134,128 @@ async fn stream_text_protocol_and_token_limits_cancel_and_prevent_approval() -> 
     Ok(())
 }
 
-#[tokio::test]
-async fn evidence_ledger_is_shared_across_same_snapshot_calls_and_resets_at_turn_boundary() {
-    let ledger = Arc::new(Mutex::new(EvidenceBudget::default()));
-    let first_snapshot = ledger.clone();
-    let second_snapshot = ledger.clone();
-    let mut response = retrieval::SearchResponse {
+// Synthetic public evidence exercises application state without substituting for live retrieval.
+fn grounding_fixture(id: &str, similarity: f64, excerpt: &str) -> retrieval::Evidence {
+    retrieval::Evidence {
+        citation_id: format!("source:{}", id),
+        chunk_id: format!("chunk-{}", id),
+        document_id: format!("document-{}", id),
+        source_file: format!("public-{}.pdf", id),
+        source_sha256: "synthetic-source-sha".to_string(),
+        content_sha256: "synthetic-content-sha".to_string(),
+        page_start: 3,
+        page_end: 4,
+        raw_fragments: Vec::new(),
+        review_status: "draft".to_string(),
+        similarity,
+        excerpt: excerpt.to_string(),
+        excerpt_truncated: false,
+    }
+}
+
+fn forced_grounding_policy() -> GroundingPolicy {
+    GroundingPolicy {
+        min_similarity: GROUNDING_MIN_SIMILARITY,
+        max_statements: GROUNDING_MAX_STATEMENTS,
+        token_budget: GROUNDING_TOKEN_BUDGET,
+    }
+}
+
+fn grounding_response(evidence: Vec<retrieval::Evidence>) -> retrieval::SearchResponse {
+    retrieval::SearchResponse {
         collection: "public-fixture".to_string(),
         model: "public".to_string(),
         revision: "public".to_string(),
         profile: "public".to_string(),
-        status: "no_evidence".to_string(),
-        notice: "public fixture".to_string(),
-        evidence: Vec::new(),
-        used_tokens: 2500,
-    };
-    first_snapshot
-        .lock()
-        .await
-        .record(&response)
-        .expect("first allowance");
-    assert!(second_snapshot.lock().await.record(&response).is_err());
-    assert_eq!(ledger.lock().await.used_tokens, 2500);
-    response.used_tokens = 1500;
-    second_snapshot
-        .lock()
-        .await
-        .record(&response)
-        .expect("remaining allowance");
-    assert_eq!(ledger.lock().await.used_tokens, 4000);
-    *ledger.lock().await = EvidenceBudget::default();
-    assert_eq!(ledger.lock().await.used_tokens, 0);
+        status: "ok".to_string(),
+        notice: "Synthetic public evidence".to_string(),
+        evidence,
+        used_tokens: 0,
+    }
 }
 
 #[tokio::test]
-#[ignore = "requires actual local reader/embedding/tutor services"]
-async fn live_same_snapshot_sdk_search_batch_obeys_one_evidence_budget() -> anyhow::Result<()> {
-    let retrieval = match retrieval::Retrieval::from_env().await {
-        Ok(retrieval) => retrieval,
-        Err(failure) => return Err(anyhow::anyhow!(failure)),
-    };
-    let budget = Arc::new(Mutex::new(EvidenceBudget::default()));
-    let provider = RetrievalToolProvider {
-        retrieval: Arc::new(retrieval),
-        budget: budget.clone(),
-    };
-    let operation = SafeTools {
-        inner: ToolOperation::new().with_provider(Arc::new(provider)),
-    };
+async fn forced_grounding_is_replaced_per_turn_without_leaking_evidence_into_history(
+) -> anyhow::Result<()> {
     let runtime = ChatRuntime::seeded();
-    let mut session = runtime.load(SESSION_ID).await?;
-    let args = json!({"query":"How does liquidity affect the bid-ask spread?"})
-        .as_object()
-        .expect("public query")
-        .clone();
-    session.conversation.push(
-        Message::assistant()
-            .with_tool_request(
-                "first",
-                Ok(CallToolRequestParams::new(retrieval::SEARCH_TOOL).with_arguments(args.clone())),
-            )
-            .with_tool_request(
-                "second",
-                Ok(CallToolRequestParams::new(retrieval::SEARCH_TOOL).with_arguments(args)),
-            ),
-    );
-    let (sender, _receiver) = mpsc::channel(8);
-    let emit = Emitter::new(sender, CancellationToken::new());
-    let result = operation
-        .run(&session, &session.conversation, &emit)
+    let kickoff = runtime.load(SESSION_ID).await?;
+    assert_eq!(kickoff.turn_grounding.status, "none");
+    assert!(kickoff.turn_grounding.evidence.is_empty());
+    let response = grounding_response(vec![
+        grounding_fixture("previous", 0.95, "First-turn public excerpt."),
+        grounding_fixture("second", 0.90, "Another public excerpt."),
+        grounding_fixture("third", 0.80, "Third public excerpt."),
+        grounding_fixture("over-cap", 0.70, "Not selected."),
+        grounding_fixture("below-threshold", 0.10, "Not selected either."),
+    ]);
+    let policy = forced_grounding_policy();
+    let first_grounding = rag::select_grounding("First question", &response, &policy);
+    runtime
+        .append_grounded_user(SESSION_ID, "First question", first_grounding)
         .await?;
-    let effects = applied_effects(result)?;
-    let mut count = 0;
-    let mut total = 0;
-    for effect in effects {
-        if let ChatEffect::AppendMessage(message) = effect {
-            for block in &message.content {
-                if let Some(response) = block.as_tool_response() {
-                    count += 1;
-                    assert!(tool_response_succeeded(&response.tool_result));
-                    if let Ok(result) = &response.tool_result {
-                        for content in &result.content {
-                            if let Some(text) = content.as_text() {
-                                let value: Value = serde_json::from_str(&text.text)?;
-                                total +=
-                                    value["used_tokens"].as_u64().expect("token count") as usize;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    assert_eq!(count, 2);
-    assert!(total <= 4000);
-    assert_eq!(total, budget.lock().await.used_tokens);
+    let first = runtime.load(SESSION_ID).await?;
+    assert_eq!(
+        first.turn_grounding.evidence.len(),
+        GROUNDING_MAX_STATEMENTS
+    );
+    assert!(first
+        .turn_grounding
+        .evidence
+        .iter()
+        .all(|passage| passage.similarity >= GROUNDING_MIN_SIMILARITY));
+    let response = grounding_response(vec![grounding_fixture(
+        "current",
+        GROUNDING_MIN_SIMILARITY,
+        "Second-turn public excerpt.",
+    )]);
+    let grounding = rag::select_grounding("Second question", &response, &policy);
+    runtime
+        .append_grounded_user(SESSION_ID, "Second question", grounding)
+        .await?;
+    let second = runtime.load(SESSION_ID).await?;
+    assert_eq!(second.id, first.id);
+    assert_eq!(second.revision, first.revision + 1);
+    assert_eq!(second.turn_grounding.query, "Second question");
+    assert_eq!(second.turn_grounding.evidence.len(), 1);
+    assert_eq!(
+        second.turn_grounding.evidence[0].citation_id,
+        "source:current"
+    );
+    assert_eq!(
+        &second.conversation.messages()[..first.conversation.len()],
+        first.conversation.messages()
+    );
+    let parts = safe_tools()
+        .prompt_parts(&second, &second.conversation)
+        .await?;
+    assert!(parts[0].1.contains("Second-turn public excerpt."));
+    assert!(!parts[0].1.contains("First-turn public excerpt."));
+    let history = serde_json::to_string(second.conversation.messages())?;
+    assert!(!history.contains("public excerpt"));
+    assert!(!history.contains("source:current"));
+    assert!(!history.contains("source:previous"));
+    assert_eq!(second.genuine_reply_ids.len(), 2);
+    let empty = rag::select_grounding(
+        "Unrelated question",
+        &grounding_response(Vec::new()),
+        &policy,
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "Unrelated question", empty)
+        .await?;
+    let third = runtime.load(SESSION_ID).await?;
+    assert_eq!(third.turn_grounding.status, "no_evidence");
+    assert!(third.turn_grounding.evidence.is_empty());
+    assert!(safe_tools()
+        .prompt_parts(&third, &third.conversation)
+        .await?
+        .iter()
+        .all(|(name, _body)| name != "source-grounding"));
+    assert_eq!(
+        first.turn_grounding.evidence.len(),
+        GROUNDING_MAX_STATEMENTS
+    );
     Ok(())
-}
-
-#[test]
-fn citation_membership_uses_only_successful_search_results_this_turn() {
-    let id = "source:synthetic-public-passage";
-    let call = CallToolRequestParams::new(retrieval::SEARCH_TOOL);
-    let request = Message::assistant().with_tool_request("search-id", Ok(call));
-    let response = Message::user().with_tool_response(
-        "search-id",
-        Ok(CallToolResult::success(vec![ContentBlock::text(
-            json!({"evidence":[{"citation_id":id}]}).to_string(),
-        )])),
-    );
-    let turn = vec![request.clone(), response.clone()];
-    assert!(inspect_citations(&turn, "Example [source:synthetic-public-passage]").is_empty());
-    assert_eq!(
-        inspect_citations(&turn, "Example [source:invented]").len(),
-        1
-    );
-    assert_eq!(
-        inspect_citations(&turn, "Example without a marker").len(),
-        1
-    );
-    assert_eq!(
-        inspect_citations(&[], "Example [source:synthetic-public-passage]").len(),
-        1
-    );
-    let other_request = Message::assistant()
-        .with_tool_request("search-id", Ok(CallToolRequestParams::new(TOOL_NAME)));
-    assert_eq!(
-        inspect_citations(
-            &[other_request, response],
-            "[source:synthetic-public-passage]"
-        )
-        .len(),
-        1
-    );
-    let error_response = Message::user().with_tool_response(
-        "search-id",
-        Ok(CallToolResult::error(vec![ContentBlock::text(
-            json!({"evidence":[{"citation_id":id}]}).to_string(),
-        )])),
-    );
-    assert_eq!(
-        inspect_citations(
-            &[request, error_response],
-            "[source:synthetic-public-passage]"
-        )
-        .len(),
-        1
-    );
 }
 
 #[tokio::test]
@@ -286,6 +263,19 @@ async fn retrieved_quotes_never_become_learner_proposal_evidence() -> anyhow::Re
     let runtime = ChatRuntime::seeded();
     let mut session = runtime.load(SESSION_ID).await?;
     session.lesson.persistence_enabled = true;
+    session.turn_grounding = TurnGrounding {
+        status: "grounded".to_string(),
+        query: "Journal question".to_string(),
+        threshold: GROUNDING_MIN_SIMILARITY,
+        evidence: vec![grounding_fixture(
+            "journal",
+            0.90,
+            "Public synthetic source says keep a journal.",
+        )],
+        notice: None,
+    };
+    let proposal = proposal_call("learner_evidence", "Keeps a journal", "keep a journal");
+    assert!(parse_record_proposal(&proposal, &session).is_err());
     session
         .conversation
         .push(Message::user().with_tool_response(
@@ -294,7 +284,6 @@ async fn retrieved_quotes_never_become_learner_proposal_evidence() -> anyhow::Re
                 "Public synthetic source says keep a journal.",
             )])),
         ));
-    let proposal = proposal_call("learner_evidence", "Keeps a journal", "keep a journal");
     assert!(parse_record_proposal(&proposal, &session).is_err());
     session.conversation.push(genuine_fixture(
         &mut session.genuine_reply_ids,
@@ -305,13 +294,7 @@ async fn retrieved_quotes_never_become_learner_proposal_evidence() -> anyhow::Re
 }
 
 #[test]
-fn retrieval_notice_and_streaming_preserve_source_markers() {
-    assert!(
-        retrieval_result_notice(&json!({"evidence":[{},{}]}).to_string())
-            .unwrap()
-            .contains("2 draft")
-    );
-    assert!(retrieval_result_notice("$100.00").is_none());
+fn streaming_preserves_source_markers() {
     let mut prose = TerminalProse::default();
     let mut text = prose.fragment("Evidence [sou");
     text.push_str(&prose.fragment("rce:public-id]"));
@@ -328,9 +311,12 @@ fn tutor_endpoint_is_literal_loopback_without_url_secrets() {
         "http://user:secret@127.0.0.1:8080",
         "http://127.0.0.1:8080?key=secret",
     ] {
-        let error = validate_local_tutor(&json!({"engine":"openai","base_url":endpoint}))
-            .unwrap_err()
-            .to_string();
+        let error = validate_local_tutor(
+            &json!({"engine":"openai","base_url":endpoint}),
+            TEST_MODEL_NAME_BYTES,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(!error.contains("secret"));
         assert!(!error.contains(endpoint));
     }
@@ -646,7 +632,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary)?.is_empty());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary)?.is_empty());
     // Orphan responses cannot masquerade as a valid completed round trip.
     session
         .conversation
@@ -654,7 +640,7 @@ async fn optional_tool_use_does_not_require_a_calculation_for_every_turn() -> an
     session
         .conversation
         .push(Message::assistant().with_text("Done"));
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary).is_err());
     Ok(())
 }
 use super::*;
@@ -751,7 +737,7 @@ async fn empty_response_diagnostic_is_not_an_ordinary_answer() -> anyhow::Result
         displayed_text: true,
         ..EventSummary::default()
     };
-    assert!(inspect_turn(&session, &summary).is_err());
+    assert!(inspect_turn(&session, &CitationRegistry::new(), &summary).is_err());
     Ok(())
 }
 
@@ -1076,5 +1062,1388 @@ async fn complete_request_display_precedes_tool_result_and_final_answer() -> any
     for message in saved.conversation.messages() {
         assert!(!is_reconstructed_request_display(message));
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn search_is_not_advertised_and_receives_a_correlated_unknown_tool_error(
+) -> anyhow::Result<()> {
+    let runtime = ChatRuntime::seeded();
+    let mut session = runtime.load(SESSION_ID).await?;
+    session.lesson.persistence_enabled = true;
+    let tools = safe_tools();
+    let definitions = tools.inference_tools(&session).await?;
+    assert_eq!(definitions.len(), 2);
+    assert!(definitions
+        .iter()
+        .all(|tool| tool.name.as_ref() != "search_educational_passages"));
+    session
+        .conversation
+        .push(Message::assistant().with_tool_request(
+            "removed-search",
+            Ok(CallToolRequestParams::new("search_educational_passages")),
+        ));
+    let (sender, mut receiver) = mpsc::channel(2);
+    let emit = Emitter::new(sender, CancellationToken::new());
+    let effects = applied_effects(tools.run(&session, &session.conversation, &emit).await?)?;
+    let mut responses = Vec::new();
+    for effect in effects {
+        if let ChatEffect::AppendMessage(message) = effect {
+            assert_eq!(message.role, rmcp::model::Role::User);
+            for block in &message.content {
+                if let Some(response) = block.as_tool_response() {
+                    assert_eq!(response.id, "removed-search");
+                    let failure = response
+                        .tool_result
+                        .as_ref()
+                        .expect_err("unknown search rejected");
+                    assert!(failure.message.contains("unknown or unavailable tool"));
+                    responses.push(response.id.clone());
+                }
+            }
+            session.conversation.push(message);
+        }
+    }
+    assert_eq!(responses, vec!["removed-search"]);
+    assert!(matches!(
+        tools.run(&session, &session.conversation, &emit).await?,
+        OperationResult::NotApplicable
+    ));
+    drop(emit);
+    assert!(receiver.recv().await.is_some());
+    assert!(receiver.recv().await.is_none());
+    Ok(())
+}
+
+#[tokio::test]
+async fn budget_preparer_captures_exact_grounded_prompt_without_mutating_history(
+) -> anyhow::Result<()> {
+    use goose_agent::inference::InferenceRequestPreparer;
+    use goose_agent::operation::InferenceInput;
+    let runtime = ChatRuntime::seeded();
+    let kickoff = runtime.load(SESSION_ID).await?;
+    let captures = PromptCaptures::default();
+    let preparer = compaction::BudgetPreparer {
+        captures: captures.clone(),
+    };
+    let kickoff_parts = safe_tools()
+        .prompt_parts(&kickoff, &kickoff.conversation)
+        .await?;
+    assert_eq!(kickoff.turn_grounding.status, "none");
+    assert!(kickoff.turn_grounding.evidence.is_empty());
+    assert!(kickoff_parts
+        .iter()
+        .all(|(name, _body)| name != "source-grounding"));
+    let input = InferenceInput {
+        prompt_parts: kickoff_parts,
+        tools: safe_tools().inference_tools(&kickoff).await?,
+        moim_parts: Vec::new(),
+    };
+    let prepared = preparer
+        .prepare(&kickoff, &kickoff.conversation, input)
+        .await?;
+    assert!(prepared.system_prompt.starts_with(&kickoff.lesson.contract));
+    assert!(!prepared.system_prompt.contains(GROUNDING_CONTRACT));
+    assert_eq!(captures.drain().await, vec![prepared.system_prompt]);
+    let grounding = rag::select_grounding(
+        "Learner question",
+        &grounding_response(vec![grounding_fixture(
+            "capture",
+            0.95,
+            "Public attached grounding excerpt.",
+        )]),
+        &forced_grounding_policy(),
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "Learner question", grounding.clone())
+        .await?;
+    let session = runtime.load(SESSION_ID).await?;
+    let before = serde_json::to_value(session.conversation.messages())?;
+    let parts = safe_tools()
+        .prompt_parts(&session, &session.conversation)
+        .await?;
+    assert_eq!(parts[0].0, "source-grounding");
+    assert!(parts[0].1.starts_with(GROUNDING_CONTRACT));
+    assert_eq!(
+        parts[0],
+        grounding
+            .prompt_part(GROUNDING_CONTRACT)
+            .expect("grounding part")
+    );
+    let expected = parts
+        .iter()
+        .map(|(_name, body)| body.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let definitions = safe_tools().inference_tools(&session).await?;
+    let prepared = preparer
+        .prepare(
+            &session,
+            &session.conversation,
+            InferenceInput {
+                prompt_parts: parts,
+                tools: definitions.clone(),
+                moim_parts: Vec::new(),
+            },
+        )
+        .await?;
+    assert_eq!(prepared.system_prompt, expected);
+    assert_eq!(prepared.tools, definitions);
+    assert!(prepared.additional_messages.is_empty());
+    assert_eq!(captures.drain().await, vec![expected]);
+    assert!(captures.drain().await.is_empty());
+    let after = runtime.load(SESSION_ID).await?;
+    assert_eq!(serde_json::to_value(after.conversation.messages())?, before);
+    assert_eq!(after.revision, session.revision);
+    assert_eq!(after.genuine_reply_ids, session.genuine_reply_ids);
+    let history = serde_json::to_string(after.conversation.messages())?;
+    assert!(!history.contains("Public attached grounding excerpt."));
+    assert!(!history.contains(GROUNDING_CONTRACT));
+    assert_eq!(after.conversation.len(), kickoff.conversation.len() + 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn escalation_append_preserves_genuine_provenance_and_current_evidence() -> anyhow::Result<()>
+{
+    let runtime = ChatRuntime::seeded();
+    let grounding = rag::select_grounding(
+        "Learn orders",
+        &grounding_response(vec![grounding_fixture(
+            "escalation",
+            0.90,
+            "Public source excerpt.",
+        )]),
+        &forced_grounding_policy(),
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "I want to learn orders.", grounding)
+        .await?;
+    {
+        let mut sessions = runtime.sessions.lock().await;
+        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
+        stored.lesson.persistence_enabled = true;
+        stored.applied_passes = MAX_APPLIED_PASSES;
+        stored.halt_reason = Some("prior attempt ended".to_string());
+        stored
+            .settled_approvals
+            .insert("settled".to_string(), false);
+    }
+    let before = runtime.load(SESSION_ID).await?;
+    runtime
+        .append_application(SESSION_ID, GROUNDING_ESCALATION_MESSAGE)
+        .await?;
+    let after = runtime.load(SESSION_ID).await?;
+    assert_eq!(after.id, before.id);
+    assert_eq!(after.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(after.revision, before.revision + 1);
+    assert_eq!(after.applied_passes, 0);
+    assert_eq!(after.halt_reason, None);
+    assert_eq!(after.settled_approvals, before.settled_approvals);
+    assert_eq!(
+        after.turn_grounding.grounding_summary(),
+        before.turn_grounding.grounding_summary()
+    );
+    assert_eq!(
+        serde_json::to_value(&after.turn_grounding.evidence)?,
+        serde_json::to_value(&before.turn_grounding.evidence)?
+    );
+    assert_eq!(
+        &after.conversation.messages()[..before.conversation.len()],
+        before.conversation.messages()
+    );
+    let application = after.conversation.last().expect("application reminder");
+    assert_eq!(application.role, rmcp::model::Role::User);
+    assert_eq!(application.as_concat_text(), GROUNDING_ESCALATION_MESSAGE);
+    assert!(!after
+        .genuine_reply_ids
+        .contains(application.id.as_ref().expect("application ID")));
+    assert!(parse_record_proposal(
+        &proposal_call(
+            "learner_evidence",
+            "Discussed excerpts",
+            "source excerpts supplied for this turn"
+        ),
+        &after
+    )
+    .is_err());
+    assert!(parse_record_proposal(
+        &proposal_call("stated_goals", "Learn orders", "learn orders"),
+        &after
+    )
+    .is_ok());
+    Ok(())
+}
+
+#[test]
+fn approval_keys_require_stable_kickoff_ids_and_encode_both_components() -> anyhow::Result<()> {
+    assert!(approval_key(&Message::user().with_text("No ID"), "request").is_err());
+    let mut first = Message::user().with_text("First kickoff");
+    first.id = Some("kickoff|request".to_string());
+    let mut second = Message::user().with_text("Second kickoff");
+    second.id = Some("kickoff".to_string());
+    let first_key = approval_key(&first, "tail")?;
+    let second_key = approval_key(&second, "request|tail")?;
+    assert_ne!(first_key, second_key);
+    assert_eq!(
+        serde_json::from_str::<(String, String)>(&first_key)?,
+        ("kickoff|request".to_string(), "tail".to_string())
+    );
+    assert_eq!(first_key, approval_key(&first, "tail")?);
+    Ok(())
+}
+
+#[tokio::test]
+async fn reused_record_request_ids_validate_new_proposals_instead_of_replaying_old_decisions(
+) -> anyhow::Result<()> {
+    let record_before = read_record(&record_path())?;
+    for approved in [false, true] {
+        for escalation in [false, true] {
+            let runtime = ChatRuntime::seeded();
+            let (first_key, second_key) = {
+                let mut sessions = runtime.sessions.lock().await;
+                let stored = sessions.get_mut(SESSION_ID).expect("fixture Session");
+                stored.lesson.persistence_enabled = true;
+                let first =
+                    genuine_fixture(&mut stored.genuine_reply_ids, "I want to learn orders.");
+                let first_key = approval_key(&first, "reused-record")?;
+                stored.conversation.push(first);
+                stored
+                    .conversation
+                    .push(Message::assistant().with_tool_request(
+                        "reused-record",
+                        Ok(CallToolRequestParams::new(RECORD_TOOL)),
+                    ));
+                stored.conversation.push(Message::user().with_tool_response(
+                    "reused-record",
+                    Ok(CallToolResult::success(vec![ContentBlock::text(
+                        "Prepared",
+                    )])),
+                ));
+                stored
+                    .conversation
+                    .push(Message::assistant().with_text("First answer."));
+                stored.settled_approvals.insert(first_key.clone(), approved);
+                let second = if escalation {
+                    Message::user()
+                        .with_text(GROUNDING_ESCALATION_MESSAGE)
+                        .with_generated_id_if_missing()
+                } else {
+                    genuine_fixture(&mut stored.genuine_reply_ids, "Explain stop orders.")
+                };
+                let second_key = approval_key(&second, "reused-record")?;
+                stored.conversation.push(second);
+                // An invalid new proposal must fail validation, never reach stdin.
+                stored
+                    .conversation
+                    .push(Message::assistant().with_tool_request(
+                        "reused-record",
+                        Ok(proposal_call(
+                            "stated_goals",
+                            "New note",
+                            "Not an actual learner quote",
+                        )),
+                    ));
+                stored.conversation.push(Message::user().with_tool_response(
+                    "reused-record",
+                    Ok(CallToolResult::success(vec![ContentBlock::text(
+                        "Prepared",
+                    )])),
+                ));
+                stored
+                    .conversation
+                    .push(Message::assistant().with_text("Second answer."));
+                (first_key, second_key)
+            };
+            let before = runtime.load(SESSION_ID).await?;
+            assert_ne!(first_key, second_key);
+            assert!(!approval_pending(&before, &first_key)?);
+            assert!(approval_pending(&before, &second_key)?);
+            let temporary = OrchestrationDiagnostics::new()?;
+            let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+            let error = approve_record_proposals(&runtime, SESSION_ID, &mut diagnostics)
+                .await
+                .expect_err("new attempt must independently validate its proposal");
+            assert!(error
+                .to_string()
+                .contains("learner_quote must exactly quote"));
+            let after = runtime.load(SESSION_ID).await?;
+            assert_eq!(after.settled_approvals, before.settled_approvals);
+            assert_eq!(after.revision, before.revision);
+            assert!(!fs::read_to_string(temporary.path())?.contains("## Learning note decision"));
+            {
+                let mut sessions = runtime.sessions.lock().await;
+                sessions
+                    .get_mut(SESSION_ID)
+                    .expect("fixture Session")
+                    .settled_approvals
+                    .insert(second_key.clone(), false);
+            }
+            // Once this specific proposal is settled, even invalid arguments are not replayed.
+            assert!(!approval_pending(
+                &runtime.load(SESSION_ID).await?,
+                &second_key
+            )?);
+            approve_record_proposals(&runtime, SESSION_ID, &mut diagnostics).await?;
+        }
+    }
+    assert_eq!(read_record(&record_path())?, record_before);
+    Ok(())
+}
+
+#[tokio::test]
+async fn prior_success_cannot_authorize_a_reused_record_id_without_current_success(
+) -> anyhow::Result<()> {
+    for response in ["rejected", "missing", "error"] {
+        let runtime = ChatRuntime::seeded();
+        {
+            let mut sessions = runtime.sessions.lock().await;
+            let stored = sessions.get_mut(SESSION_ID).expect("fixture Session");
+            stored.lesson.persistence_enabled = true;
+            stored.conversation.push(
+                Message::assistant().with_tool_request(
+                    "reused-record",
+                    Ok(CallToolRequestParams::new(RECORD_TOOL)),
+                ),
+            );
+            stored.conversation.push(Message::user().with_tool_response(
+                "reused-record",
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    "Prepared",
+                )])),
+            ));
+            stored
+                .conversation
+                .push(Message::assistant().with_text("Prior answer."));
+            let second = genuine_fixture(&mut stored.genuine_reply_ids, "Explain stop orders.");
+            stored.conversation.push(second);
+            // Missing arguments expose any accidental match against the prior successful result.
+            stored.conversation.push(
+                Message::assistant().with_tool_request(
+                    "reused-record",
+                    Ok(CallToolRequestParams::new(RECORD_TOOL)),
+                ),
+            );
+            if response != "missing" {
+                let result = if response == "rejected" {
+                    Ok(CallToolResult::error(vec![ContentBlock::text("Rejected")]))
+                } else {
+                    Err(ErrorData::invalid_params("Rejected", None))
+                };
+                stored
+                    .conversation
+                    .push(Message::user().with_tool_response("reused-record", result));
+            }
+            stored
+                .conversation
+                .push(Message::assistant().with_text("Current answer."));
+        }
+        let before = runtime.load(SESSION_ID).await?;
+        let temporary = OrchestrationDiagnostics::new()?;
+        let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+        approve_record_proposals(&runtime, SESSION_ID, &mut diagnostics).await?;
+        let after = runtime.load(SESSION_ID).await?;
+        assert_eq!(after.settled_approvals, before.settled_approvals);
+        assert_eq!(after.revision, before.revision);
+        assert!(!fs::read_to_string(temporary.path())?.contains("## Learning note decision"));
+    }
+    Ok(())
+}
+
+// Deterministic orchestration fixtures: scripted Operations, not provider/live evidence.
+// Events use the real consumer; Effects use the real GDK loop and ChatRuntime.
+struct OrchestrationDiagnostics {
+    directory: PathBuf,
+}
+
+impl OrchestrationDiagnostics {
+    fn new() -> anyhow::Result<Self> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos();
+        let directory = env::temp_dir().join(format!(
+            "gdk-orchestration-{}-{}-{}",
+            std::process::id(),
+            stamp,
+            sequence
+        ));
+        fs::create_dir(&directory)?;
+        Ok(Self { directory })
+    }
+
+    fn path(&self) -> PathBuf {
+        self.directory.join("diagnostics.md")
+    }
+}
+
+impl Drop for OrchestrationDiagnostics {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.directory);
+    }
+}
+
+enum OrchestrationExit {
+    Continue,
+    Yield,
+    Fail,
+}
+
+struct OrchestrationWork {
+    expected_passes: usize,
+    events: Vec<Message>,
+    effects: Vec<ChatEffect>,
+    exit: OrchestrationExit,
+}
+
+impl OrchestrationWork {
+    fn saved(expected_passes: usize, messages: Vec<Message>) -> Self {
+        let effects = messages.iter().cloned().map(ChatEffect::from).collect();
+        Self {
+            expected_passes,
+            events: messages,
+            effects,
+            exit: OrchestrationExit::Continue,
+        }
+    }
+}
+
+struct OrchestrationScript {
+    work: Mutex<std::collections::VecDeque<OrchestrationWork>>,
+    observed_passes: Mutex<Vec<usize>>,
+    attempt_starts: std::sync::atomic::AtomicUsize,
+}
+
+impl OrchestrationScript {
+    fn new(work: Vec<OrchestrationWork>) -> Self {
+        Self {
+            work: Mutex::new(work.into()),
+            observed_passes: Mutex::new(Vec::new()),
+            attempt_starts: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+
+    fn attempts(&self) -> usize {
+        self.attempt_starts
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+#[async_trait]
+impl Operation<ChatSession, ChatEffect> for OrchestrationScript {
+    fn name(&self) -> &'static str {
+        "deterministic-orchestration-fixture"
+    }
+
+    async fn run(
+        &self,
+        session: &ChatSession,
+        conversation: &Conversation,
+        emit: &Emitter,
+    ) -> anyhow::Result<OperationResult<ChatEffect>> {
+        let turn = messages_since_kickoff(conversation)?;
+        if goose_agent::operation::ends_turn(turn) {
+            return not_applicable();
+        }
+        if turn.len() == 1 {
+            self.attempt_starts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+        let work = self.work.lock().await.pop_front();
+        let work = match work {
+            Some(work) => work,
+            None => {
+                return Err(anyhow::anyhow!(
+                    "unexpected scripted orchestration invocation"
+                ))
+            }
+        };
+        assert_eq!(session.applied_passes, work.expected_passes);
+        self.observed_passes
+            .lock()
+            .await
+            .push(session.applied_passes);
+        for event in work.events {
+            emit.emit(AgentEvent::Message(event)).await;
+        }
+        match work.exit {
+            OrchestrationExit::Continue => applied(work.effects),
+            OrchestrationExit::Yield => yielded_with(work.effects),
+            OrchestrationExit::Fail => Err(anyhow::anyhow!("scripted orchestration run failure")),
+        }
+    }
+}
+
+async fn orchestration_runtime(memory: bool) -> anyhow::Result<ChatRuntime> {
+    let runtime = ChatRuntime::seeded();
+    {
+        let mut sessions = runtime.sessions.lock().await;
+        let stored = sessions.get_mut(SESSION_ID).expect("fixture Session");
+        stored.lesson.persistence_enabled = memory;
+        // Complete the opening exchange without making it genuine learner evidence.
+        stored.conversation.push(
+            Message::assistant()
+                .with_text("Fixture welcome.")
+                .with_generated_id_if_missing(),
+        );
+    }
+    let grounding = rag::select_grounding(
+        "Fixture learner question",
+        &grounding_response(vec![grounding_fixture(
+            "orchestration",
+            0.90,
+            "Authored public fixture evidence.",
+        )]),
+        &forced_grounding_policy(),
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "I want to learn orders.", grounding)
+        .await?;
+    Ok(runtime)
+}
+
+fn orchestration_machine(
+    script: Arc<OrchestrationScript>,
+    cancel: &CancellationToken,
+) -> StateMachine<'static, ChatSession, ChatEffect> {
+    StateMachine::new(
+        vec![
+            Step::Operation(Arc::new(RunLimit)),
+            Step::Operation(Arc::new(safe_tools())),
+            Step::Operation(script),
+        ],
+        cancel.clone(),
+    )
+}
+
+fn orchestration_reminders(session: &ChatSession) -> usize {
+    session
+        .conversation
+        .messages()
+        .iter()
+        .filter(|message| message.as_concat_text() == GROUNDING_ESCALATION_MESSAGE)
+        .count()
+}
+
+#[tokio::test]
+async fn deterministic_orchestration_silent_ignore_retries_once_with_fresh_bounds(
+) -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(false).await?;
+    let before = runtime.load(SESSION_ID).await?;
+    let mut work = Vec::new();
+    let answers = ["Fixture initial answer.", "Fixture second answer."];
+    for answer in answers {
+        // All four actual calculator calls use the SAME IDs on the next attempt.
+        // SafeTools must use the new kickoff window, not reject retained-history IDs.
+        let mut requests = Message::assistant();
+        for index in 0..MAX_TOOL_REQUESTS {
+            requests = requests.with_tool_request(
+                format!("reused-fixture-{}", index),
+                Ok(CallToolRequestParams::new(TOOL_NAME).with_arguments(arguments(200))),
+            );
+        }
+        work.push(OrchestrationWork::saved(0, vec![requests]));
+        // The request and real SafeTools dispatch consume two work passes.
+        for pass in 2..MAX_APPLIED_PASSES - 1 {
+            work.push(OrchestrationWork::saved(pass, Vec::new()));
+        }
+        work.push(OrchestrationWork::saved(
+            MAX_APPLIED_PASSES - 1,
+            vec![Message::assistant().with_text(answer)],
+        ));
+    }
+    let script = Arc::new(OrchestrationScript::new(work));
+    let cancel = CancellationToken::new();
+    let machine = orchestration_machine(script.clone(), &cancel);
+    let temporary = OrchestrationDiagnostics::new()?;
+    let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+    run_turn(
+        &machine,
+        &runtime,
+        &cancel,
+        SESSION_ID,
+        2,
+        &PromptCaptures::default(),
+        &CitationRegistry::new(),
+        &mut diagnostics,
+    )
+    .await?;
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(script.attempts(), 2);
+    assert!(script.work.lock().await.is_empty());
+    let expected_passes = [vec![0], (2..MAX_APPLIED_PASSES).collect()].concat();
+    assert_eq!(
+        *script.observed_passes.lock().await,
+        [expected_passes.clone(), expected_passes].concat()
+    );
+    assert_eq!(saved.applied_passes, MAX_APPLIED_PASSES);
+    assert!(saved.halt_reason.is_none());
+    assert_eq!(saved.id, before.id);
+    assert_eq!(saved.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(saved.genuine_reply_ids.len(), 1);
+    assert_eq!(orchestration_reminders(&saved), 1);
+    let messages = saved.conversation.messages();
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|message| answers.contains(&message.as_concat_text().as_str()))
+            .count(),
+        2
+    );
+    assert_eq!(
+        messages.last().expect("second answer").as_concat_text(),
+        answers[1]
+    );
+    assert_eq!(
+        serde_json::to_value(&saved.turn_grounding.evidence)?,
+        serde_json::to_value(&before.turn_grounding.evidence)?
+    );
+    let reminder = messages
+        .iter()
+        .find(|message| message.as_concat_text() == GROUNDING_ESCALATION_MESSAGE)
+        .expect("one application reminder");
+    assert!(!saved
+        .genuine_reply_ids
+        .contains(reminder.id.as_ref().expect("reminder ID")));
+    let responses = messages
+        .iter()
+        .flat_map(|message| &message.content)
+        .filter_map(|block| block.as_tool_response())
+        .collect::<Vec<_>>();
+    assert_eq!(responses.len(), 2 * MAX_TOOL_REQUESTS);
+    for response in responses {
+        assert!(tool_response_succeeded(&response.tool_result));
+        let result = response
+            .tool_result
+            .as_ref()
+            .expect("actual calculator result");
+        assert!(result
+            .content
+            .iter()
+            .any(|content| { content.as_text().is_some_and(|text| text.text == "$100.00") }));
+    }
+    let transcript = fs::read_to_string(temporary.path())?;
+    assert_eq!(transcript.matches("## Grounding escalation (").count(), 1);
+    assert_eq!(
+        transcript
+            .matches("## Grounding outcome after one escalation (")
+            .count(),
+        1
+    );
+    assert!(!transcript.contains("## Learning note decision"));
+    Ok(())
+}
+
+async fn orchestration_acknowledged_once(answer: &str) -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(false).await?;
+    let script = Arc::new(OrchestrationScript::new(vec![OrchestrationWork::saved(
+        0,
+        vec![Message::assistant().with_text(answer)],
+    )]));
+    let cancel = CancellationToken::new();
+    let machine = orchestration_machine(script.clone(), &cancel);
+    let temporary = OrchestrationDiagnostics::new()?;
+    let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+    run_turn(
+        &machine,
+        &runtime,
+        &cancel,
+        SESSION_ID,
+        2,
+        &PromptCaptures::default(),
+        &CitationRegistry::new(),
+        &mut diagnostics,
+    )
+    .await?;
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(script.attempts(), 1);
+    assert_eq!(*script.observed_passes.lock().await, vec![0]);
+    assert!(script.work.lock().await.is_empty());
+    assert_eq!(saved.applied_passes, 1);
+    assert_eq!(orchestration_reminders(&saved), 0);
+    assert_eq!(saved.genuine_reply_ids.len(), 1);
+    assert_eq!(
+        saved
+            .conversation
+            .last()
+            .expect("saved answer")
+            .as_concat_text(),
+        answer
+    );
+    assert!(!fs::read_to_string(temporary.path())?.contains("## Grounding escalation"));
+    Ok(())
+}
+
+// A bare decline is accepted without retry: the strengthened grounding
+// instruction asks the tutor to take the added context from the excerpts
+// unless there is a very strong stated reason, but a valid [source:none]
+// answer still ends the turn with no application re-ask.
+#[tokio::test]
+async fn deterministic_orchestration_declined_excerpts_finish_without_retry() -> anyhow::Result<()>
+{
+    orchestration_acknowledged_once("Fixture excerpts do not support this answer. [source:none]")
+        .await
+}
+
+#[tokio::test]
+async fn deterministic_orchestration_cited_excerpts_finish_without_retry() -> anyhow::Result<()> {
+    orchestration_acknowledged_once("Fixture supported statement. [source:orchestration]").await
+}
+
+#[tokio::test]
+async fn deterministic_orchestration_failed_halted_or_incomplete_attempt_never_approves_or_retries(
+) -> anyhow::Result<()> {
+    // No stdin/global-environment manipulation: a full ledger also makes accidental
+    // approval fail before confirmation, rather than blocking the test process.
+    let record_before = read_record(&record_path())?;
+    for failure in ["run", "halt", "incomplete"] {
+        let runtime = orchestration_runtime(true).await?;
+        {
+            let mut sessions = runtime.sessions.lock().await;
+            let stored = sessions.get_mut(SESSION_ID).expect("fixture Session");
+            for index in 0..compaction::MAX_SETTLED_APPROVALS {
+                stored
+                    .settled_approvals
+                    .insert(format!("prior-{}", index), false);
+            }
+        }
+        let before = runtime.load(SESSION_ID).await?;
+        let proposal = Message::assistant().with_tool_request(
+            "pending-fixture-note",
+            Ok(proposal_call(
+                "stated_goals",
+                "Learn orders",
+                "learn orders",
+            )),
+        );
+        let visible = Message::assistant().with_text("Fixture visible but unapproved text.");
+        let mut ending = OrchestrationWork::saved(2, vec![visible.clone()]);
+        match failure {
+            "run" => ending.exit = OrchestrationExit::Fail,
+            "halt" => {
+                ending
+                    .effects
+                    .push(ChatEffect::Halt("fixture safeguard".to_string()));
+                ending.exit = OrchestrationExit::Yield;
+            }
+            "incomplete" => {
+                // A live Event without a saved final answer must not pass inspection.
+                ending.effects.clear();
+                ending.exit = OrchestrationExit::Yield;
+            }
+            _ => unreachable!(),
+        }
+        let script = Arc::new(OrchestrationScript::new(vec![
+            OrchestrationWork::saved(0, vec![proposal]),
+            ending,
+        ]));
+        let cancel = CancellationToken::new();
+        let machine = orchestration_machine(script.clone(), &cancel);
+        let temporary = OrchestrationDiagnostics::new()?;
+        let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+        let result = run_turn(
+            &machine,
+            &runtime,
+            &cancel,
+            SESSION_ID,
+            2,
+            &PromptCaptures::default(),
+            &CitationRegistry::new(),
+            &mut diagnostics,
+        )
+        .await;
+        let error = result.expect_err("unsuccessful attempt cannot classify or approve");
+        let expected_error = match failure {
+            "run" => "scripted orchestration run failure",
+            "halt" => "run stopped at a safeguard: fixture safeguard",
+            "incomplete" => "no ordinary final tutor answer was both displayed and saved",
+            _ => unreachable!(),
+        };
+        assert!(error.to_string().contains(expected_error), "{}", error);
+        assert_eq!(script.attempts(), 1);
+        assert_eq!(*script.observed_passes.lock().await, vec![0, 2]);
+        assert!(script.work.lock().await.is_empty());
+        let saved = runtime.load(SESSION_ID).await?;
+        assert_eq!(orchestration_reminders(&saved), 0);
+        assert_eq!(saved.genuine_reply_ids, before.genuine_reply_ids);
+        assert_eq!(saved.settled_approvals, before.settled_approvals);
+        assert_eq!(saved.lesson.learner_record, before.lesson.learner_record);
+        let response = saved
+            .conversation
+            .messages()
+            .iter()
+            .flat_map(|message| &message.content)
+            .filter_map(|block| block.as_tool_response())
+            .find(|response| response.id == "pending-fixture-note")
+            .expect("real proposal-only SafeTools acknowledgment");
+        assert!(tool_response_succeeded(&response.tool_result));
+        let transcript = fs::read_to_string(temporary.path())?;
+        assert!(transcript.contains("## Complete Session after run"));
+        assert!(transcript.contains(if failure == "run" {
+            "## Run failure"
+        } else {
+            "## Turn failure"
+        }));
+        assert!(!transcript.contains("## Grounding outcome"));
+        assert!(!transcript.contains("## Grounding escalation"));
+        assert!(!transcript.contains("## Learning note decision"));
+        assert_eq!(read_record(&record_path())?, record_before);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn deterministic_orchestration_first_approval_validation_failure_prevents_escalation(
+) -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(true).await?;
+    let before = runtime.load(SESSION_ID).await?;
+    let record_before = read_record(&record_path())?;
+    // Deliberately inconsistent saved proposal state exercises approval's independent
+    // validation. This is NOT a claimed tool result/provider response: the scripted
+    // Operation supplies the batch so SafeTools cannot validate it beforehand.
+    let invalid_request = Message::assistant().with_tool_request(
+        "invalid-fixture-note",
+        Ok(proposal_call(
+            "stated_goals",
+            "Fixture note",
+            "Never said by the learner",
+        )),
+    );
+    let scripted_response = Message::user().with_tool_response(
+        "invalid-fixture-note",
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            "Fixture acknowledgment",
+        )])),
+    );
+    let script = Arc::new(OrchestrationScript::new(vec![OrchestrationWork::saved(
+        0,
+        vec![
+            invalid_request,
+            scripted_response,
+            Message::assistant().with_text("Fixture uncited ordinary answer."),
+        ],
+    )]));
+    let cancel = CancellationToken::new();
+    let machine = orchestration_machine(script.clone(), &cancel);
+    let temporary = OrchestrationDiagnostics::new()?;
+    let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+    let result = run_turn(
+        &machine,
+        &runtime,
+        &cancel,
+        SESSION_ID,
+        2,
+        &PromptCaptures::default(),
+        &CitationRegistry::new(),
+        &mut diagnostics,
+    )
+    .await;
+    let error = result.expect_err("approval must independently validate genuine source");
+    assert!(error
+        .to_string()
+        .contains("learner_quote must exactly quote"));
+    assert_eq!(script.attempts(), 1);
+    assert_eq!(*script.observed_passes.lock().await, vec![0]);
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(saved.applied_passes, 1);
+    assert_eq!(orchestration_reminders(&saved), 0);
+    assert_eq!(saved.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(saved.settled_approvals, before.settled_approvals);
+    assert_eq!(saved.lesson.learner_record, before.lesson.learner_record);
+    let transcript = fs::read_to_string(temporary.path())?;
+    assert!(transcript.contains("## Grounding outcome (application classification)"));
+    assert!(!transcript.contains("## Run failure"));
+    assert!(!transcript.contains("## Turn failure"));
+    assert!(!transcript.contains("## Grounding escalation"));
+    assert!(!transcript.contains("## Learning note decision"));
+    assert_eq!(read_record(&record_path())?, record_before);
+    Ok(())
+}
+
+#[test]
+fn automatic_grounding_uses_explicit_application_defaults() {
+    let policy = forced_grounding_policy();
+    assert_eq!(policy.min_similarity, 0.55);
+    assert_eq!(policy.max_statements, 3);
+    assert_eq!(policy.token_budget, 2500);
+    let defaults = retrieval_defaults();
+    assert_eq!(defaults.embedding_url, HARRIER_URL);
+    assert_eq!(defaults.tutor_url, TUTOR_URL);
+    assert_eq!(defaults.limits.max_query_bytes, RETRIEVAL_MAX_QUERY_BYTES);
+    assert_eq!(defaults.limits.max_excerpt_tokens, 1000);
+    assert_eq!(defaults.limits.token_accounting_attempts, 8);
+    assert_eq!(defaults.limits.sql_timeout, Duration::from_secs(5));
+    assert_eq!(defaults.limits.http_timeout, Duration::from_secs(15));
+}
+
+#[tokio::test]
+async fn rejected_pending_grounding_does_not_partially_replace_question_or_evidence(
+) -> anyhow::Result<()> {
+    let runtime = ChatRuntime::seeded();
+    let grounding = rag::select_grounding(
+        "Accepted question",
+        &grounding_response(vec![grounding_fixture(
+            "accepted",
+            0.90,
+            "Accepted excerpt.",
+        )]),
+        &forced_grounding_policy(),
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "Accepted question", grounding)
+        .await?;
+    {
+        let mut sessions = runtime.sessions.lock().await;
+        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
+        stored.applied_passes = 3;
+        stored.halt_reason = Some("preserved until accepted input".to_string());
+    }
+    let before = runtime.load(SESSION_ID).await?;
+    let replacement = rag::select_grounding(
+        "Rejected question",
+        &grounding_response(vec![grounding_fixture(
+            "rejected",
+            0.95,
+            &"x".repeat(100_000),
+        )]),
+        &forced_grounding_policy(),
+    );
+    let prospective = compaction::prospective_bytes(&before, "Rejected question", &replacement)?;
+    assert!(prospective > before.policy.total_bytes - before.policy.headroom_bytes);
+    let failure = runtime
+        .append_grounded_user(SESSION_ID, "Rejected question", replacement)
+        .await
+        .expect_err("question plus replacement attachment must fit before commit");
+    assert!(failure
+        .to_string()
+        .contains("conservative byte estimate allowance"));
+    let after = runtime.load(SESSION_ID).await?;
+    assert_eq!(session_fields(&after), session_fields(&before));
+    assert_eq!(after.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(after.revision, before.revision);
+    assert_eq!(after.applied_passes, before.applied_passes);
+    assert_eq!(after.halt_reason, before.halt_reason);
+    // Replacing an oversized OLD attachment must not count both attachments.
+    let mut oversized_old = before.clone();
+    oversized_old.turn_grounding.evidence[0].excerpt = "x".repeat(100_000);
+    assert!(compaction::check_budget(&oversized_old).is_err());
+    assert!(
+        compaction::prospective_bytes(
+            &oversized_old,
+            "Short next question",
+            &TurnGrounding::default()
+        )? < before.policy.total_bytes - before.policy.headroom_bytes
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn no_evidence_and_unavailable_replace_previous_attachment_without_claiming_support(
+) -> anyhow::Result<()> {
+    for status in ["no_evidence", "unavailable"] {
+        let runtime = orchestration_runtime(false).await?;
+        let before = runtime.load(SESSION_ID).await?;
+        let grounding = TurnGrounding {
+            status: status.to_string(),
+            query: "Unsupported question".to_string(),
+            threshold: GROUNDING_MIN_SIMILARITY,
+            notice: if status == "unavailable" {
+                Some("public fixture service failure".to_string())
+            } else {
+                None
+            },
+            evidence: Vec::new(),
+        };
+        runtime
+            .append_grounded_user(SESSION_ID, "Unsupported question", grounding)
+            .await?;
+        let after = runtime.load(SESSION_ID).await?;
+        assert_eq!(after.turn_grounding.status, status);
+        assert!(after.turn_grounding.evidence.is_empty());
+        assert_eq!(
+            after.genuine_reply_ids.len(),
+            before.genuine_reply_ids.len() + 1
+        );
+        assert_eq!(
+            &after.conversation.messages()[..before.conversation.len()],
+            before.conversation.messages()
+        );
+        assert!(safe_tools()
+            .prompt_parts(&after, &after.conversation)
+            .await?
+            .iter()
+            .all(|(name, _body)| name != "source-grounding"));
+        assert!(matches!(
+            grounding_outcome(
+                &after.turn_grounding,
+                &CitationRegistry::new(),
+                "Ordinary answer"
+            ),
+            GroundingOutcome::NotSupplied
+        ));
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn citation_registry_membership_and_footer_survive_replacement_evidence() -> anyhow::Result<()>
+{
+    let runtime = orchestration_runtime(false).await?;
+    let previous = runtime.load(SESSION_ID).await?;
+    let mut registry = CitationRegistry::new();
+    for evidence in &previous.turn_grounding.evidence {
+        registry.record(evidence);
+    }
+    let current = rag::select_grounding(
+        "Next question",
+        &grounding_response(vec![grounding_fixture(
+            "current",
+            0.9,
+            "Current public excerpt",
+        )]),
+        &forced_grounding_policy(),
+    );
+    runtime
+        .append_grounded_user(SESSION_ID, "Next question", current)
+        .await?;
+    let mut session = runtime.load(SESSION_ID).await?;
+    for evidence in &session.turn_grounding.evidence {
+        registry.record(evidence);
+    }
+    let answer = "Current [source:current]. Earlier [source:orchestration].";
+    session
+        .conversation
+        .push(Message::assistant().with_text(answer));
+    let summary = EventSummary {
+        displayed_text: true,
+        ..Default::default()
+    };
+    assert!(inspect_turn(&session, &registry, &summary)?.is_empty());
+    assert!(invalid_citation_markers(&session.turn_grounding, &registry, answer).is_empty());
+    let footer =
+        citation_footer(&session.turn_grounding, &registry, answer).expect("resolved references");
+    assert!(footer.contains("source:current: public-current.pdf pages 3-4"));
+    assert!(footer.contains("source:orchestration: public-orchestration.pdf pages 3-4"));
+    assert!(footer.contains("from an earlier turn's excerpts"));
+    assert!(citation_footer(
+        &session.turn_grounding,
+        &registry,
+        "Unsupported [source:never-supplied]"
+    )
+    .is_none());
+    assert!(matches!(
+        grounding_outcome(
+            &session.turn_grounding,
+            &registry,
+            "[source:never-supplied]"
+        ),
+        GroundingOutcome::InvalidAcknowledgment
+    ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn display_events_buffers_complete_reply_for_membership_gate_without_saving(
+) -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(false).await?;
+    let before = runtime.load(SESSION_ID).await?;
+    let (sender, receiver) = mpsc::channel(1);
+    let producer = async {
+        for text in ["Withheld claim [sou", "rce:never-supplied]."] {
+            sender
+                .send(AgentEvent::Message(Message::assistant().with_text(text)))
+                .await?;
+        }
+        drop(sender);
+        Ok::<(), anyhow::Error>(())
+    };
+    let cancel = CancellationToken::new();
+    let (produced, rendered) = tokio::join!(producer, display_events(receiver, &cancel));
+    produced?;
+    let (summary, buffer) = rendered?;
+    assert!(summary.displayed_text);
+    let text = plain_output(&String::from_utf8(buffer)?);
+    assert!(text.contains("Withheld claim [source:never-supplied]."));
+    assert_eq!(
+        invalid_citation_markers(&before.turn_grounding, &CitationRegistry::new(), &text),
+        vec!["source:never-supplied"]
+    );
+    assert_eq!(
+        session_fields(&runtime.load(SESSION_ID).await?),
+        session_fields(&before)
+    );
+    // This assertion concerns returned buffered bytes, not stdout streaming.
+    assert!(!cancel.is_cancelled());
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires actual local reader/embedding/tutor services"]
+async fn live_automatic_grounding_once_obeys_budget_provenance_and_no_search_advertisement(
+) -> anyhow::Result<()> {
+    let retrieval = match retrieval::Retrieval::from_env_with(retrieval_defaults()).await {
+        Ok(retrieval) => retrieval,
+        Err(failure) => return Err(anyhow::anyhow!(failure)),
+    };
+    let result = async {
+        let runtime = ChatRuntime::seeded();
+        let query = "How does liquidity affect the bid-ask spread?";
+        let policy = forced_grounding_policy();
+        // One genuine question, one real preparation; the reminder below does not retrieve again.
+        let preparation = rag::prepare_grounding(&retrieval, query, &policy).await;
+        let response = match preparation.response {
+            Ok(response) => response,
+            Err(failure) => return Err(anyhow::anyhow!(failure)),
+        };
+        assert!(response.used_tokens <= GROUNDING_TOKEN_BUDGET);
+        assert!(!response.evidence.is_empty());
+        assert!(!preparation.grounding.evidence.is_empty());
+        assert!(preparation.grounding.evidence.len() <= GROUNDING_MAX_STATEMENTS);
+        assert!(preparation.grounding.evidence.iter().all(|passage| {
+            passage.similarity >= GROUNDING_MIN_SIMILARITY
+                && !passage.source_sha256.is_empty()
+                && !passage.content_sha256.is_empty()
+                && passage.page_start > 0
+                && passage.page_end >= passage.page_start
+        }));
+        let expected = rag::select_grounding(query, &response, &policy);
+        assert_eq!(
+            serde_json::to_value(&preparation.grounding.evidence)?,
+            serde_json::to_value(&expected.evidence)?
+        );
+        runtime
+            .append_grounded_user(SESSION_ID, query, preparation.grounding)
+            .await?;
+        let accepted = runtime.load(SESSION_ID).await?;
+        let definitions = safe_tools().inference_tools(&accepted).await?;
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].name.as_ref(), TOOL_NAME);
+        assert!(definitions
+            .iter()
+            .all(|tool| tool.name.as_ref() != "search_educational_passages"));
+        assert_eq!(accepted.genuine_reply_ids.len(), 1);
+        for message in accepted.conversation.messages() {
+            assert!(message.get_tool_request_ids().is_empty());
+            assert!(message.get_tool_response_ids().is_empty());
+        }
+        let history = serde_json::to_string(accepted.conversation.messages())?;
+        let mut registry = CitationRegistry::new();
+        for evidence in &accepted.turn_grounding.evidence {
+            registry.record(evidence);
+            assert!(!history.contains(&evidence.citation_id));
+            let answer = format!("Public reference inspection [{}]", evidence.citation_id);
+            let footer = citation_footer(&accepted.turn_grounding, &registry, &answer)
+                .expect("actual provenance resolves");
+            assert!(footer.contains(&evidence.citation_id));
+        }
+        runtime
+            .append_application(SESSION_ID, GROUNDING_ESCALATION_MESSAGE)
+            .await?;
+        let corrected = runtime.load(SESSION_ID).await?;
+        assert_eq!(corrected.genuine_reply_ids, accepted.genuine_reply_ids);
+        assert_eq!(
+            serde_json::to_value(&corrected.turn_grounding.evidence)?,
+            serde_json::to_value(&accepted.turn_grounding.evidence)?
+        );
+        Ok(())
+    }
+    .await;
+    retrieval.shutdown().await;
+    result
+}
+
+#[tokio::test]
+async fn deterministic_orchestration_fabricated_ids_use_only_one_correction() -> anyhow::Result<()>
+{
+    let runtime = orchestration_runtime(false).await?;
+    let before = runtime.load(SESSION_ID).await?;
+    let mut registry = CitationRegistry::new();
+    registry.record(&grounding_fixture(
+        "earlier",
+        0.80,
+        "Earlier public evidence.",
+    ));
+    let answers = [
+        "First fabricated reference [source:invented-first].",
+        "Second fabricated reference [source:invented-again].",
+    ];
+    let script = Arc::new(OrchestrationScript::new(
+        answers
+            .iter()
+            .map(|answer| {
+                OrchestrationWork::saved(0, vec![Message::assistant().with_text(*answer)])
+            })
+            .collect(),
+    ));
+    let cancel = CancellationToken::new();
+    let machine = orchestration_machine(script.clone(), &cancel);
+    let temporary = OrchestrationDiagnostics::new()?;
+    let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+    run_turn(
+        &machine,
+        &runtime,
+        &cancel,
+        SESSION_ID,
+        2,
+        &PromptCaptures::default(),
+        &registry,
+        &mut diagnostics,
+    )
+    .await?;
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(script.attempts(), 2);
+    assert!(script.work.lock().await.is_empty());
+    assert_eq!(saved.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(saved.conversation.len(), before.conversation.len() + 3);
+    let reminder = &saved.conversation.messages()[before.conversation.len() + 1];
+    assert!(reminder
+        .as_concat_text()
+        .contains("Valid markers: source:orchestration"));
+    assert!(reminder
+        .as_concat_text()
+        .contains("source:earlier (supplied with an earlier turn)"));
+    assert!(!saved
+        .genuine_reply_ids
+        .contains(reminder.id.as_ref().expect("reminder ID")));
+    assert_eq!(
+        saved
+            .conversation
+            .last()
+            .expect("second answer")
+            .as_concat_text(),
+        answers[1]
+    );
+    let transcript = fs::read_to_string(temporary.path())?;
+    assert_eq!(transcript.matches("## Grounding escalation (").count(), 1);
+    assert_eq!(
+        transcript
+            .matches("## Grounding outcome after one escalation (")
+            .count(),
+        1
+    );
+    assert!(!transcript.contains("## Learning note decision"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn run_attempt_returns_held_buffer_before_any_retry() -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(false).await?;
+    let script = Arc::new(OrchestrationScript::new(vec![OrchestrationWork::saved(
+        0,
+        vec![Message::assistant().with_text("Fabricated [source:never-supplied].")],
+    )]));
+    let cancel = CancellationToken::new();
+    let machine = orchestration_machine(script.clone(), &cancel);
+    let temporary = OrchestrationDiagnostics::new()?;
+    let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+    let (saved, warnings, held, buffer) = run_attempt(
+        &machine,
+        &runtime,
+        &cancel,
+        SESSION_ID,
+        1,
+        "fixture initial",
+        &PromptCaptures::default(),
+        &CitationRegistry::new(),
+        &mut diagnostics,
+    )
+    .await?;
+    assert!(held);
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].contains("never supplied"));
+    assert!(
+        plain_output(&String::from_utf8(buffer)?).contains("Fabricated [source:never-supplied].")
+    );
+    assert_eq!(script.attempts(), 1);
+    assert_eq!(orchestration_reminders(&saved), 0);
+    assert_eq!(
+        saved
+            .conversation
+            .last()
+            .expect("saved answer")
+            .as_concat_text(),
+        "Fabricated [source:never-supplied]."
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn deterministic_no_evidence_and_unavailable_finish_without_retry() -> anyhow::Result<()> {
+    for status in ["no_evidence", "unavailable"] {
+        let runtime = orchestration_runtime(false).await?;
+        runtime
+            .append_grounded_user(
+                SESSION_ID,
+                "Unsupported question",
+                TurnGrounding {
+                    status: status.to_string(),
+                    query: "Unsupported question".to_string(),
+                    threshold: GROUNDING_MIN_SIMILARITY,
+                    notice: Some(
+                        "Authored public fixture outcome, not a service experiment".to_string(),
+                    ),
+                    evidence: Vec::new(),
+                },
+            )
+            .await?;
+        let script = Arc::new(OrchestrationScript::new(vec![OrchestrationWork::saved(
+            0,
+            vec![Message::assistant().with_text("Ordinary background answer.")],
+        )]));
+        let cancel = CancellationToken::new();
+        let machine = orchestration_machine(script.clone(), &cancel);
+        let temporary = OrchestrationDiagnostics::new()?;
+        let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+        run_turn(
+            &machine,
+            &runtime,
+            &cancel,
+            SESSION_ID,
+            3,
+            &PromptCaptures::default(),
+            &CitationRegistry::new(),
+            &mut diagnostics,
+        )
+        .await?;
+        assert_eq!(script.attempts(), 1);
+        let saved = runtime.load(SESSION_ID).await?;
+        assert_eq!(saved.turn_grounding.status, status);
+        assert_eq!(orchestration_reminders(&saved), 0);
+        assert!(!fs::read_to_string(temporary.path())?.contains("## Grounding escalation"));
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn earlier_genuine_quotes_remain_eligible_but_application_reminders_do_not(
+) -> anyhow::Result<()> {
+    let runtime = orchestration_runtime(true).await?;
+    runtime
+        .append_user(SESSION_ID, "Now explain spreads instead.")
+        .await?;
+    runtime
+        .append_application(SESSION_ID, GROUNDING_ESCALATION_MESSAGE)
+        .await?;
+    let session = runtime.load(SESSION_ID).await?;
+    // RAG reuse does not import Lesson 13's narrower latest-exchange or exact-note policy.
+    assert!(parse_record_proposal(
+        &proposal_call(
+            "stated_goals",
+            "An independently worded proposal",
+            "learn orders"
+        ),
+        &session
+    )
+    .is_ok());
+    assert!(parse_record_proposal(
+        &proposal_call(
+            "stated_goals",
+            "Application text is not learner evidence",
+            "source excerpts supplied for this turn"
+        ),
+        &session
+    )
+    .is_err());
     Ok(())
 }

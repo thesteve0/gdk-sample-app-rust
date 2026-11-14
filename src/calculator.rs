@@ -1,4 +1,4 @@
-// Lesson 13
+// Lesson 14
 use goose_providers::conversation::message::ToolResult;
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ContentBlock, ErrorData, JsonObject, Tool,

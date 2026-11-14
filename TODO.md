@@ -1,0 +1,2 @@
+1. Go back to lesson 13 and change this prompt "Context maintenance: no-op: insufficient eligible older history (retain latest two genuine exchanges; at least 8000 eligible serialized bytes needed). Continuing at the same learner prompt; input allowance still applies."
+to this prompt "I checked whether I could shorten the conversation history, but there wasn’t enough older history that I’m allowed to summarize. I left the history unchanged. You can continue, provided the next request still fits the input budget."

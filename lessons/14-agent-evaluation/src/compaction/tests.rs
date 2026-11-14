@@ -27,6 +27,32 @@ async fn history(count: usize, width: usize) -> anyhow::Result<ChatSession> {
     Ok(state)
 }
 
+// Public authored evidence only; no service call or private-corpus fixture.
+fn grounding_fixture(id: &str, excerpt: &str) -> anyhow::Result<TurnGrounding> {
+    let evidence = serde_json::from_value::<retrieval::Evidence>(json!({
+        "citation_id": format!("source:{}", id),
+        "chunk_id": format!("chunk-{}", id),
+        "document_id": "public-fixture",
+        "source_file": "public-fixture.pdf",
+        "source_sha256": "fixture-source-sha",
+        "content_sha256": "fixture-content-sha",
+        "page_start": 3,
+        "page_end": 4,
+        "raw_fragments": [],
+        "review_status": "draft",
+        "similarity": 0.8,
+        "excerpt": excerpt,
+        "excerpt_truncated": false
+    }))?;
+    Ok(TurnGrounding {
+        status: "grounded".to_string(),
+        query: "Authored learner question".to_string(),
+        threshold: 0.55,
+        notice: None,
+        evidence: vec![evidence],
+    })
+}
+
 fn report() -> Report {
     Report {
         reason: "fixture".to_string(),
@@ -310,31 +336,53 @@ fn conservative_estimate_covers_pinned_openai_arguments_without_reserializing_al
 async fn prospective_candidate_and_preparer_share_the_same_estimate_boundary() -> anyhow::Result<()>
 {
     let mut state = history(2, 100).await?;
-    let prospective = prospective_bytes(&state, "same input")?;
+    state.lesson.persistence_enabled = true;
+    let grounding = grounding_fixture("current", "An authored current-turn excerpt.")?;
+    let original = serde_json::to_value(state.conversation.messages())?;
+    let prospective = prospective_bytes(&state, "same input", &grounding)?;
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        original
+    );
+    assert!(state.turn_grounding.evidence.is_empty());
     let new = Message::user()
         .with_text("same input")
         .with_generated_id_if_missing();
     state.conversation.push(new);
+    state.turn_grounding = grounding;
     assert_eq!(prospective, tutor_payload(&state)?);
     let measured = tutor_payload(&state)?;
     let input = || InferenceInput {
         prompt_parts: state.prompt_parts(),
-        tools: vec![tool_definition(), retrieval::tool_definition()],
+        tools: vec![tool_definition(), record_tool_definition()],
         moim_parts: Vec::new(),
+    };
+    let captures = PromptCaptures::default();
+    let preparer = BudgetPreparer {
+        captures: captures.clone(),
     };
     let mut at_boundary = state.clone();
     at_boundary.policy.total_bytes = measured + at_boundary.policy.headroom_bytes;
     assert!(check_budget(&at_boundary).is_ok());
-    assert!(BudgetPreparer
+    let prepared = preparer
         .prepare(&at_boundary, &at_boundary.conversation, input())
-        .await
-        .is_ok());
+        .await?;
+    assert_eq!(captures.drain().await, vec![prepared.system_prompt.clone()]);
+    assert!(prepared
+        .system_prompt
+        .starts_with(&state.prompt_parts()[0].1));
+    assert_eq!(state.prompt_parts()[0].0, "source-grounding");
+    assert_eq!(prepared.tools.len(), 2);
+    assert_eq!(prepared.tools[0].name, TOOL_NAME);
+    assert_eq!(prepared.tools[1].name, RECORD_TOOL);
+    assert!(prepared.additional_messages.is_empty());
     at_boundary.policy.total_bytes -= 1;
     assert!(check_budget(&at_boundary).is_err());
-    assert!(BudgetPreparer
+    assert!(preparer
         .prepare(&at_boundary, &at_boundary.conversation, input())
         .await
         .is_err());
+    assert!(captures.drain().await.is_empty());
     Ok(())
 }
 
@@ -517,11 +565,10 @@ async fn unsafe_pair_active_exchange_or_pending_approval_never_compacts() -> any
     );
     state.conversation = Conversation::new_unvalidated(messages);
     assert!(partition(&state).is_err());
-    state
-        .settled_approvals
-        .insert("approval".to_string(), false);
+    let key = approval_key(&state.conversation.messages()[2], "approval")?;
+    state.settled_approvals.insert(key.clone(), false);
     assert!(partition(&state)?.is_some());
-    state.settled_approvals.insert("approval".to_string(), true);
+    state.settled_approvals.insert(key, true);
     assert!(partition(&state)?.is_some());
     Ok(())
 }
@@ -625,7 +672,7 @@ async fn full_byte_budget_counts_static_tools_metadata_and_tool_results() -> any
     state.lesson.material.push_str(&"x".repeat(90_000));
     assert!(check_budget(&state).is_err());
     let mut state = history(2, 100).await?;
-    assert!(prospective_bytes(&state, "ordinary input")? > base);
+    assert!(prospective_bytes(&state, "ordinary input", &TurnGrounding::default())? > base);
     state.conversation.push(Message::user().with_tool_response(
         "oversized",
         Ok(CallToolResult::success(vec![ContentBlock::text(
@@ -634,13 +681,15 @@ async fn full_byte_budget_counts_static_tools_metadata_and_tool_results() -> any
     ));
     let input = InferenceInput {
         prompt_parts: state.lesson.prompt_parts(),
-        tools: vec![tool_definition(), retrieval::tool_definition()],
+        tools: vec![tool_definition()],
         moim_parts: Vec::new(),
     };
-    assert!(BudgetPreparer
-        .prepare(&state, &state.conversation, input)
-        .await
-        .is_err());
+    assert!(BudgetPreparer {
+        captures: PromptCaptures::default()
+    }
+    .prepare(&state, &state.conversation, input)
+    .await
+    .is_err());
     assert!(partition(&state).is_err());
     assert_eq!(Policy::default().trigger_bytes, 60000);
     assert_eq!(Policy::default().total_bytes, 100000);
@@ -656,7 +705,11 @@ async fn short_history_is_noop_and_append_continues_same_session() -> anyhow::Re
         sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
     };
     runtime
-        .append_user(SESSION_ID, "Follow-up about stop orders")
+        .append_grounded_user(
+            SESSION_ID,
+            "Follow-up about stop orders",
+            TurnGrounding::default(),
+        )
         .await?;
     let after = runtime.load(SESSION_ID).await?;
     assert_eq!(after.id, SESSION_ID);
@@ -751,7 +804,8 @@ async fn accepted_and_rejected_proposal_ids_cannot_replay_local_approval() -> an
         let stored = sessions.get_mut(SESSION_ID).expect("fixture");
         stored.lesson.persistence_enabled = true;
         for (id, approved) in [("accepted", true), ("rejected", false)] {
-            stored.settled_approvals.insert(id.to_string(), approved);
+            let key = approval_key(&stored.conversation.messages()[0], id)?;
+            stored.settled_approvals.insert(key, approved);
             stored.conversation.push(
                 Message::assistant()
                     .with_tool_request(id, Ok(CallToolRequestParams::new(RECORD_TOOL))),
@@ -770,8 +824,9 @@ async fn accepted_and_rejected_proposal_ids_cannot_replay_local_approval() -> an
     approve_record_proposals(&runtime, SESSION_ID, &mut diagnostics).await?;
     let saved = runtime.load(SESSION_ID).await?;
     assert_eq!(saved.settled_approvals.len(), 2);
-    assert!(saved.settled_approvals["accepted"]);
-    assert!(!saved.settled_approvals["rejected"]);
+    let kickoff = &saved.conversation.messages()[0];
+    assert!(saved.settled_approvals[&approval_key(kickoff, "accepted")?]);
+    assert!(!saved.settled_approvals[&approval_key(kickoff, "rejected")?]);
     fs::remove_file(path)?;
     Ok(())
 }
@@ -784,4 +839,363 @@ fn material_reduction_requires_both_absolute_relative_and_total_allowances() {
     assert!(!material_reduction(200000, 150000, &policy));
     assert!(!material_reduction(900, 1, &policy));
     assert!(!material_reduction(60000, 60000, &policy));
+}
+
+#[tokio::test]
+async fn next_prospective_budget_replaces_old_evidence_without_mutation() -> anyhow::Result<()> {
+    let mut state = history(2, 100).await?;
+    let clean = state.clone();
+    state.turn_grounding = grounding_fixture("old", &"o".repeat(90_000))?;
+    assert!(check_budget(&state).is_err());
+    let empty = TurnGrounding::default();
+    let next = grounding_fixture("new", "Fresh small excerpt")?;
+    assert_eq!(
+        prospective_bytes(&state, "new question", &empty)?,
+        prospective_bytes(&clean, "new question", &empty)?
+    );
+    assert_eq!(
+        prospective_bytes(&state, "new question", &next)?,
+        prospective_bytes(&clean, "new question", &next)?
+    );
+    assert!(
+        prospective_bytes(&state, "new question", &next)?
+            > prospective_bytes(&state, "new question", &empty)?
+    );
+    assert_eq!(state.turn_grounding.evidence[0].excerpt.len(), 90_000);
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        serde_json::to_value(clean.conversation.messages())?
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_maintenance_counts_new_payload_before_and_after_without_changing_summary_source(
+) -> anyhow::Result<()> {
+    let mut state = history(4, 12000).await?;
+    let clean = state.clone();
+    state.turn_grounding = grounding_fixture("stale", &"o".repeat(100_000))?;
+    let original_history = serde_json::to_value(state.conversation.messages())?;
+    let original_grounding = format!("{:?}", state.turn_grounding);
+    let revision = state.revision;
+    let original_ids = state.genuine_reply_ids.clone();
+    let pending = PendingReply {
+        input: "PENDING_QUESTION_NOT_SUMMARY_SOURCE".to_string(),
+        grounding: grounding_fixture("fresh", "PENDING_ATTACHMENT_NOT_SUMMARY_SOURCE")?,
+    };
+    let before = maintenance_payload(&state, Some(&pending))?;
+    assert_eq!(
+        before,
+        prospective_bytes(&clean, &pending.input, &pending.grounding)?
+    );
+    assert_eq!(maintenance_payload(&state, None)?, tutor_payload(&state)?);
+    let parts = partition(&state)?.expect("eligible complete stored history");
+    let (prompt, summary_input) = summary_request(
+        &parts.eligible,
+        &state.genuine_reply_ids,
+        "fixture guidance",
+    )?;
+    let source = format!("{}{}", prompt, summary_input.messages()[0].as_concat_text());
+    assert!(!source.contains(&pending.input));
+    assert!(!source.contains("PENDING_ATTACHMENT_NOT_SUMMARY_SOURCE"));
+    assert!(!source.contains(&"o".repeat(100_000)));
+    let replacement = candidate(parts, "A short fallible summary of older discussion.");
+    let mut proposed = state.clone();
+    proposed.conversation = replacement.clone();
+    let after = maintenance_payload(&proposed, Some(&pending))?;
+    let mut clean_proposed = proposed.clone();
+    clean_proposed.turn_grounding = TurnGrounding::default();
+    assert_eq!(
+        after,
+        prospective_bytes(&clean_proposed, &pending.input, &pending.grounding)?
+    );
+    assert!(material_reduction(before, after, &state.policy));
+    assert!(!material_reduction(
+        tutor_payload(&state)?,
+        tutor_payload(&proposed)?,
+        &state.policy
+    ));
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        original_history
+    );
+    assert_eq!(format!("{:?}", state.turn_grounding), original_grounding);
+    assert_eq!(state.revision, revision);
+    assert_eq!(state.genuine_reply_ids, original_ids);
+    let mut maintenance_report = report();
+    maintenance_report.before_bytes = before;
+    maintenance_report.after_bytes = after;
+    let mut outcome = Outcome {
+        revision,
+        replacement: Some(replacement),
+        report: maintenance_report,
+    };
+    apply_outcome(&mut state, &mut outcome)?;
+    assert_eq!(format!("{:?}", state.turn_grounding), original_grounding);
+    assert!(!state.conversation.messages().iter().any(|message| {
+        message.as_concat_text().contains(&pending.input)
+            || message
+                .as_concat_text()
+                .contains("PENDING_ATTACHMENT_NOT_SUMMARY_SOURCE")
+    }));
+    assert_eq!(state.revision, revision);
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_oversized_payload_cannot_be_rescued_by_history_replacement() -> anyhow::Result<()>
+{
+    let state = history(4, 12000).await?;
+    let pending = PendingReply {
+        input: "Not appended".to_string(),
+        grounding: grounding_fixture("large", &"e".repeat(100_000))?,
+    };
+    let original = serde_json::to_value(state.conversation.messages())?;
+    let before = maintenance_payload(&state, Some(&pending))?;
+    let replacement = candidate(
+        partition(&state)?.expect("eligible"),
+        "Short fallible summary.",
+    );
+    let mut proposed = state.clone();
+    proposed.conversation = replacement;
+    let after = maintenance_payload(&proposed, Some(&pending))?;
+    assert!(after < before);
+    assert!(after > state.policy.total_bytes - state.policy.headroom_bytes);
+    assert!(!material_reduction(before, after, &state.policy));
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        original
+    );
+    assert!(state.turn_grounding.evidence.is_empty());
+    assert_eq!(state.revision, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_operation_report_counts_prospective_payload_even_when_cancelled(
+) -> anyhow::Result<()> {
+    let mut state = history(4, 5000).await?;
+    state.maintenance = Some("pending preflight fixture".to_string());
+    state.turn_grounding = grounding_fixture("stale", &"o".repeat(100_000))?;
+    let pending = PendingReply {
+        input: "A new question".to_string(),
+        grounding: grounding_fixture("new", "Small current excerpt")?,
+    };
+    let expected = maintenance_payload(&state, Some(&pending))?;
+    let original_history = serde_json::to_value(state.conversation.messages())?;
+    let config = fs::read_to_string(PathBuf::from(REPOSITORY_ROOT).join(DEFAULT_PROVIDER_CONFIG))?;
+    let parsed: Value = serde_json::from_str(&config)?;
+    let provider = from_json(&config, None, EnvKeyResolver {})?;
+    let mut operation = Compaction::new(
+        Arc::from(provider),
+        ModelConfig::new(first_configured_model(&parsed)?),
+        Policy::default(),
+    )?;
+    assert!(operation.pending_reply.is_none());
+    operation.pending_reply = Some(pending.clone());
+    let token = CancellationToken::new();
+    token.cancel();
+    let (sender, _receiver) = mpsc::channel(4);
+    let emit = Emitter::new(sender, token);
+    let result = operation.run(&state, &state.conversation, &emit).await?;
+    let result = match result {
+        OperationResult::Applied(result) => result,
+        _ => panic!("maintenance must yield with its report"),
+    };
+    let outcome = match result
+        .effects
+        .into_iter()
+        .next()
+        .expect("maintenance effect")
+    {
+        ChatEffect::Maintenance(outcome) => outcome,
+        _ => panic!("maintenance effect"),
+    };
+    assert_eq!(outcome.report.before_bytes, expected);
+    assert_eq!(outcome.report.after_bytes, expected);
+    assert!(outcome
+        .report
+        .counting_method
+        .contains("pending learner question"));
+    assert!(outcome
+        .report
+        .counting_method
+        .contains("replacement new-turn grounding attachment"));
+    assert!(!outcome.report.counting_method.contains(&pending.input));
+    assert!(outcome.report.disposition.contains("cancelled"));
+    assert!(outcome.replacement.is_none());
+    assert!(outcome.report.summary.is_none());
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        original_history
+    );
+    assert_eq!(state.turn_grounding.evidence[0].excerpt.len(), 100_000);
+    Ok(())
+}
+
+#[tokio::test]
+async fn reused_record_ids_require_separate_settlements_for_genuine_and_escalated_attempts(
+) -> anyhow::Result<()> {
+    for approved in [false, true] {
+        for escalation in [false, true] {
+            let mut state = history(4, 5000).await?;
+            let mut messages = state.conversation.messages().clone();
+            let first_key = approval_key(&messages[2], "reused-record")?;
+            messages.insert(
+                3,
+                Message::assistant().with_tool_request(
+                    "reused-record",
+                    Ok(CallToolRequestParams::new(RECORD_TOOL)),
+                ),
+            );
+            messages.insert(
+                4,
+                Message::user().with_tool_response(
+                    "reused-record",
+                    Ok(CallToolResult::success(vec![ContentBlock::text(
+                        "Prepared",
+                    )])),
+                ),
+            );
+            if escalation {
+                messages.insert(
+                    6,
+                    Message::user()
+                        .with_text(GROUNDING_ESCALATION_MESSAGE)
+                        .with_generated_id_if_missing(),
+                );
+                messages.insert(
+                    7,
+                    Message::assistant().with_text("Application retry answer."),
+                );
+            }
+            // Index 6 is either the next genuine reply or the application escalation.
+            let second_key = approval_key(&messages[6], "reused-record")?;
+            messages.insert(
+                7,
+                Message::assistant().with_tool_request(
+                    "reused-record",
+                    Ok(CallToolRequestParams::new(RECORD_TOOL)),
+                ),
+            );
+            messages.insert(
+                8,
+                Message::user().with_tool_response(
+                    "reused-record",
+                    Ok(CallToolResult::success(vec![ContentBlock::text(
+                        "Prepared",
+                    )])),
+                ),
+            );
+            state.conversation = Conversation::new_unvalidated(messages);
+            state.settled_approvals.insert(first_key.clone(), approved);
+            assert_ne!(first_key, second_key);
+            assert!(!approval_pending(&state, &first_key)?);
+            assert!(approval_pending(&state, &second_key)?);
+            let error = match partition(&state) {
+                Err(error) => error,
+                Ok(_) => panic!("the second successful proposal still needs its own decision"),
+            };
+            assert!(error.to_string().contains("approval is still pending"));
+            state
+                .settled_approvals
+                .insert(second_key.clone(), !approved);
+            assert!(!approval_pending(&state, &second_key)?);
+            assert!(partition(&state)?.is_some());
+            assert_eq!(state.settled_approvals[&first_key], approved);
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_scan_never_matches_a_prior_attempt_success_to_a_rejected_or_missing_result(
+) -> anyhow::Result<()> {
+    for response in ["rejected", "missing", "error"] {
+        let mut state = history(4, 5000).await?;
+        let mut messages = state.conversation.messages().clone();
+        let first_key = approval_key(&messages[2], "reused-record")?;
+        messages.insert(
+            3,
+            Message::assistant()
+                .with_tool_request("reused-record", Ok(CallToolRequestParams::new(RECORD_TOOL))),
+        );
+        messages.insert(
+            4,
+            Message::user().with_tool_response(
+                "reused-record",
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    "Prepared",
+                )])),
+            ),
+        );
+        messages.insert(
+            7,
+            Message::assistant()
+                .with_tool_request("reused-record", Ok(CallToolRequestParams::new(RECORD_TOOL))),
+        );
+        if response != "missing" {
+            let result = if response == "rejected" {
+                Ok(CallToolResult::error(vec![ContentBlock::text("Rejected")]))
+            } else {
+                Err(ErrorData::invalid_params("Rejected", None))
+            };
+            messages.insert(
+                8,
+                Message::user().with_tool_response("reused-record", result),
+            );
+        }
+        state.conversation = Conversation::new_unvalidated(messages);
+        state.settled_approvals.insert(first_key, true);
+        if response == "missing" {
+            let error = match partition(&state) {
+                Err(error) => error,
+                Ok(_) => panic!("missing result must fail whole-exchange validation"),
+            };
+            assert!(error
+                .to_string()
+                .contains("complete opening and learner exchanges"));
+        } else {
+            assert!(partition(&state)?.is_some());
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn rejected_grounded_and_application_appends_preserve_stored_state() -> anyhow::Result<()> {
+    let mut state = history(2, 100).await?;
+    state.turn_grounding = grounding_fixture("previous", "Stored attachment")?;
+    state.applied_passes = 7;
+    state.halt_reason = Some("previous attempt bound".to_string());
+    let original = serde_json::to_value(state.conversation.messages())?;
+    let original_grounding = format!("{:?}", state.turn_grounding);
+    let original_ids = state.genuine_reply_ids.clone();
+    let revision = state.revision;
+    let runtime = ChatRuntime {
+        sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
+    };
+    assert!(runtime
+        .append_grounded_user(
+            SESSION_ID,
+            "Unaccepted genuine question",
+            grounding_fixture("oversized", &"x".repeat(100_000))?,
+        )
+        .await
+        .is_err());
+    assert!(runtime
+        .append_application(SESSION_ID, &"x".repeat(100_000))
+        .await
+        .is_err());
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(
+        serde_json::to_value(saved.conversation.messages())?,
+        original
+    );
+    assert_eq!(format!("{:?}", saved.turn_grounding), original_grounding);
+    assert_eq!(saved.genuine_reply_ids, original_ids);
+    assert_eq!(saved.revision, revision);
+    assert_eq!(saved.applied_passes, 7);
+    assert_eq!(saved.halt_reason.as_deref(), Some("previous attempt bound"));
+    Ok(())
 }

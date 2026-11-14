@@ -187,7 +187,7 @@ fn tutor_payload(session: &ChatSession) -> anyhow::Result<usize> {
         .map(|(_name, part)| part)
         .collect::<Vec<_>>()
         .join("\n\n");
-    let mut tools = vec![tool_definition(), retrieval::tool_definition()];
+    let mut tools = vec![tool_definition()];
     if session.lesson.persistence_enabled {
         tools.push(record_tool_definition());
     }
@@ -207,8 +207,14 @@ pub fn check_budget(session: &ChatSession) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn prospective_bytes(session: &ChatSession, input: &str) -> anyhow::Result<usize> {
+pub fn prospective_bytes(
+    session: &ChatSession,
+    input: &str,
+    grounding: &TurnGrounding,
+) -> anyhow::Result<usize> {
     let mut candidate = session.clone();
+    // New-turn evidence replaces the previous turn's attachment; it never enters history.
+    candidate.turn_grounding = grounding.clone();
     candidate.conversation.push(
         Message::user()
             .with_text(input)
@@ -217,7 +223,26 @@ pub fn prospective_bytes(session: &ChatSession, input: &str) -> anyhow::Result<u
     tutor_payload(&candidate)
 }
 
-pub struct BudgetPreparer;
+// Count a not-yet-appended learner reply without changing stored history or evidence.
+#[derive(Clone)]
+pub struct PendingReply {
+    pub input: String,
+    pub grounding: TurnGrounding,
+}
+
+fn maintenance_payload(
+    session: &ChatSession,
+    pending: Option<&PendingReply>,
+) -> anyhow::Result<usize> {
+    match pending {
+        Some(pending) => prospective_bytes(session, &pending.input, &pending.grounding),
+        None => tutor_payload(session),
+    }
+}
+
+pub struct BudgetPreparer {
+    pub captures: PromptCaptures,
+}
 #[async_trait]
 impl InferenceRequestPreparer<ChatSession> for BudgetPreparer {
     async fn prepare(
@@ -246,6 +271,8 @@ impl InferenceRequestPreparer<ChatSession> for BudgetPreparer {
         {
             return Err(anyhow::anyhow!("Inference refused: conservative input estimate is {} bytes, exceeding the {}-byte allowance after reserved output/protocol headroom. No repeated compaction or over-budget provider request was attempted.", bytes, session.policy.total_bytes - session.policy.headroom_bytes));
         }
+        // Capture only accepted prepared input; preparation is not proof of delivery.
+        self.captures.capture(&prompt).await;
         Ok(PreparedInferenceRequest {
             system_prompt: prompt,
             tools: input.tools,
@@ -429,7 +456,22 @@ fn complete_exchange(messages: &[Message]) -> bool {
     }
     let mut requests = HashSet::new();
     let mut responses = HashSet::new();
-    for message in messages {
+    let mut attempt_start = 0;
+    for (index, message) in messages.iter().enumerate() {
+        // Match the pinned SDK kickoff window, including an application escalation.
+        let kickoff = message.role == rmcp::model::Role::User
+            && message.is_user_visible()
+            && !message.is_tool_response();
+        if kickoff && index > attempt_start {
+            if !goose_agent::operation::ends_turn(&messages[attempt_start..index])
+                || requests != responses
+            {
+                return false;
+            }
+            requests.clear();
+            responses.clear();
+            attempt_start = index;
+        }
         for block in &message.content {
             if let Some(request) = block.as_tool_request() {
                 if request.id.is_empty() || !requests.insert(request.id.clone()) {
@@ -480,29 +522,49 @@ fn partition(session: &ChatSession) -> anyhow::Result<Option<Partition>> {
     {
         return Err(anyhow::anyhow!("maintenance requires complete opening and learner exchanges with whole correlated tool pairs"));
     }
-    // Do not compact an outstanding successful local proposal before its decision.
-    let requests = turn_requests(session.conversation.messages());
-    for request in requests {
-        if let Ok(call) = &request.tool_call {
-            if call.name.as_ref() == RECORD_TOOL
-                && !session.settled_approvals.contains_key(&request.id)
-            {
-                let success = session
-                    .conversation
-                    .messages()
-                    .iter()
-                    .flat_map(|message| &message.content)
-                    .filter_map(|block| block.as_tool_response())
-                    .any(|response| {
-                        response.id == request.id && tool_response_succeeded(&response.tool_result)
-                    });
-                if success {
-                    return Err(anyhow::anyhow!(
-                        "local learning note approval is still pending"
-                    ));
+    // Match requests, responses and local decisions inside the same SDK kickoff window.
+    let messages = session.conversation.messages();
+    let is_kickoff = |message: &Message| {
+        message.role == rmcp::model::Role::User
+            && message.is_user_visible()
+            && !message.is_tool_response()
+    };
+    let mut attempt_start = match messages.iter().position(is_kickoff) {
+        Some(index) => index,
+        None => messages.len(),
+    };
+    while attempt_start < messages.len() {
+        let next_kickoff = messages[attempt_start + 1..].iter().position(is_kickoff);
+        let attempt_end = match next_kickoff {
+            Some(offset) => attempt_start + 1 + offset,
+            None => messages.len(),
+        };
+        let attempt = &messages[attempt_start..attempt_end];
+        let kickoff = &messages[attempt_start];
+        for request in turn_requests(attempt) {
+            if let Ok(call) = &request.tool_call {
+                if call.name.as_ref() == RECORD_TOOL {
+                    let key = approval_key(kickoff, &request.id)?;
+                    if session.settled_approvals.contains_key(&key) {
+                        continue;
+                    }
+                    let success = attempt
+                        .iter()
+                        .flat_map(|message| &message.content)
+                        .filter_map(|block| block.as_tool_response())
+                        .any(|response| {
+                            response.id == request.id
+                                && tool_response_succeeded(&response.tool_result)
+                        });
+                    if success {
+                        return Err(anyhow::anyhow!(
+                            "local learning note approval is still pending"
+                        ));
+                    }
                 }
             }
         }
+        attempt_start = attempt_end;
     }
     if exchanges.len() <= 2 {
         return Ok(None);
@@ -570,6 +632,7 @@ pub struct Compaction {
     model: ModelConfig,
     guidance: String,
     policy: Policy,
+    pending_reply: Option<PendingReply>,
 }
 
 impl Compaction {
@@ -593,6 +656,7 @@ impl Compaction {
             model,
             guidance,
             policy,
+            pending_reply: None,
         })
     }
 
@@ -763,8 +827,12 @@ impl Operation<ChatSession, ChatEffect> for Compaction {
             Some(reason) => reason.clone(),
             None => return not_applicable(),
         };
-        let before_bytes = tutor_payload(session)?;
-        let mut report = Report { reason, counting_method: "conservative native JSON UTF-8 bytes + argument JSON-string escaping + thinking replay + 512 bytes per message/block/tool + 4096 model/stream envelope; NOT actual provider request, tokens or verified context capacity; 16000 reserved output/protocol headroom".to_string(), before_bytes, after_bytes: before_bytes, covered_message_ids: Vec::new(), summary: None, summary_usage: Vec::new(), summary_partial_messages: Vec::new(), disposition: String::new() };
+        let before_bytes = maintenance_payload(session, self.pending_reply.as_ref())?;
+        let pending_counting = match &self.pending_reply {
+            Some(_pending) => "; pending learner question and replacement new-turn grounding attachment counted; previous stored attachment excluded",
+            None => "; no pending learner question or replacement attachment; stored grounding attachment counted",
+        };
+        let mut report = Report { reason, counting_method: "conservative native JSON UTF-8 bytes + argument JSON-string escaping + thinking replay + 512 bytes per message/block/tool + 4096 model/stream envelope; NOT actual provider request, tokens or verified context capacity; 16000 reserved output/protocol headroom".to_string() + pending_counting, before_bytes, after_bytes: before_bytes, covered_message_ids: Vec::new(), summary: None, summary_usage: Vec::new(), summary_partial_messages: Vec::new(), disposition: String::new() };
         let partition_result = partition(session);
         let mut replacement = None;
         match partition_result {
@@ -785,7 +853,7 @@ impl Operation<ChatSession, ChatEffect> for Compaction {
                                 let proposed = candidate(parts, &summary.text);
                                 let mut proposed_session = session.clone();
                                 proposed_session.conversation = proposed.clone();
-                                let after_bytes = tutor_payload(&proposed_session)?;
+                                let after_bytes = maintenance_payload(&proposed_session, self.pending_reply.as_ref())?;
                                 if material_reduction(before_bytes, after_bytes, &self.policy) {
                                     report.after_bytes = after_bytes;
                                     report.disposition = "applied: material reduction; opening and latest two genuine complete exchanges retained".to_string();
@@ -886,13 +954,25 @@ impl Operation<SummarySession, ChatEffect> for SummaryStop {
     }
 }
 
-#[tracing::instrument(name = "context_maintenance", skip_all, fields(course.session_id = id, mlflow.spanType = "CHAIN", mlflow.spanInputs = reason), err)]
+// Command callers retain stored-state maintenance; automatic preflight supplies pending input.
 pub async fn maintain(
     operation: &Compaction,
     runtime: &ChatRuntime,
     id: &str,
     reason: &str,
     diagnostics: &mut DiagnosticLog,
+) -> anyhow::Result<()> {
+    maintain_with_pending(operation, runtime, id, reason, diagnostics, None).await
+}
+
+#[tracing::instrument(name = "context_maintenance", skip_all, fields(course.session_id = id, mlflow.spanType = "CHAIN", mlflow.spanInputs = reason), err)]
+pub async fn maintain_with_pending(
+    operation: &Compaction,
+    runtime: &ChatRuntime,
+    id: &str,
+    reason: &str,
+    diagnostics: &mut DiagnosticLog,
+    pending: Option<&PendingReply>,
 ) -> anyhow::Result<()> {
     telemetry::identity_context(id);
     {
@@ -922,6 +1002,7 @@ pub async fn maintain(
             model: operation.model.clone(),
             guidance: operation.guidance.clone(),
             policy: operation.policy.clone(),
+            pending_reply: pending.cloned(),
         }))],
         CancellationToken::new(),
     );

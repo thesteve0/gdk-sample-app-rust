@@ -1,4 +1,4 @@
-// Lesson 13
+// Lesson 14
 use super::*;
 use crate::provider_setup::DEFAULT_PROVIDER_CONFIG;
 
@@ -436,21 +436,19 @@ async fn local_declaration_saves_once_without_tutor_turn_and_survives_maintenanc
 }
 
 #[tokio::test]
-async fn declaration_without_consent_still_saves_but_never_reloads_context() -> anyhow::Result<()> {
+async fn declaration_without_consent_is_ephemeral_and_never_quote_evidence() -> anyhow::Result<()> {
     let directory = env::temp_dir().join(format!("l13-ephemeral-{}", std::process::id()));
     fs::create_dir_all(&directory)?;
-    let path = directory.join("record.md");
+    let path = directory.join("never-written.md");
     let mut log = DiagnosticLog::create_at(directory.join("diagnostics.md"))?;
     let runtime = ChatRuntime::seeded();
     declare(&runtime, SESSION_ID, "Orders", &mut log, &path).await?;
-    // Always writes now; consent only gates loading the record into context.
-    assert!(path.exists());
+    assert!(!path.exists());
     let state = runtime.load(SESSION_ID).await?;
     assert_eq!(
         state.completed_concepts["orders"],
-        "saved; memory consent declined (context not reloaded)"
+        "ephemeral (memory consent disabled)"
     );
-    assert!(state.lesson.learner_record.is_empty());
     let call = CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(
         json!({"category":"learner_evidence","note":"Orders completed", "learner_quote":"Orders"}),
     )?);
@@ -565,9 +563,9 @@ async fn unsafe_pair_active_exchange_or_pending_approval_never_compacts() -> any
             )])),
         ),
     );
-    let key = approval_key(&messages[2], "approval")?;
     state.conversation = Conversation::new_unvalidated(messages);
     assert!(partition(&state).is_err());
+    let key = approval_key(&state.conversation.messages()[2], "approval")?;
     state.settled_approvals.insert(key.clone(), false);
     assert!(partition(&state)?.is_some());
     state.settled_approvals.insert(key, true);
@@ -687,15 +685,15 @@ async fn full_byte_budget_counts_static_tools_metadata_and_tool_results() -> any
         moim_parts: Vec::new(),
     };
     assert!(BudgetPreparer {
-        captures: PromptCaptures::default(),
+        captures: PromptCaptures::default()
     }
     .prepare(&state, &state.conversation, input)
     .await
     .is_err());
     assert!(partition(&state).is_err());
-    assert_eq!(compaction_policy().trigger_bytes, 84000);
-    assert_eq!(compaction_policy().total_bytes, 100000);
-    assert_eq!(compaction_policy().headroom_bytes, 16000);
+    assert_eq!(Policy::default().trigger_bytes, 60000);
+    assert_eq!(Policy::default().total_bytes, 100000);
+    assert_eq!(Policy::default().headroom_bytes, 16000);
     Ok(())
 }
 
@@ -707,7 +705,11 @@ async fn short_history_is_noop_and_append_continues_same_session() -> anyhow::Re
         sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
     };
     runtime
-        .append_user(SESSION_ID, "Follow-up about stop orders")
+        .append_grounded_user(
+            SESSION_ID,
+            "Follow-up about stop orders",
+            TurnGrounding::default(),
+        )
         .await?;
     let after = runtime.load(SESSION_ID).await?;
     assert_eq!(after.id, SESSION_ID);
@@ -765,7 +767,7 @@ async fn cancelled_maintenance_retains_every_message_and_yields_without_summary_
     let operation = Compaction::new(
         Arc::from(provider),
         ModelConfig::new(first_configured_model(&parsed)?),
-        compaction_policy(),
+        Policy::default(),
     )?;
     let token = CancellationToken::new();
     token.cancel();
@@ -802,10 +804,7 @@ async fn accepted_and_rejected_proposal_ids_cannot_replay_local_approval() -> an
         let stored = sessions.get_mut(SESSION_ID).expect("fixture");
         stored.lesson.persistence_enabled = true;
         for (id, approved) in [("accepted", true), ("rejected", false)] {
-            let kickoff = messages_since_kickoff(&stored.conversation)?
-                .first()
-                .expect("application opening");
-            let key = approval_key(kickoff, id)?;
+            let key = approval_key(&stored.conversation.messages()[0], id)?;
             stored.settled_approvals.insert(key, approved);
             stored.conversation.push(
                 Message::assistant()
@@ -825,9 +824,7 @@ async fn accepted_and_rejected_proposal_ids_cannot_replay_local_approval() -> an
     approve_record_proposals(&runtime, SESSION_ID, &mut diagnostics).await?;
     let saved = runtime.load(SESSION_ID).await?;
     assert_eq!(saved.settled_approvals.len(), 2);
-    let kickoff = messages_since_kickoff(&saved.conversation)?
-        .first()
-        .expect("application opening");
+    let kickoff = &saved.conversation.messages()[0];
     assert!(saved.settled_approvals[&approval_key(kickoff, "accepted")?]);
     assert!(!saved.settled_approvals[&approval_key(kickoff, "rejected")?]);
     fs::remove_file(path)?;
@@ -835,7 +832,7 @@ async fn accepted_and_rejected_proposal_ids_cannot_replay_local_approval() -> an
 }
 #[test]
 fn material_reduction_requires_both_absolute_relative_and_total_allowances() {
-    let policy = compaction_policy();
+    let policy = Policy::default();
     assert!(material_reduction(60000, 50000, &policy));
     assert!(!material_reduction(60000, 59000, &policy));
     assert!(!material_reduction(60000, 55000, &policy));
@@ -870,367 +867,6 @@ async fn next_prospective_budget_replaces_old_evidence_without_mutation() -> any
         serde_json::to_value(clean.conversation.messages())?
     );
     Ok(())
-}
-
-#[tokio::test]
-async fn escalated_complete_exchange_is_one_genuine_group_without_evidence_in_summary(
-) -> anyhow::Result<()> {
-    let mut state = history(4, 5000).await?;
-    state.turn_grounding = grounding_fixture("attachment", "ATTACHMENT_NOT_SUMMARY_SOURCE")?;
-    let escalation = Message::user()
-        .with_text(GROUNDING_ESCALATION_MESSAGE)
-        .with_generated_id_if_missing();
-    let mut messages = state.conversation.messages().clone();
-    // The first genuine exchange includes the ordinary answer AND application re-run.
-    messages.insert(4, escalation.clone());
-    messages.insert(
-        5,
-        Message::assistant()
-            .with_text("Grounded retry answer [source:attachment].")
-            .with_generated_id_if_missing(),
-    );
-    state.conversation = Conversation::new_unvalidated(messages);
-    let parts = partition(&state)?.expect("older genuine exchanges eligible");
-    assert_eq!(parts.eligible.len(), 6);
-    assert_eq!(parts.recent.len(), 4);
-    assert_eq!(parts.recent[0].as_concat_text(), "Genuine reply 2");
-    assert!(complete_exchange(&parts.eligible[..4]));
-    let projection = summary_source(&parts.eligible, &state.genuine_reply_ids);
-    let escalation_record = projection
-        .iter()
-        .find(|record| record["original_message_id"] == json!(escalation.id))
-        .expect("application input is retained as historical data");
-    assert_eq!(
-        escalation_record["provenance"],
-        "application or tool history (NOT learner evidence)"
-    );
-    assert_eq!(
-        escalation_record["content"][0]["text"],
-        GROUNDING_ESCALATION_MESSAGE
-    );
-    let (prompt, request) = summary_request(&parts.eligible, &state.genuine_reply_ids, "fixture")?;
-    assert!(!prompt.contains("ATTACHMENT_NOT_SUMMARY_SOURCE"));
-    assert!(!request.messages()[0]
-        .as_concat_text()
-        .contains("ATTACHMENT_NOT_SUMMARY_SOURCE"));
-    // Historical answer IDs may remain as data, never a source attachment/allowlist.
-    assert!(request.messages()[0]
-        .as_concat_text()
-        .contains("[source:attachment]"));
-    state.lesson.persistence_enabled = true;
-    let proposal =
-        CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(json!({
-            "category": "learner_evidence",
-            "note": "Unsupported source of learner evidence",
-            "learner_quote": GROUNDING_ESCALATION_MESSAGE
-        }))?);
-    assert!(parse_record_proposal(&proposal, &state).is_err());
-    let replacement = candidate(
-        parts,
-        "Escalation is application data, not learner testimony.",
-    );
-    assert_eq!(
-        replacement
-            .messages()
-            .iter()
-            .filter(|message| is_summary(message))
-            .count(),
-        1
-    );
-    Ok(())
-}
-
-#[tokio::test]
-async fn pending_approval_blocks_escalated_maintenance_and_settled_decisions_survive_replacement(
-) -> anyhow::Result<()> {
-    for approved in [false, true] {
-        let mut state = history(4, 5000).await?;
-        let mut messages = state.conversation.messages().clone();
-        messages.insert(
-            3,
-            Message::assistant().with_tool_request(
-                "before-escalation",
-                Ok(CallToolRequestParams::new(RECORD_TOOL)),
-            ),
-        );
-        messages.insert(
-            4,
-            Message::user().with_tool_response(
-                "before-escalation",
-                Ok(CallToolResult::success(vec![ContentBlock::text(
-                    "Proposal prepared",
-                )])),
-            ),
-        );
-        messages.insert(
-            6,
-            Message::user()
-                .with_text(GROUNDING_ESCALATION_MESSAGE)
-                .with_generated_id_if_missing(),
-        );
-        messages.insert(
-            7,
-            Message::assistant()
-                .with_text("Application retry completed.")
-                .with_generated_id_if_missing(),
-        );
-        let key = approval_key(&messages[2], "before-escalation")?;
-        state.conversation = Conversation::new_unvalidated(messages);
-        assert!(partition(&state).is_err());
-        state.settled_approvals.insert(key.clone(), approved);
-        let replacement = candidate(
-            partition(&state)?.expect("settled exchange eligible"),
-            "Derived data.",
-        );
-        let mut outcome = Outcome {
-            revision: state.revision,
-            replacement: Some(replacement),
-            report: report(),
-        };
-        apply_outcome(&mut state, &mut outcome)?;
-        assert_eq!(state.settled_approvals[&key], approved);
-        assert_eq!(state.genuine_reply_ids.len(), 2);
-        assert!(!turn_requests(state.conversation.messages())
-            .iter()
-            .any(|request| request.id == "before-escalation"));
-    }
-    Ok(())
-}
-
-#[tokio::test]
-async fn grounded_append_rejects_stale_summary_and_application_append_has_no_learner_identity(
-) -> anyhow::Result<()> {
-    let mut state = history(4, 5000).await?;
-    state.turn_grounding = grounding_fixture("old", "Prior turn attachment")?;
-    state.applied_passes = 7;
-    state.halt_reason = Some("old bound".to_string());
-    let replacement = candidate(
-        partition(&state)?.expect("eligible"),
-        "Older summary candidate.",
-    );
-    let mut outcome = Outcome {
-        revision: state.revision,
-        replacement: Some(replacement),
-        report: report(),
-    };
-    let runtime = ChatRuntime {
-        sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
-    };
-    let grounding = grounding_fixture("new", "New turn attachment")?;
-    runtime
-        .append_grounded_user(SESSION_ID, "New genuine question", grounding)
-        .await?;
-    let after = runtime.load(SESSION_ID).await?;
-    assert_eq!(after.revision, outcome.revision + 1);
-    assert_eq!(after.applied_passes, 0);
-    assert!(after.halt_reason.is_none());
-    assert_eq!(after.turn_grounding.evidence[0].citation_id, "source:new");
-    assert_eq!(after.genuine_reply_ids.len(), 5);
-    let after_messages = serde_json::to_value(after.conversation.messages())?;
-    {
-        let mut sessions = runtime.sessions.lock().await;
-        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
-        apply_outcome(stored, &mut outcome)?;
-    }
-    let unchanged = runtime.load(SESSION_ID).await?;
-    assert_eq!(
-        serde_json::to_value(unchanged.conversation.messages())?,
-        after_messages
-    );
-    assert!(outcome.report.disposition.contains("revision changed"));
-    {
-        let mut sessions = runtime.sessions.lock().await;
-        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
-        stored.applied_passes = 7;
-        stored.halt_reason = Some("prior attempt reached a bound".to_string());
-    }
-    runtime
-        .append_application(SESSION_ID, GROUNDING_ESCALATION_MESSAGE)
-        .await?;
-    let escalated = runtime.load(SESSION_ID).await?;
-    assert_eq!(escalated.revision, unchanged.revision + 1);
-    assert_eq!(escalated.genuine_reply_ids, unchanged.genuine_reply_ids);
-    assert_eq!(escalated.applied_passes, 0);
-    assert!(escalated.halt_reason.is_none());
-    assert_eq!(
-        escalated.turn_grounding.evidence[0].citation_id,
-        "source:new"
-    );
-    let last = escalated
-        .conversation
-        .messages()
-        .last()
-        .expect("application input");
-    assert!(!escalated
-        .genuine_reply_ids
-        .contains(last.id.as_ref().expect("stable ID")));
-    Ok(())
-}
-
-#[tokio::test]
-async fn oversized_grounded_or_application_append_preserves_stored_state() -> anyhow::Result<()> {
-    let runtime = ChatRuntime::seeded();
-    let before = runtime.load(SESSION_ID).await?;
-    let oversized = grounding_fixture("oversized", &"x".repeat(100_000))?;
-    assert!(runtime
-        .append_grounded_user(SESSION_ID, "Short question", oversized)
-        .await
-        .is_err());
-    assert!(runtime
-        .append_application(SESSION_ID, &"x".repeat(100_000))
-        .await
-        .is_err());
-    let after = runtime.load(SESSION_ID).await?;
-    assert_eq!(
-        serde_json::to_value(after.conversation.messages())?,
-        serde_json::to_value(before.conversation.messages())?
-    );
-    assert_eq!(after.revision, before.revision);
-    assert_eq!(after.genuine_reply_ids, before.genuine_reply_ids);
-    assert_eq!(after.turn_grounding.status, before.turn_grounding.status);
-    assert_eq!(after.applied_passes, before.applied_passes);
-    assert_eq!(after.halt_reason, before.halt_reason);
-    Ok(())
-}
-
-#[tokio::test]
-async fn escalated_attempts_reuse_tool_ids_without_splitting_genuine_partition(
-) -> anyhow::Result<()> {
-    let mut state = history(4, 5000).await?;
-    let original = state.conversation.messages();
-    let mut attempts = Vec::new();
-    for kickoff in [
-        original[2].clone(),
-        Message::user()
-            .with_text(GROUNDING_ESCALATION_MESSAGE)
-            .with_generated_id_if_missing(),
-    ] {
-        attempts.push(kickoff);
-        attempts.push(
-            Message::assistant()
-                .with_tool_request(
-                    "reused-calculator-id",
-                    Ok(CallToolRequestParams::new(TOOL_NAME)),
-                )
-                .with_generated_id_if_missing(),
-        );
-        attempts.push(
-            Message::user()
-                .with_tool_response(
-                    "reused-calculator-id",
-                    Ok(CallToolResult::success(vec![ContentBlock::text("$100.00")])),
-                )
-                .with_generated_id_if_missing(),
-        );
-        attempts.push(
-            Message::assistant()
-                .with_text(format!("Complete calculation answer {}", "x".repeat(5000)))
-                .with_generated_id_if_missing(),
-        );
-    }
-    assert!(complete_exchange(&attempts));
-    let mut messages = original[..2].to_vec();
-    messages.extend(attempts.clone());
-    messages.extend_from_slice(&original[4..]);
-    state.conversation = Conversation::new_unvalidated(messages);
-    let parts = partition(&state)?.expect("complete genuine exchanges remain eligible");
-    assert_eq!(parts.eligible.len(), attempts.len() + 2);
-    assert_eq!(parts.recent.len(), 4);
-    assert_eq!(parts.recent[0].as_concat_text(), "Genuine reply 2");
-    assert_eq!(state.genuine_reply_ids.len(), 4);
-    assert!(complete_exchange(&parts.eligible[..attempts.len()]));
-    Ok(())
-}
-
-#[test]
-fn duplicate_tool_ids_within_one_attempt_are_rejected() {
-    let request = Message::assistant()
-        .with_tool_request("duplicate-id", Ok(CallToolRequestParams::new(TOOL_NAME)));
-    let response = Message::user().with_tool_response(
-        "duplicate-id",
-        Ok(CallToolResult::success(vec![ContentBlock::text("$100.00")])),
-    );
-    let kickoff = Message::user().with_text("Calculate planned loss.");
-    let final_answer = Message::assistant().with_text("The result is $100.00.");
-    assert!(!complete_exchange(&[
-        kickoff.clone(),
-        request.clone(),
-        response.clone(),
-        request.clone(),
-        response.clone(),
-        final_answer.clone(),
-    ]));
-    assert!(!complete_exchange(&[
-        kickoff,
-        request,
-        response.clone(),
-        response,
-        final_answer,
-    ]));
-}
-
-#[test]
-fn application_kickoff_cannot_resolve_a_previous_attempts_unfinished_tool_pair() {
-    let kickoff = Message::user().with_text("Calculate planned loss.");
-    let request = Message::assistant().with_tool_request(
-        "cross-boundary-id",
-        Ok(CallToolRequestParams::new(TOOL_NAME)),
-    );
-    let response = Message::user().with_tool_response(
-        "cross-boundary-id",
-        Ok(CallToolResult::success(vec![ContentBlock::text("$100.00")])),
-    );
-    let escalation = Message::user().with_text(GROUNDING_ESCALATION_MESSAGE);
-    let final_answer = Message::assistant().with_text("An ordinary final answer.");
-    // An ordinary answer alone cannot settle an unanswered tool request.
-    assert!(!complete_exchange(&[
-        kickoff.clone(),
-        request.clone(),
-        final_answer.clone(),
-        escalation.clone(),
-        response.clone(),
-        final_answer.clone(),
-    ]));
-    // A paired request/result still needs an ordinary answer before a new kickoff.
-    assert!(!complete_exchange(&[
-        kickoff.clone(),
-        request.clone(),
-        response.clone(),
-        escalation.clone(),
-        final_answer.clone(),
-    ]));
-    // A result from a completed prior attempt is orphaned in the new window.
-    assert!(!complete_exchange(&[
-        kickoff,
-        request,
-        response.clone(),
-        final_answer.clone(),
-        escalation,
-        response,
-        final_answer,
-    ]));
-}
-
-#[test]
-fn hidden_user_messages_do_not_reset_attempt_correlation() {
-    let request = Message::assistant()
-        .with_tool_request("same-attempt-id", Ok(CallToolRequestParams::new(TOOL_NAME)));
-    let response = Message::user().with_tool_response(
-        "same-attempt-id",
-        Ok(CallToolResult::success(vec![ContentBlock::text("$100.00")])),
-    );
-    assert!(!complete_exchange(&[
-        Message::user().with_text("Calculate planned loss."),
-        request.clone(),
-        response.clone(),
-        Message::assistant().with_text("First answer."),
-        Message::user()
-            .with_text("Hidden application data.")
-            .agent_only(),
-        request,
-        response,
-        Message::assistant().with_text("Second answer."),
-    ]));
 }
 
 #[tokio::test]
@@ -1307,6 +943,35 @@ async fn pending_maintenance_counts_new_payload_before_and_after_without_changin
 }
 
 #[tokio::test]
+async fn pending_oversized_payload_cannot_be_rescued_by_history_replacement() -> anyhow::Result<()>
+{
+    let state = history(4, 12000).await?;
+    let pending = PendingReply {
+        input: "Not appended".to_string(),
+        grounding: grounding_fixture("large", &"e".repeat(100_000))?,
+    };
+    let original = serde_json::to_value(state.conversation.messages())?;
+    let before = maintenance_payload(&state, Some(&pending))?;
+    let replacement = candidate(
+        partition(&state)?.expect("eligible"),
+        "Short fallible summary.",
+    );
+    let mut proposed = state.clone();
+    proposed.conversation = replacement;
+    let after = maintenance_payload(&proposed, Some(&pending))?;
+    assert!(after < before);
+    assert!(after > state.policy.total_bytes - state.policy.headroom_bytes);
+    assert!(!material_reduction(before, after, &state.policy));
+    assert_eq!(
+        serde_json::to_value(state.conversation.messages())?,
+        original
+    );
+    assert!(state.turn_grounding.evidence.is_empty());
+    assert_eq!(state.revision, 0);
+    Ok(())
+}
+
+#[tokio::test]
 async fn pending_operation_report_counts_prospective_payload_even_when_cancelled(
 ) -> anyhow::Result<()> {
     let mut state = history(4, 5000).await?;
@@ -1324,7 +989,7 @@ async fn pending_operation_report_counts_prospective_payload_even_when_cancelled
     let mut operation = Compaction::new(
         Arc::from(provider),
         ModelConfig::new(first_configured_model(&parsed)?),
-        compaction_policy(),
+        Policy::default(),
     )?;
     assert!(operation.pending_reply.is_none());
     operation.pending_reply = Some(pending.clone());
@@ -1494,5 +1159,43 @@ async fn pending_scan_never_matches_a_prior_attempt_success_to_a_rejected_or_mis
             assert!(partition(&state)?.is_some());
         }
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn rejected_grounded_and_application_appends_preserve_stored_state() -> anyhow::Result<()> {
+    let mut state = history(2, 100).await?;
+    state.turn_grounding = grounding_fixture("previous", "Stored attachment")?;
+    state.applied_passes = 7;
+    state.halt_reason = Some("previous attempt bound".to_string());
+    let original = serde_json::to_value(state.conversation.messages())?;
+    let original_grounding = format!("{:?}", state.turn_grounding);
+    let original_ids = state.genuine_reply_ids.clone();
+    let revision = state.revision;
+    let runtime = ChatRuntime {
+        sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
+    };
+    assert!(runtime
+        .append_grounded_user(
+            SESSION_ID,
+            "Unaccepted genuine question",
+            grounding_fixture("oversized", &"x".repeat(100_000))?,
+        )
+        .await
+        .is_err());
+    assert!(runtime
+        .append_application(SESSION_ID, &"x".repeat(100_000))
+        .await
+        .is_err());
+    let saved = runtime.load(SESSION_ID).await?;
+    assert_eq!(
+        serde_json::to_value(saved.conversation.messages())?,
+        original
+    );
+    assert_eq!(format!("{:?}", saved.turn_grounding), original_grounding);
+    assert_eq!(saved.genuine_reply_ids, original_ids);
+    assert_eq!(saved.revision, revision);
+    assert_eq!(saved.applied_passes, 7);
+    assert_eq!(saved.halt_reason.as_deref(), Some("previous attempt bound"));
     Ok(())
 }

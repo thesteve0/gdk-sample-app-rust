@@ -170,6 +170,31 @@ pub fn observable(messages: &[goose_providers::conversation::message::Message]) 
     serde_json::json!(records).to_string()
 }
 
+// Explicit production inventory: test files and provider configuration are not exported.
+// Hashes identify the evaluated application; they do not include the source bytes.
+const SOURCE_PATHS: &[&str] = &[
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "src/main.rs",
+    "src/lib.rs",
+    "src/calculator.rs",
+    "src/chooser.rs",
+    "src/diagnostics.rs",
+    "src/learning_record.rs",
+    "src/presentation.rs",
+    "src/provider_setup.rs",
+    "src/rag/mod.rs",
+    "src/rag/retrieval.rs",
+    "src/rag/grounding.rs",
+    "src/rag/citations.rs",
+    "src/rag/transport.rs",
+    "src/compaction.rs",
+    "src/telemetry.rs",
+    "lessons/14-agent-evaluation/RUBRIC.md",
+    "lessons/14-agent-evaluation/SCENARIOS.md",
+];
+
 pub fn identify_current_span() -> anyhow::Result<()> {
     use sha2::{Digest, Sha256};
     use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -178,25 +203,8 @@ pub fn identify_current_span() -> anyhow::Result<()> {
         return Ok(());
     }
     let root = PathBuf::from(super::REPOSITORY_ROOT);
-    let paths = [
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain.toml",
-        "src/main.rs",
-        "src/calculator.rs",
-        "src/chooser.rs",
-        "src/diagnostics.rs",
-        "src/learning_record.rs",
-        "src/presentation.rs",
-        "src/provider_setup.rs",
-        "src/retrieval.rs",
-        "src/compaction.rs",
-        "src/telemetry.rs",
-        "lessons/14-agent-evaluation/RUBRIC.md",
-        "lessons/14-agent-evaluation/SCENARIOS.md",
-    ];
     let mut identities = BTreeMap::new();
-    for path in paths {
+    for &path in SOURCE_PATHS {
         let bytes = std::fs::read(root.join(path))?;
         identities.insert(path.to_string(), format!("{:x}", Sha256::digest(bytes)));
     }
@@ -215,10 +223,10 @@ pub fn identify_current_span() -> anyhow::Result<()> {
         serde_json::json!(identities).to_string(),
     );
 
-    span.set_attribute("course.collection", super::retrieval::COLLECTION);
+    span.set_attribute("course.collection", gdk_hello::rag::retrieval::COLLECTION);
     span.set_attribute(
         "course.embedding_profile",
-        super::retrieval::profile_identity(),
+        gdk_hello::rag::retrieval::profile_identity(),
     );
     span.set_attribute(
         "course.compaction_trigger",
@@ -236,6 +244,119 @@ pub fn identify_current_span() -> anyhow::Result<()> {
         env::var("EVALUATION_COMPARISON").unwrap_or("unspecified".to_string()),
     );
     Ok(())
+}
+
+// Called within an application-owned preparation span, never a model tool span.
+// Only selected excerpts are projected; no clients, connection URLs or provider metadata.
+fn grounding_projection(grounding: &gdk_hello::rag::TurnGrounding) -> serde_json::Value {
+    serde_json::json!({
+        "phase": "automatic_grounding",
+        "status": grounding.status,
+        "query": grounding.query,
+        "threshold": grounding.threshold,
+        "notice": grounding.notice,
+        "selected_evidence": grounding.evidence,
+        "support_check": "not_semantically_verified",
+    })
+}
+
+pub fn grounding_preparation(grounding: &gdk_hello::rag::TurnGrounding) {
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+    let span = tracing::Span::current();
+    if span.is_disabled() {
+        return;
+    }
+    span.set_attribute("course.rag.phase", "automatic_grounding");
+    span.set_attribute(
+        "mlflow.spanOutputs",
+        grounding_projection(grounding).to_string(),
+    );
+}
+
+fn attempt_projection(
+    attempt: usize,
+    outcome: &gdk_hello::rag::GroundingOutcome,
+    withheld: bool,
+    answer: &str,
+    invalid_markers: &[String],
+) -> serde_json::Value {
+    let acknowledgment = match outcome {
+        gdk_hello::rag::GroundingOutcome::NotSupplied => "not_supplied",
+        gdk_hello::rag::GroundingOutcome::Cited => "cited",
+        gdk_hello::rag::GroundingOutcome::Declined => "declined",
+        gdk_hello::rag::GroundingOutcome::SilentIgnore => "silent_ignore",
+        gdk_hello::rag::GroundingOutcome::InvalidAcknowledgment => "invalid_acknowledgment",
+    };
+    // Passing the structural gate is not proof that presentation succeeded.
+    let presentation = if withheld {
+        "withheld"
+    } else {
+        "not_yet_presented"
+    };
+    serde_json::json!({
+        "phase": "attempt",
+        "attempt": attempt,
+        "acknowledgment": acknowledgment,
+        "presentation": presentation,
+        "ordinary_answer": answer,
+        "invalid_markers": invalid_markers,
+        "support_check": "not_semantically_verified",
+    })
+}
+
+// Call after each buffered attempt's structural gate, before any learner presentation.
+// Inference messages remain recorded separately, including withheld ordinary output.
+pub fn attempt_output(
+    attempt: usize,
+    outcome: &gdk_hello::rag::GroundingOutcome,
+    withheld: bool,
+    answer: &str,
+    invalid_markers: &[String],
+) {
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+    let span = tracing::Span::current();
+    if span.is_disabled() {
+        return;
+    }
+    let projection = attempt_projection(attempt, outcome, withheld, answer, invalid_markers);
+    span.set_attribute("mlflow.spanOutputs", projection.to_string());
+    tracing::info!("course.rag.attempt_output" = projection.to_string());
+}
+
+// Record only when the bounded correction is actually appended, not when proposed.
+pub fn correction_requested(after_attempt: usize, reminder: &str) {
+    if tracing::Span::current().is_disabled() {
+        return;
+    }
+    let projection = serde_json::json!({
+        "phase": "correction_appended",
+        "after_attempt": after_attempt,
+        "application_authored_reminder": reminder,
+    });
+    tracing::info!("course.rag.correction" = projection.to_string());
+}
+
+fn visible_projection(attempt: usize, answer: &str, warnings: &[String]) -> serde_json::Value {
+    serde_json::json!({
+        "phase": "learner_visible",
+        "attempt": attempt,
+        "ordinary_answer": answer,
+        "warnings": warnings,
+        "support_check": "not_semantically_verified",
+    })
+}
+
+// Call only after successful learner presentation, including a warned final correction
+// that still failed the structural gate. Never infer visibility from saved history.
+pub fn learner_visible_output(attempt: usize, answer: &str, warnings: &[String]) {
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+    let span = tracing::Span::current();
+    if span.is_disabled() {
+        return;
+    }
+    let projection = visible_projection(attempt, answer, warnings);
+    span.set_attribute("mlflow.spanOutputs", projection.to_string());
+    tracing::info!("course.rag.learner_visible_output" = projection.to_string());
 }
 
 pub fn inference_input(

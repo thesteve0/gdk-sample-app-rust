@@ -1,5 +1,5 @@
-// Lesson 13
-use crate::{chooser::read_line, REPOSITORY_ROOT};
+// Lesson 14
+use crate::{chooser::read_line, telemetry};
 use rmcp::model::{JsonObject, Tool};
 use serde::Deserialize;
 use serde_json::json;
@@ -15,7 +15,7 @@ pub(super) const MAX_RECORD_BYTES: usize = 32_768;
 const RECORD_FILE: &str = "learner-record.md";
 // The record is purposefully smaller than the transcript and remains editable Markdown.
 pub(super) fn record_path() -> PathBuf {
-    PathBuf::from(REPOSITORY_ROOT).join(RECORD_FILE)
+    telemetry::storage_path(RECORD_FILE)
 }
 
 pub(super) fn read_record(path: &PathBuf) -> anyhow::Result<String> {
@@ -111,6 +111,7 @@ pub(super) fn markdown_note(text: &str) -> String {
     escaped
 }
 
+#[tracing::instrument(name = "memory_append", skip_all, fields(mlflow.spanType = "CHAIN"), err)]
 pub(super) fn append_approved_note(
     path: &PathBuf,
     proposal: &RecordProposal,
@@ -143,6 +144,10 @@ pub(super) fn append_approved_note(
     file.write_all(addition.as_bytes())?;
     file.sync_all()?;
     let updated = read_record(path)?;
+    tracing::info!(
+        "course.storage_outcome" = "approved note appended and synced",
+        "course.memory_content" = updated.as_str()
+    );
     Ok(updated)
 }
 
