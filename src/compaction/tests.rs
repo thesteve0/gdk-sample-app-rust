@@ -1,6 +1,9 @@
 // Lesson 14
 use super::*;
 use crate::provider_setup::DEFAULT_PROVIDER_CONFIG;
+use gdk_hello::learning::compaction::{
+    complete_exchange, is_summary, summary_request, summary_source,
+};
 
 async fn history(count: usize, width: usize) -> anyhow::Result<ChatSession> {
     let runtime = ChatRuntime::seeded();
@@ -436,19 +439,21 @@ async fn local_declaration_saves_once_without_tutor_turn_and_survives_maintenanc
 }
 
 #[tokio::test]
-async fn declaration_without_consent_is_ephemeral_and_never_quote_evidence() -> anyhow::Result<()> {
+async fn declaration_without_consent_still_saves_but_never_reloads_context() -> anyhow::Result<()> {
     let directory = env::temp_dir().join(format!("l13-ephemeral-{}", std::process::id()));
     fs::create_dir_all(&directory)?;
     let path = directory.join("never-written.md");
     let mut log = DiagnosticLog::create_at(directory.join("diagnostics.md"))?;
     let runtime = ChatRuntime::seeded();
     declare(&runtime, SESSION_ID, "Orders", &mut log, &path).await?;
-    assert!(!path.exists());
+    assert!(path.exists());
+    assert!(fs::read_to_string(&path)?.contains("Orders"));
     let state = runtime.load(SESSION_ID).await?;
     assert_eq!(
         state.completed_concepts["orders"],
-        "ephemeral (memory consent disabled)"
+        "saved; memory consent declined (context not reloaded)"
     );
+    assert!(state.lesson.learner_record.is_empty());
     let call = CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(
         json!({"category":"learner_evidence","note":"Orders completed", "learner_quote":"Orders"}),
     )?);
@@ -691,7 +696,7 @@ async fn full_byte_budget_counts_static_tools_metadata_and_tool_results() -> any
     .await
     .is_err());
     assert!(partition(&state).is_err());
-    assert_eq!(Policy::default().trigger_bytes, 60000);
+    assert_eq!(Policy::default().trigger_bytes, 84000);
     assert_eq!(Policy::default().total_bytes, 100000);
     assert_eq!(Policy::default().headroom_bytes, 16000);
     Ok(())
@@ -722,39 +727,6 @@ async fn short_history_is_noop_and_append_continues_same_session() -> anyhow::Re
     Ok(())
 }
 
-#[tokio::test]
-async fn summary_machine_yields_after_single_effect_batch_without_tools() -> anyhow::Result<()> {
-    let operation = SummaryStop {
-        guidance: "Summarize.".to_string(),
-    };
-    let mut session = SummarySession {
-        conversation: Conversation::new_unvalidated(vec![
-            Message::user().with_text("untrusted source")
-        ]),
-        usage: Vec::new(),
-        batches: 0,
-    };
-    let (sender, _receiver) = mpsc::channel(4);
-    let emit = Emitter::new(sender, CancellationToken::new());
-    assert!(operation.inference_tools(&session).await?.is_empty());
-    assert!(matches!(
-        operation
-            .run(&session, &session.conversation, &emit)
-            .await?,
-        OperationResult::NotApplicable
-    ));
-    session.batches = 1;
-    let result = operation
-        .run(&session, &session.conversation, &emit)
-        .await?;
-    let result = match result {
-        OperationResult::Applied(result) => result,
-        _ => panic!("yield"),
-    };
-    assert!(result.yield_to_client);
-    assert!(result.effects.is_empty());
-    Ok(())
-}
 #[tokio::test]
 async fn cancelled_maintenance_retains_every_message_and_yields_without_summary_inference(
 ) -> anyhow::Result<()> {
@@ -1197,5 +1169,439 @@ async fn rejected_grounded_and_application_appends_preserve_stored_state() -> an
     assert_eq!(saved.revision, revision);
     assert_eq!(saved.applied_passes, 7);
     assert_eq!(saved.halt_reason.as_deref(), Some("previous attempt bound"));
+    Ok(())
+}
+
+// Keep application state, authority and revision assertions above the portable mechanics.
+#[tokio::test]
+async fn escalated_complete_exchange_is_one_genuine_group_without_evidence_in_summary(
+) -> anyhow::Result<()> {
+    let mut state = history(4, 5000).await?;
+    state.turn_grounding = grounding_fixture("attachment", "ATTACHMENT_NOT_SUMMARY_SOURCE")?;
+    let escalation = Message::user()
+        .with_text(GROUNDING_ESCALATION_MESSAGE)
+        .with_generated_id_if_missing();
+    let mut messages = state.conversation.messages().clone();
+    // The first genuine exchange includes the ordinary answer AND application re-run.
+    messages.insert(4, escalation.clone());
+    messages.insert(
+        5,
+        Message::assistant()
+            .with_text("Grounded retry answer [source:attachment].")
+            .with_generated_id_if_missing(),
+    );
+    state.conversation = Conversation::new_unvalidated(messages);
+    let parts = partition(&state)?.expect("older genuine exchanges eligible");
+    assert_eq!(parts.eligible.len(), 6);
+    assert_eq!(parts.recent.len(), 4);
+    assert_eq!(parts.recent[0].as_concat_text(), "Genuine reply 2");
+    assert!(complete_exchange(&parts.eligible[..4]));
+    let projection = summary_source(&parts.eligible, &state.genuine_reply_ids);
+    let escalation_record = projection
+        .iter()
+        .find(|record| record["original_message_id"] == json!(escalation.id))
+        .expect("application input is retained as historical data");
+    assert_eq!(
+        escalation_record["provenance"],
+        "application or tool history (NOT learner evidence)"
+    );
+    assert_eq!(
+        escalation_record["content"][0]["text"],
+        GROUNDING_ESCALATION_MESSAGE
+    );
+    let (prompt, request) = summary_request(&parts.eligible, &state.genuine_reply_ids, "fixture")?;
+    assert!(!prompt.contains("ATTACHMENT_NOT_SUMMARY_SOURCE"));
+    assert!(!request.messages()[0]
+        .as_concat_text()
+        .contains("ATTACHMENT_NOT_SUMMARY_SOURCE"));
+    // Historical answer IDs may remain as data, never a source attachment/allowlist.
+    assert!(request.messages()[0]
+        .as_concat_text()
+        .contains("[source:attachment]"));
+    state.lesson.persistence_enabled = true;
+    let proposal =
+        CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(json!({
+            "category": "learner_evidence",
+            "note": "Unsupported source of learner evidence",
+            "learner_quote": GROUNDING_ESCALATION_MESSAGE
+        }))?);
+    assert!(parse_record_proposal(&proposal, &state).is_err());
+    let replacement = candidate(
+        parts,
+        "Escalation is application data, not learner testimony.",
+    );
+    assert_eq!(
+        replacement
+            .messages()
+            .iter()
+            .filter(|message| is_summary(message))
+            .count(),
+        1
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_approval_blocks_escalated_maintenance_and_settled_decisions_survive_replacement(
+) -> anyhow::Result<()> {
+    for approved in [false, true] {
+        let mut state = history(4, 5000).await?;
+        let mut messages = state.conversation.messages().clone();
+        messages.insert(
+            3,
+            Message::assistant().with_tool_request(
+                "before-escalation",
+                Ok(CallToolRequestParams::new(RECORD_TOOL)),
+            ),
+        );
+        messages.insert(
+            4,
+            Message::user().with_tool_response(
+                "before-escalation",
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    "Proposal prepared",
+                )])),
+            ),
+        );
+        messages.insert(
+            6,
+            Message::user()
+                .with_text(GROUNDING_ESCALATION_MESSAGE)
+                .with_generated_id_if_missing(),
+        );
+        messages.insert(
+            7,
+            Message::assistant()
+                .with_text("Application retry completed.")
+                .with_generated_id_if_missing(),
+        );
+        let key = approval_key(&messages[2], "before-escalation")?;
+        state.conversation = Conversation::new_unvalidated(messages);
+        assert!(partition(&state).is_err());
+        state.settled_approvals.insert(key.clone(), approved);
+        let replacement = candidate(
+            partition(&state)?.expect("settled exchange eligible"),
+            "Derived data.",
+        );
+        let mut outcome = Outcome {
+            revision: state.revision,
+            replacement: Some(replacement),
+            report: report(),
+        };
+        apply_outcome(&mut state, &mut outcome)?;
+        assert_eq!(state.settled_approvals[&key], approved);
+        assert_eq!(state.genuine_reply_ids.len(), 2);
+        assert!(!turn_requests(state.conversation.messages())
+            .iter()
+            .any(|request| request.id == "before-escalation"));
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn grounded_append_rejects_stale_summary_and_application_append_has_no_learner_identity(
+) -> anyhow::Result<()> {
+    let mut state = history(4, 5000).await?;
+    state.turn_grounding = grounding_fixture("old", "Prior turn attachment")?;
+    state.applied_passes = 7;
+    state.halt_reason = Some("old bound".to_string());
+    let replacement = candidate(
+        partition(&state)?.expect("eligible"),
+        "Older summary candidate.",
+    );
+    let mut outcome = Outcome {
+        revision: state.revision,
+        replacement: Some(replacement),
+        report: report(),
+    };
+    let runtime = ChatRuntime {
+        sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
+    };
+    let grounding = grounding_fixture("new", "New turn attachment")?;
+    runtime
+        .append_grounded_user(SESSION_ID, "New genuine question", grounding)
+        .await?;
+    let after = runtime.load(SESSION_ID).await?;
+    assert_eq!(after.revision, outcome.revision + 1);
+    assert_eq!(after.applied_passes, 0);
+    assert!(after.halt_reason.is_none());
+    assert_eq!(after.turn_grounding.evidence[0].citation_id, "source:new");
+    assert_eq!(after.genuine_reply_ids.len(), 5);
+    let after_messages = serde_json::to_value(after.conversation.messages())?;
+    {
+        let mut sessions = runtime.sessions.lock().await;
+        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
+        apply_outcome(stored, &mut outcome)?;
+    }
+    let unchanged = runtime.load(SESSION_ID).await?;
+    assert_eq!(
+        serde_json::to_value(unchanged.conversation.messages())?,
+        after_messages
+    );
+    assert!(outcome.report.disposition.contains("revision changed"));
+    {
+        let mut sessions = runtime.sessions.lock().await;
+        let stored = sessions.get_mut(SESSION_ID).expect("fixture");
+        stored.applied_passes = 7;
+        stored.halt_reason = Some("prior attempt reached a bound".to_string());
+    }
+    runtime
+        .append_application(SESSION_ID, GROUNDING_ESCALATION_MESSAGE)
+        .await?;
+    let escalated = runtime.load(SESSION_ID).await?;
+    assert_eq!(escalated.revision, unchanged.revision + 1);
+    assert_eq!(escalated.genuine_reply_ids, unchanged.genuine_reply_ids);
+    assert_eq!(escalated.applied_passes, 0);
+    assert!(escalated.halt_reason.is_none());
+    assert_eq!(
+        escalated.turn_grounding.evidence[0].citation_id,
+        "source:new"
+    );
+    let last = escalated
+        .conversation
+        .messages()
+        .last()
+        .expect("application input");
+    assert!(!escalated
+        .genuine_reply_ids
+        .contains(last.id.as_ref().expect("stable ID")));
+    Ok(())
+}
+
+#[tokio::test]
+async fn escalated_attempts_reuse_tool_ids_without_splitting_genuine_partition(
+) -> anyhow::Result<()> {
+    let mut state = history(4, 5000).await?;
+    let original = state.conversation.messages();
+    let mut attempts = Vec::new();
+    for kickoff in [
+        original[2].clone(),
+        Message::user()
+            .with_text(GROUNDING_ESCALATION_MESSAGE)
+            .with_generated_id_if_missing(),
+    ] {
+        attempts.push(kickoff);
+        attempts.push(
+            Message::assistant()
+                .with_tool_request(
+                    "reused-calculator-id",
+                    Ok(CallToolRequestParams::new(TOOL_NAME)),
+                )
+                .with_generated_id_if_missing(),
+        );
+        attempts.push(
+            Message::user()
+                .with_tool_response(
+                    "reused-calculator-id",
+                    Ok(CallToolResult::success(vec![ContentBlock::text("$100.00")])),
+                )
+                .with_generated_id_if_missing(),
+        );
+        attempts.push(
+            Message::assistant()
+                .with_text(format!("Complete calculation answer {}", "x".repeat(5000)))
+                .with_generated_id_if_missing(),
+        );
+    }
+    assert!(complete_exchange(&attempts));
+    let mut messages = original[..2].to_vec();
+    messages.extend(attempts.clone());
+    messages.extend_from_slice(&original[4..]);
+    state.conversation = Conversation::new_unvalidated(messages);
+    let parts = partition(&state)?.expect("complete genuine exchanges remain eligible");
+    assert_eq!(parts.eligible.len(), attempts.len() + 2);
+    assert_eq!(parts.recent.len(), 4);
+    assert_eq!(parts.recent[0].as_concat_text(), "Genuine reply 2");
+    assert_eq!(state.genuine_reply_ids.len(), 4);
+    assert!(complete_exchange(&parts.eligible[..attempts.len()]));
+    Ok(())
+}
+
+#[tokio::test]
+async fn consent_declined_declaration_preserves_existing_manual_bytes_without_quote_authority(
+) -> anyhow::Result<()> {
+    let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+    let directory = env::temp_dir().join(format!(
+        "l14-existing-declaration-{}-{}",
+        std::process::id(),
+        unique.as_nanos()
+    ));
+    fs::create_dir(&directory)?;
+    let path = directory.join("synthetic-record.md");
+    let private_note = "SYNTHETIC_PRIVATE_NOTE_NOT_CONSENTED";
+    // No trailing newline: the append must preserve even manually authored boundaries.
+    let original = format!(
+        "Manual heading\n## Learner-stated goals\n- {}\n<!-- preserve exact bytes -->",
+        private_note
+    );
+    fs::write(&path, original.as_bytes())?;
+    let mut diagnostics = DiagnosticLog::create_at(directory.join("diagnostics.md"))?;
+    let runtime = ChatRuntime::seeded();
+    let before = runtime.load(SESSION_ID).await?;
+    assert!(!before.lesson.persistence_enabled);
+    assert!(before.lesson.learner_record.is_empty());
+    let original_history = serde_json::to_value(before.conversation.messages())?;
+    let concept = "Synthetic unuttered declaration";
+    declare(&runtime, SESSION_ID, concept, &mut diagnostics, &path).await?;
+    let once = fs::read(&path)?;
+    assert!(once.starts_with(original.as_bytes()));
+    let addition = std::str::from_utf8(&once[original.len()..])?;
+    assert_eq!(
+        addition,
+        "\n## Learner-declared completed concepts\n\n- Synthetic unuttered declaration (learner declaration; not assessed mastery)\n"
+    );
+    declare(
+        &runtime,
+        SESSION_ID,
+        "SYNTHETIC  unuttered DECLARATION",
+        &mut diagnostics,
+        &path,
+    )
+    .await?;
+    assert_eq!(fs::read(&path)?, once);
+    let after = runtime.load(SESSION_ID).await?;
+    assert_eq!(after.id, before.id);
+    assert_eq!(after.revision, before.revision + 1);
+    assert_eq!(after.completed_concepts.len(), 1);
+    assert_eq!(
+        after.completed_concepts[&completion_key(concept)],
+        "saved; memory consent declined (context not reloaded)"
+    );
+    assert!(!after.lesson.persistence_enabled);
+    assert!(after.lesson.learner_record.is_empty());
+    assert_eq!(after.genuine_reply_ids, before.genuine_reply_ids);
+    assert_eq!(after.applied_passes, before.applied_passes);
+    assert_eq!(
+        serde_json::to_value(after.conversation.messages())?,
+        original_history
+    );
+    assert!(after.usage.is_empty());
+    for (_name, prompt) in after.prompt_parts() {
+        assert!(!prompt.contains(private_note));
+        assert!(!prompt.contains("preserve exact bytes"));
+    }
+    // Neither an explicit local declaration nor an unread disk note is a learner reply.
+    for quote in [concept, private_note] {
+        let call = CallToolRequestParams::new(RECORD_TOOL).with_arguments(serde_json::from_value(
+            json!({"category":"learner_evidence", "note":quote, "learner_quote":quote}),
+        )?);
+        assert!(parse_record_proposal(&call, &after).is_err());
+    }
+    let log = fs::read_to_string(directory.join("diagnostics.md"))?;
+    assert!(!log.contains(private_note));
+    fs::remove_dir_all(directory)?;
+    Ok(())
+}
+
+// Explicit opt-in: real tutor inference, authored history, disposable diagnostics only.
+#[tokio::test]
+#[ignore = "requires the configured local tutor; optionally exports to an existing MLflow experiment"]
+async fn live_learning_summary_preserves_protected_state_and_observation_boundaries(
+) -> anyhow::Result<()> {
+    use tracing::Instrument;
+    let path = PathBuf::from(REPOSITORY_ROOT).join(DEFAULT_PROVIDER_CONFIG);
+    let config = fs::read_to_string(path)?;
+    let parsed: Value = serde_json::from_str(&config)?;
+    validate_local_tutor(&parsed, 512)?;
+    let provider = from_json(&config, None, EnvKeyResolver {})?;
+    let policy = Policy::default();
+    let operation = Compaction::new(
+        Arc::from(provider),
+        ModelConfig::new(first_configured_model(&parsed)?),
+        policy.clone(),
+    )?;
+    let mut state = history(5, 0).await?;
+    state.policy = policy;
+    state.completed_concepts.insert(
+        "authored earlier declaration".to_string(),
+        "saved; memory consent declined (context not reloaded)".to_string(),
+    );
+    state
+        .settled_approvals
+        .insert("authored prior decision".to_string(), false);
+    let expected_declarations = state.completed_concepts.clone();
+    let expected_decisions = state.settled_approvals.clone();
+    let expected_grounding = format!("{:?}", state.turn_grounding);
+    // Authored repetitions supply eligible bytes, not a private corpus or model transcript.
+    let older = "The learner asked how execution priority differs from execution certainty. The tutor explained conditional fills and price constraints. The learner has NOT confirmed understanding. No activity was agreed. ";
+    let mut messages = state.conversation.messages().clone();
+    for index in [3, 5, 7] {
+        let id = messages[index].id.clone();
+        messages[index] = Message::assistant().with_text(older.repeat(18));
+        messages[index].id = id;
+    }
+    state.conversation = Conversation::new_unvalidated(messages);
+    let before = state.conversation.messages().clone();
+    let recent = before[before.len() - 4..].to_vec();
+    let directory = env::temp_dir().join(format!(
+        "gdk-learning14-live-summary-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&directory)?;
+    let mut diagnostics = DiagnosticLog::create_at(directory.join("session-output.md"))?;
+    let runtime = ChatRuntime {
+        sessions: Mutex::new(HashMap::from([(SESSION_ID.to_string(), state)])),
+    };
+    let telemetry_provider = tokio::task::spawn_blocking(telemetry::initialize).await??;
+    let span = tracing::info_span!(
+        "learning_library_live_validation",
+        "mlflow.spanType" = "CHAIN"
+    );
+    let result = async {
+        telemetry::identity_context(SESSION_ID);
+        telemetry::identify_current_span()?;
+        maintain(
+            &operation,
+            &runtime,
+            SESSION_ID,
+            "authored live summary validation",
+            &mut diagnostics,
+        )
+        .await?;
+        let saved = runtime.load(SESSION_ID).await?;
+        let report = saved
+            .maintenance_report
+            .as_ref()
+            .expect("maintenance report");
+        assert!(
+            report.disposition.starts_with("applied:"),
+            "{}",
+            report.disposition
+        );
+        assert!(report.after_bytes < report.before_bytes);
+        assert!(!report.summary_usage.is_empty());
+        assert_eq!(saved.id, SESSION_ID);
+        assert_eq!(saved.completed_concepts, expected_declarations);
+        assert_eq!(saved.settled_approvals, expected_decisions);
+        assert_eq!(format!("{:?}", saved.turn_grounding), expected_grounding);
+        assert!(!saved.lesson.persistence_enabled);
+        assert!(saved.lesson.learner_record.is_empty());
+        let after = saved.conversation.messages();
+        assert_eq!(
+            serde_json::to_value(&after[after.len() - 4..])?,
+            serde_json::to_value(&recent)?
+        );
+        assert_eq!(
+            serde_json::to_value(&after[..2])?,
+            serde_json::to_value(&before[..2])?
+        );
+        assert_eq!(
+            after.iter().filter(|message| is_summary(message)).count(),
+            1
+        );
+        println!(
+            "Live summary: {} -> {} conservative bytes; evidence {}",
+            report.before_bytes,
+            report.after_bytes,
+            directory.display()
+        );
+        Ok::<(), anyhow::Error>(())
+    }
+    .instrument(span)
+    .await;
+    let shutdown =
+        tokio::task::spawn_blocking(move || telemetry::shutdown(telemetry_provider)).await?;
+    result?;
+    shutdown?;
     Ok(())
 }

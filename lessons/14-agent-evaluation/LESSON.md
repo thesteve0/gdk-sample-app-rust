@@ -4,7 +4,7 @@
 
 Judge the learning partner's behavior using observable evidence, not fluent prose alone. Establish a baseline, make one controlled compaction-policy change, and decide whether any improvement is worth its regressions or unresolved risks.
 
-The complete reference source tree and [editable teaching content](content/) are supplied from the outset; use the linked source map below. The integration handoff is to activate the complete Lesson 14 tree at root for instructor review; synchronization and validation must be recorded separately. Retrieval now inherits Lesson 13's same-package RAG library. The four editable teaching prompts remain this lesson's existing versions, with reconciliation deferred. These sources share the root manifest; this directory is **not** a separate Cargo package. Tracing transport, concurrency, tool adapters, storage isolation and runtime safeguards are supplied infrastructure, not missing scaffolding. The classroom rhythm remains **predict → run → explain → tweak → run again**.
+The complete reference source tree and [editable teaching content](content/) are supplied from the outset; use the linked source map below. The complete Lesson 14 tree is activated at root and recursively matches this reference; [November 14 validation](VALIDATION.md#learning-library-integration--2026-11-14) records checks, actual live outcomes and limitations separately from instructor review. Retrieval inherits Lesson 13's same-package RAG library; the November 14 continuation adds same-package learning support using actual Lesson 13 mechanics and newer policies, without editing Lesson 13 or changing the RAG API/call structure. The four editable teaching prompts remain this lesson's existing versions, with reconciliation deferred. These sources share the root manifest; this directory is **not** a separate Cargo package. Tracing transport, concurrency, tool adapters, storage isolation and runtime safeguards are supplied infrastructure, not missing scaffolding. The classroom rhythm remains **predict → run → explain → tweak → run again**.
 
 This is evaluation of the **tutor application**, not assessment of a learner's trading competence. The instructor has books, not an expert-authored trading assessment rubric. Do not certify mastery, readiness to trade, production readiness or release approval. [VALIDATION.md](VALIDATION.md) records implementation evidence and gaps; commands below are instructions, not claims that those commands or all scenarios have passed.
 
@@ -32,7 +32,7 @@ A **held-back case** is a case not used to choose the tweak. Inspecting it after
 
 ## Supplied modules and reading path
 
-A **module** is a named part of the same Rust application: it groups related code so we can read the current lesson's decisions without repeatedly reading already-taught mechanics. A `mod` declaration loads local code; `use` brings selected names into scope. A **library target** exposes reusable code from the same Cargo package. Here `src/lib.rs` exposes `rag`, and the binary imports it as `gdk_hello::rag`. This is not a workspace, separate retrieval package, new dependency or shared course framework. They are supplied, not fill-in exercises. In `main.rs`, for example:
+A **module** is a named part of the same Rust application: it groups related code so we can read the current lesson's decisions without repeatedly reading already-taught mechanics. A `mod` declaration loads local code; `use` brings selected names into scope. A **library target** exposes reusable code from the same Cargo package. Here `src/lib.rs` exposes `rag` and `learning`, imported as `gdk_hello::rag` and `gdk_hello::learning`. This is not a workspace, separate retrieval package, new dependency or shared course framework. A **learning module** groups previously taught record storage, compaction mechanics, isolated summary inference and informational context sizing. A **binary adapter** connects reusable mechanics to this application's paths, IO and telemetry without transferring consent or approval authority. A **summary observer** is a supplied callback that records inference input/output; it neither approves a note nor commits a replacement. These boundaries keep the current lesson's application decisions visible. They are supplied, not fill-in exercises. In `main.rs`, for example:
 
 ```rust
 mod calculator;
@@ -41,6 +41,7 @@ mod diagnostics;
 mod learning_record;
 mod presentation;
 mod provider_setup;
+use gdk_hello::learning::context_size::ContextSize;
 #[cfg(test)]
 mod tests;
 ```
@@ -51,20 +52,21 @@ The same file declares binary-local `compaction` and `telemetry`; it imports ret
 | --- | --- |
 | 1. [main.rs](src/main.rs) | Context loading/prompt assembly, selection/reply lifecycle, consent, authoritative Session state, genuine-learner provenance and `/learned`/maintenance calls. Then `run_with_telemetry`, instrumentation flow, runtime/Effects, concurrent Event consumption, dispatch/allowlists/limits, machine assembly/run/cancellation/shutdown, automatic grounding, pending-input preflight, buffered citation gate/correction and successful-run inspection. Finish with proposal validation and the approval → decision log → append call → Session refresh sequence. |
 | 2. [calculator.rs](src/calculator.rs) | Previously taught exact-decimal calculator schema, argument validation and execution; its local tests stay beside those mechanics. Main still decides dispatch. |
-| 3. [learning_record.rs](src/learning_record.rs) | Record types/schema, bounded file access, confirmation-input mechanics and append implementation, with local tests. Main retains consent, actual-learner-source validation and write authority. |
+| 3. [learning_record.rs](src/learning_record.rs) | Thin binary adapter: isolated record path, confirmation IO and traced approved append. Library `learning/record.rs` supplies types/schema, bounded storage and declaration parsing; main retains consent, actual-learner-source validation and write authority. |
 | 4. [lib.rs](src/lib.rs), [rag/mod.rs](src/rag/mod.rs), [rag/retrieval.rs](src/rag/retrieval.rs), [rag/grounding.rs](src/rag/grounding.rs), [rag/citations.rs](src/rag/citations.rs), [rag/transport.rs](src/rag/transport.rs) | Inherited same-package library: bounded read-only retrieval, profile/provenance/resource checks, per-turn selection, citation registry/lexical checks and local transport. Main supplies defaults, limits, grounding policy/contract and all acceptance, presentation and approval decisions. |
-| 5. [compaction.rs](src/compaction.rs) | Cohesive authoritative declaration/summary/maintenance algorithms, protected history/provenance, revision and budget checks. Return to main for command routing, prospective pending reply/replacement evidence, atomic genuine reply append, successful-run/approval and maintenance boundaries. Broader Lesson 13 compaction/memory migration is deferred. |
+| 5. [compaction.rs](src/compaction.rs) | Application orchestration, budget/prospective pending reply/replacement evidence, revision checks, declaration authority and maintenance Operation. It calls library partition/candidate mechanics and `SummaryRunner` with telemetry observer callbacks; return to main for command routing, atomic genuine reply append and successful-run/approval boundaries. |
+| 5a. [learning/mod.rs](src/learning/mod.rs), [learning/record.rs](src/learning/record.rs), [learning/compaction.rs](src/learning/compaction.rs), [learning/summary.rs](src/learning/summary.rs), [learning/context_size.rs](src/learning/context_size.rs) | Same-package learning mechanics: record schema/storage; pure history/provenance projection/partition/candidate/policy; isolated tool-free summary runtime and observers; informational context sizing. Callers keep paths, consent, approvals and replacement commits. |
 | 6. [telemetry.rs](src/telemetry.rs) | Optional native transport, storage isolation helpers, ordinary observable projections and identity metadata. Return to main for initialization/application/shutdown ordering, `run_with_telemetry`, span instrumentation and authority decisions. |
 | 7. [provider_setup.rs](src/provider_setup.rs) | Default/optional provider path and first configured model; local tutor restrictions remain visible in main. |
 | 8. [chooser.rs](src/chooser.rs) | Supplied arrow/numbered selection, line input and raw-terminal cleanup; main owns the selection lifecycle. |
 | 9. [presentation.rs](src/presentation.rs) | Terminal colors/gating and `TerminalProse`, with local tests. This is rendering support, not Event consumption or saved/provider-text rewriting. |
 | 10. [diagnostics.rs](src/diagnostics.rs) | Complete plain Markdown diagnostics, isolated-path routing and local tests; diagnostics are never learner memory. |
 | 11. [tests.rs](src/tests.rs) | Application orchestration/authority tests. |
-| 12. [rag/tests.rs](src/rag/tests.rs), [rag/retrieval/tests.rs](src/rag/retrieval/tests.rs), [compaction/tests.rs](src/compaction/tests.rs), [telemetry/tests.rs](src/telemetry/tests.rs) | Library and module-local child tests; keep them when activating the complete tree. |
+| 12. [rag/tests.rs](src/rag/tests.rs), [rag/retrieval/tests.rs](src/rag/retrieval/tests.rs), [compaction/tests.rs](src/compaction/tests.rs), [telemetry/tests.rs](src/telemetry/tests.rs) | Library and module-local child tests, also `learning/{record,compaction,summary,context_size}/tests.rs`; keep all when activating the complete tree. |
 
 The six inherited support modules are calculator, chooser, diagnostics, learning_record, presentation and provider_setup. Moving mechanics does not move authority: storage isolation helpers route both files, but main still shows the consent/approval/lifecycle decisions and their instrumentation. Resource cleanup and cancellation/Drop ordering are unchanged.
 
-Telemetry's explicit source inventory covers `src/main.rs`, `src/lib.rs`, the six binary-local support files, all five production RAG files (`mod.rs`, `retrieval.rs`, `grounding.rs`, `citations.rs`, `transport.rs`), `src/compaction.rs` and `src/telemetry.rs`. It also hashes the manifest, lockfile, toolchain, rubric, scenarios and four editable prompts. The obsolete `src/retrieval.rs` path is replaced by library paths; no `context_size.rs` or test file is inventoried. `course.content_sha256` remains a path-to-hash identity map, not exported source bytes or a correctness certificate. Collection/profile identity comes from the library's nonsecret interface, not duplicated profile literals. The standalone [dataset seeder](seed_dataset.rs) and [dataset assets](datasets/) are unchanged and separate from tutor execution.
+Telemetry's explicit source inventory covers `src/main.rs`, `src/lib.rs`, the six binary-local support files, all five production RAG files (`mod.rs`, `retrieval.rs`, `grounding.rs`, `citations.rs`, `transport.rs`), `src/compaction.rs` and `src/telemetry.rs`. It also hashes the manifest, lockfile, toolchain, rubric, scenarios and four editable prompts. The obsolete `src/retrieval.rs` path is replaced by library paths; the five production learning files (`mod.rs`, `record.rs`, `context_size.rs`, `compaction.rs`, `summary.rs`) are also inventoried. Test files are not inventoried. `course.content_sha256` remains a path-to-hash identity map, not exported source bytes or a correctness certificate. Collection/profile identity comes from the library's nonsecret interface, not duplicated profile literals. The standalone [dataset seeder](seed_dataset.rs) and [dataset assets](datasets/) are unchanged and separate from tutor execution.
 
 ### Inherited automatic grounding: application policy, not tool choice
 
@@ -78,15 +80,27 @@ Read `run_grounded_reply` → `prepare_turn_grounding` → `rag::prepare_groundi
 
 The registry resolves current IDs and earlier-turn IDs, with earlier references labeled in the footer; it is not a database lookup or proof that a passage supports a current claim. Registration occurs **before** pending-input acceptance, so registry membership does not prove accepted delivery. The inherited lexical extractor is not a complete strict-syntax validator; cite-plus-decline is warned about, not automatically rejected. On no-evidence turns the classifier returns `NotSupplied`, so a withheld fabricated-ID answer does not necessarily receive correction. These edge cases and unsuccessful-correction presentation are preserved for later review, not silently strengthened here. Excerpts can be irrelevant or inaccurate, legitimate-looking IDs can accompany unsupported prose, and an explicit decline's justification is not independently checked. See [RAG-INTEGRATION-PLAN.md](RAG-INTEGRATION-PLAN.md) for the deliberate parity/deferred-work boundary.
 
-### RAG-only continuation and deferred teaching integration
+### Learning continuation: mechanics in the library, authority in the application
 
-Only necessary RAG compatibility changes reach compaction/memory in this phase. Lesson 14 retains its **60,000-byte default trigger**, **8,000-byte minimum eligible older history**, latest-two-exchange protection and **84,000-byte hard input allowance**. `/learned` still invokes maintenance unconditionally, but persists its local declaration **only with memory consent**; without consent it stays ephemeral. It is a local declaration, never mastery. Do not import Lesson 13's later 84,000 trigger, 4,000 minimum or always-append write policy by implication.
+The November 14 continuation adopts the **actual** Lesson 13 newer policies: **84,000-byte default trigger**, **4,000-byte minimum eligible older history**, latest-two-exchange protection and the unchanged **84,000-byte hard input allowance**. Main constructs an explicit default policy and then applies the environment override:
 
-`tutor-contract.md`, `getting-started-guidance.md`, `getting-started-material.md` and `compaction-guidance.md` are untouched by this RAG phase. Their remaining optional-search/capability wording can conflict with automatic retrieval. The RAG-specific contract/reminder is application wiring, not a completed reconciliation of all teaching prompts. Full compaction/memory library migration, continuity/activity/source-review features, context display, prompt reconciliation and revised evaluation scenarios/comparison baselines remain deferred. Existing catalog definitions are not silently rewritten or revalidated by integration. Use scenarios as inspection material with their old assumptions explicitly identified; changed case definitions require separate versioned authorization.
+```rust
+let policy = compaction::Policy::from_env(compaction::Policy::default())?;
+```
+
+The binary keeps orchestration/budget/prospective/revision/declaration/Operation decisions. The library supplies pure projection/partition/candidate mechanics and an isolated tool-free summary runner. Pending question/replacement evidence is counted consistently before/after a candidate without storing it first; summary input is stored eligible history only. Main's memory/provenance/approvals/runtime and existing RAG call structure remain unchanged apart from optional runtime estimator wiring and explicit default-policy configuration.
+
+`/learned` is explicit local authority to append its declaration **even when read consent was declined**, subject to existing duplicate/capacity/storage checks. It does not reload saved notes into a consent-declined Session. Command handling invokes maintenance unconditionally, although insufficient eligible history can yield a no-op. A failed summary does not undo an already-saved declaration or authorize an automatic second append. This is not mastery assessment. Model proposals still require successful-run inspection and independent default-no approval; no summary observer or library helper creates that authority.
+
+Actual inherited proposal validation requires a bounded single-line note and an exact substring quotation from **any retained genuine learner reply**; it does not require `note == learner_quote` or latest-exchange-only evidence. Quotation occurrence is not semantic correctness or approval. Historical claims of stricter policies do not describe the actual Lesson 13 code reused here.
+
+The thin binary record adapter retains isolated-path selection, confirmation IO and traced append. `SummaryRunner` accepts callbacks into binary telemetry without depending on that binary module. A complete-output Effect captures its originating chat span; on application after SDK message-ID assignment it re-enters that span for the inference-output hook, then invokes the saved-message hook. This preserves same-span output observation rather than incorrectly attributing it to the surrounding maintenance span. Existing cancellation/bounded-drain/Drop/partial-usage/failure boundaries remain supplied.
+
+**Deferred and conflicting content:** `tutor-contract.md`, `getting-started-guidance.md`, `getting-started-material.md` and `compaction-guidance.md` remain unchanged/unreconciled. Their optional-search and consent-dependent memory wording may conflict with automatic grounding and always-append declarations. **Application authority wins**; these are known teaching limitations, not completed prompt reconciliation. Historical docs mention activities, continuity, source review and teaching modules absent from actual Lesson 13; none is implemented or claimed here. Scenarios, comparison worksheet and versioned catalog assumptions remain unreviewed for this architecture/policy. Do not silently rewrite/revalidate them or mutate the catalog. No prompt/corpus/pin/service/catalog/seeder change is part of this continuation.
 
 ### Activate the complete working copy
 
-Root `src/` is an ephemeral exercise copy. From the repository root, replace it with **all** reference sources, including child test directories:
+Root `src/` is an ephemeral exercise copy, currently synchronized with this complete reference. From the repository root replace it with **all** reference sources, including `lib.rs`, `rag/`, `learning/` and every child test directory:
 
 ```bash
 rm -rf src
@@ -109,7 +123,7 @@ umask 077
 # Replace 1 with the numeric experiment ID from MLFLOW-SETUP.md.
 export MLFLOW_EXPERIMENT_ID=1
 export EVALUATION_STORAGE=baseline-V02
-export COMPACTION_TRIGGER_BYTES=60000
+unset COMPACTION_TRIGGER_BYTES  # actual current default: 84000
 cargo run -- custom_aa_llama_qwen3_6-35b.json
 ```
 
@@ -139,7 +153,7 @@ cargo test --all-targets
 cargo build
 ```
 
-The inherited `gdk_hello::rag` library is now present for the calibration consumer as well as the tutor. These are check instructions, not an all-target validation result for this integration. Do not execute calibration or the catalog seeder merely to establish build compatibility.
+The inherited `gdk_hello::rag` library is now present for the calibration consumer as well as the tutor. The November 14 validation record reports the actual all-target results for this integration; commands alone are not evidence of a completed live scenario. Do not execute calibration or the catalog seeder merely to establish build compatibility.
 
 The explicitly opt-in real-service tests are separate from ordinary tests. With the configured real services above:
 
@@ -147,6 +161,17 @@ The explicitly opt-in real-service tests are separate from ordinary tests. With 
 cargo test live_local_smoke -- --ignored --nocapture
 cargo test live_automatic_grounding_once_obeys_budget_provenance_and_no_search_advertisement -- --ignored --nocapture
 ```
+
+A third opt-in test uses authored history and the **actual tutor**, not a mocked provider, to exercise summary application and protected-state assertions. It uses temporary diagnostics, never the everyday record. Set a fresh evaluation name; export is optional and, if enabled, must target an already prepared active experiment:
+
+```bash
+EVALUATION_STORAGE=learning14-summary-review-unique cargo test --bin gdk-hello \
+  compaction::tests::live_learning_summary_preserves_protected_state_and_observation_boundaries \
+  --locked -- --exact --ignored --nocapture
+```
+
+The library smoke test requires explicit reader/Harrier/tutor environment settings; obtain the existing classroom values locally without printing credentials. The summary test is real inference and can take minutes. A passed authored-history summary test is not a completed learner conversation, semantic-fidelity certificate or human evaluation. Normal all-target tests ignore all three live tests.
+
 
 These integration checks are not a replacement for the conversational scenarios. In particular, the automatic-grounding service test uses a test selection policy; it is not a live semantic acceptance test of the default 0.55 threshold. Record actual commands/results, skipped cases and unavailable services in the validation/comparison evidence; do not infer live behavior from the deterministic suite.
 
@@ -197,7 +222,17 @@ In MLflow inspect the `learner_exchange` parent, its automatic-grounding prepara
 
 The established minimal infrastructure proof is narrow: official v3.17.1 accepted native Rust OTLP traces, inference/usage and parent/tool relationships were observed, and named numeric feedback entered in the native UI persisted. This does **not** establish that every application path exports completely or that every evaluation case passed. Consult [VALIDATION.md](VALIDATION.md) for the actual final checks and gaps.
 
+## Current context estimate: completed exchanges only
+
+The learning library now supplies `ContextSize`, following the actual Lesson 13 call pattern: display `Context: ~N tokens (estimate)` **at the end of each completed exchange, including welcome**, after its approval handling. Main loads current stored parts, active grounding, advertised tools and conversation; an optional runtime estimator produces the status. There is **no display at every local prompt**, blank/invalid command or `/learned` boundary, and **no token-estimate before/after-compaction pair**. Applied maintenance still has its distinct summary notice and conservative byte report.
+
+The estimator uses pinned alpha.11 formatting with selected-model/thinking settings and retains the completed trailing assistant answer without counting a hypothetical next question. It counts serialized content UTF-8 bytes divided by four, rounded up; static instructions, loaded consented notes, local declarations, tools, history/latest answer and active evidence contribute. It excludes application-only metadata, cumulative usage and safety margins. It makes no tokenizer/service call, mutates no conversation and is not measured tokens, actual wire size, a guaranteed bound or a capacity percentage. Failure reports an unavailable estimate nonfatally. Smaller estimates do not prove summary fidelity or lower cumulative inference cost.
+
+The dated discrepancy below describes the November 13 baseline, superseded by this explicit November 14 addition, not retroactively validated by historical display evidence.
+
 ## Current context-display discrepancy — 2026-11-13
+
+> Historical baseline observation, superseded by the November 14 learning-library addition above. The dated text is retained, not a claim about the new current implementation.
 
 The tracked Lesson 14 tree inspected for this integration contains **no `context_size.rs`, no context-size child tests and no prompt-boundary context-estimate calls**. Do not expect `Context: ~N tokens` or token-estimate before/after lines from this source. Current maintenance reports conservative **bytes** in diagnostics/telemetry and prints an applied-summary notice only after an applied replacement; no-op/failure/revision rejection must not claim replacement.
 
@@ -227,9 +262,9 @@ Open the supplied code only after these concepts are clear. `run_with_telemetry`
 
 ## 14.4 — Tweak: change only the compaction trigger
 
-The **trigger** is when the application considers automatic compaction, not a model context-window measurement or the hard input allowance. The controlled classroom change is **60,000 → 50,000 estimated bytes**. Keep the **84,000 estimated-input allowance** unchanged (100,000 total minus 16,000 reserved headroom), as well as all eligibility, provenance, approval, output and timeout safeguards. Word/token counts are not these byte estimates.
+The **trigger** is when the application considers automatic compaction, not a model context-window measurement or the hard input allowance. The authored legacy controlled comparison is explicitly configured **60,000 → 50,000 estimated bytes**, not the current **84,000-byte default baseline**. The unchanged worksheet/scenarios/catalog have not been revalidated for this continuation. Record that applicability limit rather than calling old evidence a fresh default-baseline result. Keep the **84,000 estimated-input allowance** unchanged (100,000 total minus 16,000 reserved headroom), as well as all eligibility, provenance, approval, output and timeout safeguards. Word/token counts are not these byte estimates.
 
-After saving baseline evidence and ending its process, launch a fresh variant:
+For that legacy comparison only, first set `COMPACTION_TRIGGER_BYTES=60000` explicitly with a fresh unused storage name (for example `legacy60000-V02`) and capture new evidence under the current source. Do not compare an unset 84,000 run with 50,000 and label it 60,000/50,000. After saving that evidence and ending its process, launch a fresh variant:
 
 ```bash
 export EVALUATION_STORAGE=trigger50000-V02
@@ -255,7 +290,7 @@ Complete the comparison worksheet with observed counts, not universal percentage
 
 An earlier trigger might prevent growth sooner but add inference cost or expose more turns to lossy summaries. A smaller input estimate alone is not success. Compare uncertainty and activity fidelity beside the original learner words; compare citations beside the actual returned passages. Repetition and controlled starting conditions reduce confounding, not nondeterminism. If the evidence is inconclusive, keep the baseline and state what further observation is needed.
 
-Restore `COMPACTION_TRIGGER_BYTES=60000` for the default afterward. End the evaluation process before removing the evaluation variables or deliberately returning to ordinary storage. Preserve private artifacts only with appropriate permission; the setup guide supplies service shutdown steps. Do not delete someone else's records to clean a rehearsal.
+Run `unset COMPACTION_TRIGGER_BYTES` to restore the current **84,000-byte default** afterward; 60,000 is only an explicit legacy-comparison condition. End the evaluation process before removing the evaluation variables or deliberately returning to ordinary storage. Preserve private artifacts only with appropriate permission; the setup guide supplies service shutdown steps. Do not delete someone else's records to clean a rehearsal.
 
 ## Privacy, inherited boundaries and known defects
 
@@ -332,3 +367,10 @@ The old MLflow experiment 1 returned 404 despite health/version readiness, so tr
 ## RAG-only integration checkpoint — 2026-11-13
 
 The complete reference is now activated at root and recursively synchronized. Final checks passed121 deterministic application tests plus7 unchanged seeder tests; both explicitly enabled actual-service tests passed. Isolated live grounding/reference/calculator and independent note decisions completed; one acknowledgment correction and actual MLflow trace readback were observed. These are structural observations, not semantic or prompt-integration approval. The four editable prompts and broader compaction/memory/display work remain deferred; source-scope/execution-wording findings and deterministic-only branches remain visible in [the exact validation record](VALIDATION.md#rag-only-library-integration--2026-11-13). Stop for instructor review; no release approval.
+
+
+## Learning-library authorization/current architecture — 2026-11-14
+
+This entry supersedes the November 13 RAG-only deferral for the authorized learning continuation only. Same-package record/compaction/summary/context-size mechanics now follow actual Lesson 13 patterns and newer policies; ALL Lesson 13 code and existing RAG API/call structure remain untouched. The five learning production files join the explicit telemetry hash inventory without changing its schema. Binary orchestration, local authority and same-span summary observers are described above; no activity/continuity/source-review/teaching modules or prompt reconciliation is claimed.
+
+**Root/reference recursively match.** Final warning-free locked format/check/all-target Clippy/tests/build passed: **186 deterministic application tests (91 library + 95 binary), seven unchanged seeder tests**, with **three opt-in real-service tests separately passed**. Isolated live notes exercised inspected approval/new0600, rejection preserving bytes, and declaration/no-op maintenance. Declined consent separately preserved an unread fixture while saving a declaration. Completed-exchange sizing and startup output modes were checked. A real-provider authored-history summary applied **64,947→48,843 conservative bytes**, preserving protected state; native readback verified all29 hashes and output on the summary chat span. CLI timeouts/incomplete branches and summary attribution findings remain explicit in [VALIDATION.md](VALIDATION.md#learning-library-integration--2026-11-14); this is not a continuing-conversation compaction/follow-up, semantic-quality or matched-comparison pass. Do not reuse older results as validation of these new bytes. Four editable prompts and versioned case/comparison assumptions remain unreconciled; keep old limitations and all dated history. No services restarted, corpus/catalog/seeder/pins/prompts changed or release approval granted by this documentation handoff.

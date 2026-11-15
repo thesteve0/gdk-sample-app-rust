@@ -10,7 +10,7 @@ This repository consumes the public [`goose-providers`](https://crates.io/crates
 > [!IMPORTANT]
 > This course is under active development. The root source is the exercise currently being worked on and may be incomplete. The numbered lesson directories contain the accompanying explanations and complete reference implementations.
 
-**Current working copy (2026-11-13): Lesson 14 with Lesson 13's inherited RAG-only library and evaluation instrumentation.** The RAG integration is implemented; the four editable teaching prompts and broader compaction/memory integration remain deferred. See [root source](#root-source), [current workflow](#current-root-workflow) and the [integration validation record](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13). Lessons 1–13 remain complete; Lesson 14 awaits instructor review.
+**Current working copy (2026-11-14): Lesson 14 learning-library continuation.** The same-package library now exposes `gdk_hello::learning` alongside the unchanged `gdk_hello::rag` API. This adopts the actual Lesson 13 record/compaction/summary/context-sizing patterns and newer policies, not features merely described in historical prose. The four editable Lesson 14 prompts remain unreconciled. Full root/reference synchronization and final/live validation await the coordinating agent; see [root source](#root-source), [current workflow](#current-root-workflow) and [VALIDATION](lessons/14-agent-evaluation/VALIDATION.md). Lessons 1–13 remain complete; Lesson 14 awaits instructor review, not release approval.
 
 ## One-command infrastructure startup
 
@@ -278,7 +278,7 @@ Lessons 12–13 are separately authorized and supplied; Lesson 14 was authorized
 
 ### Implementation handoff and review gates
 
-**Current continuation (2026-11-11): Lesson 13, with the authorized RAG-only library described below.** Lessons 1–13 are complete; Lesson 14 awaits instructor review. The following dated authorization history describes earlier activations, not the current root.
+**Current continuation (2026-11-14): Lesson 14, with same-package RAG and learning support described below.** Lessons 1–13 are complete; Lesson 14 awaits instructor review. The following dated authorization history describes earlier activations, not the current root.
 
 **Authorization history and review status (current continuation: Lesson14, 2026-10-13):** the instructor authorized Lessons 7 and 8 using this README and the Working Mental Model, including replacing root `src/main.rs` with Lesson 8. Lesson 7 is complete; the instructor clarified on 2026-10-07 that Lessons 8 and 9 still need review. Lesson 8 uses `StateMachine::run` without a loop safeguard, with the agreed production-caution comment. The instructor subsequently authorized Lesson 9 on 2026-10-06. Root previously contained its two-turn implementation. The instructor authorized Lesson 10 and root replacement on 2026-10-07; root now contains the separately authorized Lesson 14 compaction continuation of the interactive tutor. GDK versions, provider configuration, earlier references, and archived drafts remain unchanged; crossterm 0.29.0 was added for terminal input. Lesson 9’s default live scenario passed; the live 100-share tweak passed on 2026-10-22. Lessons 8 and 9 were marked complete by the instructor on 2026-11-11, as were Lessons 10–12. Lesson 10's recorded teaching/content observations remain part of its record. Do not infer release approval for Lessons 13–14 from that decision.
 
@@ -287,7 +287,7 @@ For a new implementation chat:
 1. Read this README first, then `AGENTS.md`, the current-decision/handoff sections of `post-lesson4-plan.md`, and the mental-model reference. Inspect Git status/diffs and preserve unrelated work.
 2. Read the manifest, lockfile, toolchain, provider JSON, root source, and complete Lessons 3–6 with their instructor notes. Read archived drafts only to identify useful evidence and pitfalls, not as accepted curriculum.
 3. Verify the exact pinned GDK/RMCP sources and official documentation: machine loading/run/application, inference streaming, Events/Emitter, effect requirements, tool registration/dispatch and correlation. The mental-model reference's upstream claims and open questions are not substitutes for this verification.
-4. Lessons 1–13 are complete per the instructor's 2026-11-11 and 2026-11-12 decisions; Lesson 14 is implemented and awaits instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the current root is Lesson 14 with inherited same-package RAG-only functionality; preserve the complete Lessons 12–13 references.
+4. Lessons 1–13 are complete per the instructor's 2026-11-11 and 2026-11-12 decisions; Lesson 14 is implemented and awaits instructor review. Do not reimplement them. Implement **one authorized lesson at a time**; Lesson 11 was separately authorized on 2026-10-11; it did not release earlier lessons or implicitly authorize Lesson 12; Lessons 12 and 13 were separately authorized on 2026-10-12. Lesson 14 was separately authorized and supplied on 2026-10-13. Lesson 7 does not change root Rust. The instructor has confirmed the Lesson 8 root update; the current root is Lesson 14 with inherited same-package RAG and the authorized learning-library continuation; preserve the complete Lessons 12–13 references.
 5. Preserve Lesson 8’s concurrent streaming consumer and sender-closure/drain lifecycle. **Instructor decision (2026-10-05): do not add a loop safeguard to Lesson 8.** Keep `StateMachine::run` and add a concise source comment beside the call noting that production users may want a safeguard to prevent a runaway loop. Do not add a load budget or restore the old bounded manual loop. Before Lesson 9, separately resolve execution bounds and verify safe unknown-name handling, all-request handling, and request limits in the chosen tool adapter. Exact limit values are implementation decisions to document, not inherited guarantees from old spikes.
 6. Supply complete source, explanations, expected traces, instructor pacing, and the small predict/run/tweak activities together. Publish a precise root-based run workflow for the shared manifest; lesson sources are not independent Cargo packages. Keep sample output honest about streamed versus persisted data.
 7. For coding changes run `cargo fmt --check`, `cargo check`, `cargo clippy --all-targets`, `cargo test`, and the documented live-provider run. Unit tests cover deterministic validation, effect application, state continuity, and safeguards; they do not replace live streaming/tool-selection validation. If the provider is unavailable, ask the instructor to start or supply one. Record what passed, failed, or remains unvalidated before changing lesson status.
@@ -300,9 +300,10 @@ For a new implementation chat:
 .
 ├── src/                        # current exercise; changes as the course advances
 │   ├── main.rs                 # application binary: the active lesson's focus
-│   ├── lib.rs                  # same-package gdk_hello::rag library (Lessons 13–14)
+│   ├── lib.rs                  # same-package library: rag; learning in current Lesson 14
 │   ├── rag/                    # retrieval, grounding, citations, transport and child tests
-│   └── …                       # binary-local support, compaction and child tests
+│   ├── learning/               # record, compaction, summary, context sizing and child tests
+│   └── …                       # binary-local orchestration/support and child tests
 ├── lessons/                    # explanation plus complete reference source
 ├── instructor-notes/           # instructor-only pacing and teaching guidance
 ├── potential-lesson-15/        # documentation-only simulator draft, outside required course
@@ -321,17 +322,19 @@ For a new implementation chat:
 
 ### Root source
 
-The root is the runnable, ephemeral **Lesson 14** classroom working copy, not a production application. It byte-matches the [complete Lesson 14 reference](lessons/14-agent-evaluation/src/). Its `gdk_hello::rag` library belongs to the same Cargo package, not a workspace, separate retrieval package or shared course framework. The completed Lesson 12 and Lesson 13 references are preserved; the only Lesson 13 addition in this phase is an identical nonsecret profile-identity accessor.
+The root is the runnable, ephemeral **Lesson 14** classroom working copy, not a production application. The authorized November 14 continuation is being prepared for recursive synchronization to the [complete Lesson 14 reference](lessons/14-agent-evaluation/src/); do not assume that synchronization has finished. A **library target** shares reusable mechanics inside the same Cargo package; it is not a workspace, separate dependency or shared course framework. A **learning module** groups already-taught record storage, compaction mechanics, isolated summary inference and informational sizing so the binary can keep authority decisions readable. The completed Lessons 12–13, including all Lesson 13 code, are untouched in this continuation.
 
 | Source | Responsibility |
 | --- | --- |
-| [`src/main.rs`](src/main.rs) | Context and explicit RAG policy; telemetry/application lifecycle; Session/runtime/Effects; concurrent Event consumption; dispatch/limits; automatic grounding, prospective acceptance and buffered citation correction; genuine provenance and independent approvals |
-| [`src/lib.rs`](src/lib.rs), [`src/rag/`](src/rag/) | Inherited retrieval, grounding, citations and local transport, with child tests |
-| Binary-local support | `calculator`, `chooser`, `diagnostics`, `learning_record`, `presentation`, `provider_setup`; application tests remain binary-local |
-| [`src/compaction.rs`](src/compaction.rs), [`src/compaction/`](src/compaction/) | Existing Lesson 14 compaction/declaration policies with minimal pending-input and attempt-scoped compatibility |
-| [`src/telemetry.rs`](src/telemetry.rs), [`src/telemetry/`](src/telemetry/) | Native local traces, isolated storage, nonreasoning projections and explicit source inventory |
+| [`src/main.rs`](src/main.rs) | Context/prompt assembly, memory consent/provenance/independent approvals, Session/runtime/Effects, concurrent Events, dispatch/limits, lifecycle and unchanged RAG call structure; optional runtime context sizer |
+| [`src/lib.rs`](src/lib.rs), [`src/rag/`](src/rag/) | Existing retrieval, grounding, citations and transport API/call structure, unchanged |
+| [`src/learning/`](src/learning/) | `mod.rs`, record types/schema/bounded storage, pure compaction policy/projection/partition/candidate mechanics, tool-free `SummaryRunner` and context estimator, plus child tests |
+| [`src/learning_record.rs`](src/learning_record.rs) | Thin binary adapter for isolated record path, confirmation IO and traced approved append |
+| [`src/compaction.rs`](src/compaction.rs), [`src/compaction/`](src/compaction/) | Application orchestration/budget/prospective-input/revision/declaration/Operation boundaries; library mechanics and summary-observer callbacks into telemetry |
+| Other binary-local support | `calculator`, `chooser`, `diagnostics`, `presentation`, `provider_setup` and application tests |
+| [`src/telemetry.rs`](src/telemetry.rs), [`src/telemetry/`](src/telemetry/) | Native local traces/isolation, nonreasoning projections and explicit source inventory; same metadata schema |
 
-Every supplied source starts `// Lesson 14`. Main supplies service defaults, retrieval limits, selection policy and RAG contract explicitly. Follow the [Lesson 14 source map](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path). This phase does not migrate the editable teaching prompts, broader memory/compaction policies, activity/source-review/continuity features or context display. Older records describe a context display, but the tracked Lesson 14 baseline inspected here contains no sizing module/calls; see its documented discrepancy. Do not infer those features from Lesson 13's historic records.
+Every supplied source starts `// Lesson 14`. The [Lesson 14 reading map](lessons/14-agent-evaluation/LESSON.md#supplied-modules-and-reading-path) explains the boundary. Historical activity/continuity/source-review/teaching claims do not describe modules in the actual Lesson 13 source inspected for this pass; none is introduced or claimed here. Prompt reconciliation and versioned evaluation-baseline applicability remain open.
 
 ## Prerequisites and setup
 
@@ -392,22 +395,25 @@ The bundled local provider requires no key. For a provider that does:
 
 ## Current root workflow
 
-**Current root (2026-11-13): Lesson 14, RAG-only integration checkpoint.** Root and the full Lesson 14 reference match recursively. Lessons 1–13 remain complete; Lesson 14 remains implemented with instructor review pending. Earlier dated activation and validation records remain historical.
+**Current root (2026-11-14): Lesson 14 learning-library integration.** Root recursively matches the complete Lesson 14 reference. Warning-free locked checks, 186 deterministic application tests plus seven unchanged seeder tests, and three separately enabled real-service tests passed. See [November 14 validation](lessons/14-agent-evaluation/VALIDATION.md#learning-library-integration--2026-11-14) for actual live successes, failed/incomplete attempts and limitations. Lessons 1–13 remain complete; Lesson 14 remains implemented with instructor review pending. Earlier dated activation and validation records remain historical.
 
 Automatic grounding runs once per genuine learner reply, not on kickoff or correction; there is no advertised source-search tool. Selection inherits Lesson 13's explicit 0.55 threshold, at most three excerpts and 2,500-token retrieval-response budget. Replacement evidence stays outside history, is counted with the pending question in preflight, and is accepted atomically with the question. Summaries see stored history only.
 
 The application buffers provider Events before learner presentation and checks citation-registry membership. On grounded silent acknowledgment failure or invalid IDs it permits one correction, without retrieving again. First-attempt notes require separate default-no decisions before the application reminder, which never counts as a genuine quotation. Registry membership, citations and accepted declines are not semantic-support certification; the inherited edge cases are documented in the [integration plan](lessons/14-agent-evaluation/RAG-INTEGRATION-PLAN.md).
 
-Lesson 14 preserves its older 60,000-byte trigger, 8,000-byte eligible-history minimum and consent-dependent `/learned` persistence, not Lesson 13's later policies. The four existing editable prompts remain untouched, including conflicts with automatic retrieval. Their reconciliation, broader compaction/memory migration, context display and revised evaluation baselines are **deferred**, not validated by this intermediate integration.
+Lesson 14 now adopts the actual newer Lesson 13 policies: **84,000-byte default trigger**, **4,000-byte eligible-history minimum**, latest-two-exchange protection and the unchanged **84,000-byte hard allowance**. `/learned` authorizes its deterministic append independently of consent to read notes; declined consent prevents reloading the record into tutor context, not that explicit write. It requests maintenance unconditionally, which can honestly no-op. Model proposals still need separate successful-run inspection and default-no approval. The context estimate is printed only at the end of a completed exchange, not every local prompt or before/after compaction; it is not measured tokens or a guard.
+
+The four editable prompts remain untouched. Their optional-search and consent-dependent memory instructions may conflict with automatic grounding and always-append declarations: **application authority wins**. Prompt reconciliation and versioned evaluation/catalog assumptions remain unreviewed. The historical explicitly configured **60,000/50,000** comparison is a legacy controlled experiment, not the new default baseline; do not silently revalidate its scenarios/catalog.
 
 Main retains classroom reader/Harrier/tutor defaults and environment overrides. The supplied reader credential is plaintext in source/binaries, not secure credential storage; never echo it into diagnostics/traces. Isolate **both** notes and overwritten diagnostics for evaluation with a unique name before launching; the [Lesson 14 guide](lessons/14-agent-evaluation/LESSON.md#prerequisites-services-and-exact-commands) explains the existing service and optional telemetry prerequisites:
 
 ```bash
 umask 077
-EVALUATION_STORAGE=rag14-review-unique cargo run --bin gdk-hello -- custom_aa_llama_qwen3_6-35b.json
+unset COMPACTION_TRIGGER_BYTES  # current default: 84000, not legacy 60000
+EVALUATION_STORAGE=learning14-review-unique cargo run --bin gdk-hello -- custom_aa_llama_qwen3_6-35b.json
 ```
 
-Activate a full reference recursively, including the library, `rag/` and child tests, never main alone:
+Root and the complete reference are synchronized. Activate a full reference recursively, including the library, `rag/`, `learning/` and child tests, never main alone:
 
 ```bash
 rm -rf src
@@ -415,7 +421,7 @@ mkdir src
 cp -R lessons/14-agent-evaluation/src/. src/
 ```
 
-No backup/restoration or final hello-world reset now; review remains pending. The [calibration example](examples/rag_calibration.rs) compiles against the same RAG API in Lessons 13 **and 14** and passes its own defaults. Earlier references without that library require binary-target maintenance commands rather than all-target examples. The standalone dataset seeder/assets are unchanged; compiling/testing the seeder does not authorize catalog calls. Native traces identify application preparation, attempts, correction and actual learner-visible output separately; exact prompt captures stay in isolated diagnostics. See [actual validation](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13) for structural evidence, live limitations and preserved semantic defects.
+No backup/restoration or final hello-world reset now; review remains pending. The [calibration example](examples/rag_calibration.rs) compiles against the same RAG API in Lessons 13 **and 14** and passes its own defaults. Earlier references without that library require binary-target maintenance commands rather than all-target examples. The standalone dataset seeder/assets are unchanged; compiling/testing the seeder does not authorize catalog calls. Native traces identify application preparation, attempts, correction and actual learner-visible output separately; exact prompt captures stay in isolated diagnostics. See [November 14 validation](lessons/14-agent-evaluation/VALIDATION.md#learning-library-integration--2026-11-14) and the earlier [RAG-only record](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13) for structural evidence, live limitations and preserved semantic defects.
 
 Provider-calling lessons require live-provider validation. If the endpoint is unreachable, ask the instructor to start or supply one. Marking a lesson Complete does not by itself approve it for teaching — that release decision remains with the instructor.
 
@@ -638,3 +644,10 @@ Root/reference recursively match with the three new binary-local modules/child t
 Root/reference now match the complete Lesson14 lib/bin/RAG tree; Lesson13's canonical RAG is inherited rather than reimplemented. Automatic grounding, pending-input/replacement evidence, buffered citation correction and independent approvals coexist with native evaluation telemetry/isolation. Completed Lessons12–13 remain preserved (only a shared nonsecret profile accessor added to13); pins, seeder/assets and four editable Lesson14 prompts are unchanged. Prompt reconciliation and broader memory/compaction/display/evaluation-baseline integration remain deferred.
 
 Final root/staging checks pass:121 deterministic application tests+7 unchanged seeder; both actual-service tests passed. Isolated live grounding/reference resolution, correlated$100 calculator, one acknowledgment correction and approved/rejected notes completed; actual MLflow readback verified trace relationships and source hashes. Source-scope and execution-wording defects remain; fabricated-reference withholding and several failure branches are deterministic-only this pass. See [exact validation](lessons/14-agent-evaluation/VALIDATION.md#rag-only-library-integration--2026-11-13). No services restarted, corpus/catalog changed, commits or release approval. Stop for instructor review.
+
+
+### Lesson 14 learning-library authorization/current architecture — 2026-11-14
+
+The instructor approved same-package `gdk_hello::learning`, adopting actual Lesson 13 mechanics/policies while leaving all Lesson 13 code and the existing RAG API/call structure untouched. Record storage, pure compaction mechanics, isolated summary inference and end-of-completed-exchange sizing move into the library; the binary retains consent/provenance/approvals, traced path/confirmation/append adapter and compaction orchestration/budget/prospective/revision/declaration/Operation boundaries. Summary observer callbacks preserve inference output under its originating chat span after message-ID assignment, without depending on binary telemetry. The explicit hash inventory adds the five learning production files; its schema and RAG inventory stay unchanged.
+
+The current baseline is 84,000/4,000 bytes, unconditional `/learned` maintenance and always-append declarations without reloading declined memory. No activity/continuity/source-review/teaching modules are claimed from historical prose. Four editable prompts remain unreconciled (including memory-policy conflicts); scenarios/comparison/catalog assumptions remain unreviewed. No prompt/corpus/pin/service/catalog/seeder changes or release approval are included. Root/reference recursively match. Final warning-free checks passed: **186 deterministic application tests (91 library + 95 binary), seven unchanged seeder tests and three separately enabled real-service tests**. Isolated live evidence includes declined-consent declaration/no reload, inspected approved/rejected notes, completed-exchange estimates and authored-history real-provider summary application (64,947→48,843 conservative bytes). Native receipts match all 29 source/content hashes and place summary output on its chat span. Failed/incomplete CLI attempts remain failures, not successful conversation/compaction evidence; see [November 14 validation](lessons/14-agent-evaluation/VALIDATION.md#learning-library-integration--2026-11-14). All dated history/limitations above remains evidence for its own source.

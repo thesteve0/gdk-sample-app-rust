@@ -1,3 +1,4 @@
 // Lesson 14
-//! Reusable source retrieval and grounding for the classroom application.
+//! Previously taught source grounding and learning support for the classroom application.
+pub mod learning;
 pub mod rag;

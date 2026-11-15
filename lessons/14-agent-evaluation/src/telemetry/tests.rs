@@ -20,6 +20,11 @@ fn observable_projection_keeps_dialogue_without_message_metadata() {
 fn source_inventory_covers_library_and_all_production_rag_modules() {
     let expected = [
         "src/lib.rs",
+        "src/learning/mod.rs",
+        "src/learning/record.rs",
+        "src/learning/context_size.rs",
+        "src/learning/compaction.rs",
+        "src/learning/summary.rs",
         "src/rag/mod.rs",
         "src/rag/retrieval.rs",
         "src/rag/grounding.rs",

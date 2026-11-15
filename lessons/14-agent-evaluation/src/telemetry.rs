@@ -178,6 +178,11 @@ const SOURCE_PATHS: &[&str] = &[
     "rust-toolchain.toml",
     "src/main.rs",
     "src/lib.rs",
+    "src/learning/mod.rs",
+    "src/learning/record.rs",
+    "src/learning/context_size.rs",
+    "src/learning/compaction.rs",
+    "src/learning/summary.rs",
     "src/calculator.rs",
     "src/chooser.rs",
     "src/diagnostics.rs",
@@ -230,7 +235,8 @@ pub fn identify_current_span() -> anyhow::Result<()> {
     );
     span.set_attribute(
         "course.compaction_trigger",
-        env::var("COMPACTION_TRIGGER_BYTES").unwrap_or("60000".to_string()),
+        env::var("COMPACTION_TRIGGER_BYTES")
+            .unwrap_or(gdk_hello::learning::compaction::COMPACTION_TRIGGER_BYTES.to_string()),
     );
     span.set_attribute("course.allowance_bytes", 84000i64);
     span.set_attribute("course.rubric_version", "v1");
@@ -416,30 +422,6 @@ pub fn identity_context(session_id: &str) {
         "course.comparison",
         env::var("EVALUATION_COMPARISON").unwrap_or("unspecified".to_string()),
     );
-}
-
-pub struct SummaryPreparer;
-#[async_trait::async_trait]
-impl<S: Sync> goose_agent::inference::InferenceRequestPreparer<S> for SummaryPreparer {
-    async fn prepare(
-        &self,
-        _session: &S,
-        conversation: &goose_providers::conversation::Conversation,
-        input: goose_agent::operation::InferenceInput,
-    ) -> anyhow::Result<goose_agent::inference::PreparedInferenceRequest> {
-        let prompt = input
-            .prompt_parts
-            .into_iter()
-            .map(|(_name, text)| text)
-            .collect::<Vec<_>>()
-            .join("\n\n");
-        inference_input(conversation.messages(), &prompt, &input.tools);
-        Ok(goose_agent::inference::PreparedInferenceRequest {
-            system_prompt: prompt,
-            tools: input.tools,
-            additional_messages: Vec::new(),
-        })
-    }
 }
 
 #[cfg(test)]

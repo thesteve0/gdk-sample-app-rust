@@ -28,6 +28,7 @@ use presentation::{
 };
 use provider_setup::{first_configured_model, provider_config_path};
 mod compaction;
+use gdk_hello::learning::context_size::ContextSize;
 // Inherit RAG mechanics; context and authority remain in this binary.
 use gdk_hello::rag::{
     self, citation_footer, grounding_outcome, inspect_citations, invalid_citation_markers,
@@ -239,6 +240,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
         },
     );
     let declarative_config = deserialize_provider_config(&provider_json)?;
+    let sizing_config = declarative_config.clone();
     let builder = goose_providers::openai::from_declarative_config(
         declarative_config,
         None,
@@ -250,6 +252,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
     let model_name = first_configured_model(&provider_config)?;
     let mut model = ModelConfig::new(model_name);
     model.max_tokens = Some(TUTOR_MAX_TOKENS);
+    let sizer = ContextSize::new(&model, &sizing_config);
     print_heading("Day-trading learning partner");
     println!("Education only; no live market data or trade execution.");
     println!("Source evidence: three-PDF draft collection; coverage and source accuracy are not certified. Questions and retrieved excerpts go to the local tutor and private diagnostics.");
@@ -278,12 +281,15 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
         }
         diagnostics.lesson(&session_id, &context)?;
         let runtime = ChatRuntime::new(&session_id, context);
+        runtime
+            .set_context_sizer(&session_id, sizer.clone())
+            .await?;
         let mut citation_registry = CitationRegistry::new();
         let captures = PromptCaptures::default();
         let tools = SafeTools {
             inner: ToolOperation::new().with_provider(Arc::new(LossToolProvider)),
         };
-        let policy = compaction::Policy::from_env()?;
+        let policy = compaction::Policy::from_env(compaction::Policy::default())?;
         let maintenance =
             compaction::Compaction::new(provider.clone(), model.clone(), policy.clone())?;
         runtime.set_policy(&session_id, policy).await?;
@@ -779,6 +785,22 @@ async fn run_turn(
             approve_record_proposals(runtime, session_id, diagnostics).await?;
         }
     }
+    let saved = runtime.load(session_id).await?;
+    if let Some(sizer) = &saved.context_sizer {
+        let prompt = saved
+            .prompt_parts()
+            .into_iter()
+            .map(|(_name, text)| text)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let mut tools = vec![tool_definition()];
+        if saved.lesson.persistence_enabled {
+            tools.push(record_tool_definition());
+        }
+        let status = sizer.status(&prompt, &tools, &saved.conversation);
+        print_status(&status);
+        diagnostics.block("Context size (informational estimate)", "text", &status)?;
+    }
     Ok(())
 }
 
@@ -901,6 +923,7 @@ struct ChatSession {
     maintenance: Option<String>,
     maintenance_report: Option<compaction::Report>,
     turn_grounding: TurnGrounding,
+    context_sizer: Option<ContextSize>,
 }
 
 impl ChatSession {
@@ -961,6 +984,7 @@ impl ChatRuntime {
             maintenance: None,
             maintenance_report: None,
             turn_grounding: TurnGrounding::default(),
+            context_sizer: None,
         };
         let mut sessions = HashMap::new();
         sessions.insert(session_id.to_string(), session);
@@ -973,6 +997,16 @@ impl ChatRuntime {
     fn seeded() -> Self {
         let lesson = LessonContext::load().expect("supplied lesson content");
         Self::new(SESSION_ID, lesson)
+    }
+
+    async fn set_context_sizer(&self, session_id: &str, sizer: ContextSize) -> anyhow::Result<()> {
+        let mut sessions = self.sessions.lock().await;
+        let stored = match sessions.get_mut(session_id) {
+            Some(stored) => stored,
+            None => return Err(anyhow::anyhow!("missing Session")),
+        };
+        stored.context_sizer = Some(sizer);
+        Ok(())
     }
 
     async fn set_policy(&self, session_id: &str, policy: compaction::Policy) -> anyhow::Result<()> {

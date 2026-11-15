@@ -2447,3 +2447,78 @@ async fn earlier_genuine_quotes_remain_eligible_but_application_reminders_do_not
     .is_err());
     Ok(())
 }
+
+#[tokio::test]
+async fn learning_context_estimate_is_optional_and_appears_once_after_completed_exchange(
+) -> anyhow::Result<()> {
+    for enabled in [false, true] {
+        let runtime = orchestration_runtime(false).await?;
+        if enabled {
+            let config = serde_json::from_value(json!({
+                "name":"local", "engine":"openai", "display_name":"Local",
+                "base_url":"http://127.0.0.1:8080", "requires_auth":false,
+                "models":[{"name":"selected"}]
+            }))?;
+            runtime
+                .set_context_sizer(
+                    SESSION_ID,
+                    ContextSize::new(&ModelConfig::new("selected"), &config),
+                )
+                .await?;
+        }
+        let script = Arc::new(OrchestrationScript::new(vec![OrchestrationWork::saved(
+            0,
+            vec![Message::assistant()
+                .with_text("Fixture supported statement. [source:orchestration]")],
+        )]));
+        let cancel = CancellationToken::new();
+        let machine = orchestration_machine(script.clone(), &cancel);
+        let temporary = OrchestrationDiagnostics::new()?;
+        let mut diagnostics = DiagnosticLog::create_at(temporary.path())?;
+        run_turn(
+            &machine,
+            &runtime,
+            &cancel,
+            SESSION_ID,
+            2,
+            &PromptCaptures::default(),
+            &CitationRegistry::new(),
+            &mut diagnostics,
+        )
+        .await?;
+        let saved = runtime.load(SESSION_ID).await?;
+        let text = fs::read_to_string(temporary.path())?;
+        assert_eq!(
+            text.matches("#### Context size (informational estimate)")
+                .count(),
+            usize::from(enabled)
+        );
+        assert_eq!(script.attempts(), 1);
+        if let Some(sizer) = &saved.context_sizer {
+            let prompt = saved
+                .prompt_parts()
+                .into_iter()
+                .map(|(_name, part)| part)
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            let tools = LossToolProvider.tools(&saved).await?;
+            let expected = sizer.status(&prompt, &tools, &saved.conversation);
+            assert!(text.contains(&expected));
+            assert!(
+                text.rfind("#### Grounding outcome (application classification)")
+                    .expect("inspection boundary")
+                    < text
+                        .rfind("#### Context size (informational estimate)")
+                        .expect("estimate boundary")
+            );
+            assert!(saved
+                .conversation
+                .messages()
+                .last()
+                .expect("final answer")
+                .as_concat_text()
+                .contains("Fixture supported statement"));
+        }
+    }
+    Ok(())
+}
