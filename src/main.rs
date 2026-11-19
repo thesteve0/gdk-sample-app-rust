@@ -319,6 +319,7 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
             turn_number,
             &captures,
             &citation_registry,
+            Some(&maintenance),
             diagnostics,
         )
         .await?;
@@ -444,17 +445,53 @@ async fn run_grounded_reply(
         )
         .await?;
     }
-    if let Err(error) = runtime
-        .append_grounded_user(session_id, input, grounding)
-        .await
-    {
-        diagnostics.block(
-            "Reply refused before append/inference",
-            "text",
-            &error.to_string(),
-        )?;
-        print_warning(&error.to_string());
-        return Ok(false);
+    let append_result = runtime
+        .append_grounded_user(session_id, input, grounding.clone())
+        .await;
+    if let Err(error) = append_result {
+        let message = error.to_string();
+        // When the 84000-byte allowance is exceeded, attempt compaction before giving up.
+        // This keeps the conversation going instead of refusing with Launch failure.
+        if message.contains("conservative byte estimate allowance") {
+            diagnostics.block(
+                "Reply would exceed allowance — attempting compaction",
+                "text",
+                &message,
+            )?;
+            print_warning(
+                "Conversation is getting long; summarizing older history to stay within the input budget...",
+            );
+            // Attempt compaction with the pending reply counted, exactly as the preflight does.
+            compaction::maintain_with_pending(
+                maintenance,
+                runtime,
+                session_id,
+                "automatic retry after allowance exceeded",
+                diagnostics,
+                Some(&pending),
+            )
+            .await?;
+            // Retry once with the compacted history.
+            if let Err(retry_error) = runtime
+                .append_grounded_user(session_id, input, grounding)
+                .await
+            {
+                diagnostics.block(
+                    "Reply refused after compaction retry",
+                    "text",
+                    &retry_error.to_string(),
+                )?;
+                print_warning(&retry_error.to_string());
+                print_warning(
+                    "Still too large after summarizing; please start a fresh selection with /finish to continue.",
+                );
+                return Ok(false);
+            }
+        } else {
+            diagnostics.block("Reply refused before append/inference", "text", &message)?;
+            print_warning(&message);
+            return Ok(false);
+        }
     }
     run_turn(
         machine,
@@ -464,6 +501,7 @@ async fn run_grounded_reply(
         turn_number,
         captures,
         citation_registry,
+        Some(maintenance),
         diagnostics,
     )
     .await?;
@@ -687,6 +725,7 @@ async fn run_turn(
     turn_number: usize,
     captures: &PromptCaptures,
     citation_registry: &CitationRegistry,
+    maintenance: Option<&compaction::Compaction>,
     diagnostics: &mut DiagnosticLog,
 ) -> anyhow::Result<()> {
     telemetry::identity_context(session_id);
@@ -735,6 +774,7 @@ async fn run_turn(
                 session_id,
                 captures,
                 citation_registry,
+                maintenance,
                 diagnostics,
                 &outcome,
                 GROUNDING_ESCALATION_MESSAGE,
@@ -768,6 +808,7 @@ async fn run_turn(
                 session_id,
                 captures,
                 citation_registry,
+                maintenance,
                 diagnostics,
                 &outcome,
                 &reminder,
@@ -817,6 +858,7 @@ async fn escalate_grounding_once(
     session_id: &str,
     captures: &PromptCaptures,
     citation_registry: &CitationRegistry,
+    maintenance: Option<&compaction::Compaction>,
     diagnostics: &mut DiagnosticLog,
     outcome: &GroundingOutcome,
     reminder: &str,
@@ -832,7 +874,90 @@ async fn escalate_grounding_once(
             outcome.summary()
         ),
     )?;
-    runtime.append_application(session_id, reminder).await?;
+    // When the 84000-byte allowance is exceeded, attempt compaction before the escalation.
+    // This mirrors the genuine-reply preflight and keeps the conversation alive.
+    let before_escalation = runtime.load(session_id).await?;
+    let escalation_pending = compaction::PendingReply {
+        input: reminder.to_string(),
+        grounding: before_escalation.turn_grounding.clone(),
+    };
+    let needs_preflight = compaction::prospective_bytes(
+        &before_escalation,
+        reminder,
+        &before_escalation.turn_grounding,
+    )? >= before_escalation.policy.trigger_bytes;
+    if needs_preflight {
+        if let Some(maintenance) = maintenance {
+            diagnostics.block(
+                "Escalation would exceed allowance — attempting compaction",
+                "text",
+                &format!(
+                    "Prospective bytes >= {} trigger; compacting before escalation.",
+                    before_escalation.policy.trigger_bytes
+                ),
+            )?;
+            print_warning(
+                "Conversation is getting long; summarizing older history to stay within the input budget...",
+            );
+            compaction::maintain_with_pending(
+                maintenance,
+                runtime,
+                session_id,
+                "automatic preflight before grounding escalation",
+                diagnostics,
+                Some(&escalation_pending),
+            )
+            .await?;
+        }
+    }
+    let append_result = runtime.append_application(session_id, reminder).await;
+    if let Err(error) = append_result {
+        let message = error.to_string();
+        if message.contains("conservative byte estimate allowance") {
+            if let Some(maintenance) = maintenance {
+                diagnostics.block(
+                    "Escalation would exceed allowance — attempting compaction",
+                    "text",
+                    &message,
+                )?;
+                print_warning(
+                    "Conversation is getting long; summarizing older history to stay within the input budget...",
+                );
+                compaction::maintain_with_pending(
+                    maintenance,
+                    runtime,
+                    session_id,
+                    "automatic retry after escalation allowance exceeded",
+                    diagnostics,
+                    Some(&escalation_pending),
+                )
+                .await?;
+                if let Err(retry_error) = runtime.append_application(session_id, reminder).await {
+                    diagnostics.block(
+                        "Escalation refused after compaction retry",
+                        "text",
+                        &retry_error.to_string(),
+                    )?;
+                    print_warning(&retry_error.to_string());
+                    print_warning(
+                        "Still too large after summarizing; continuing without the escalation re-ask. Your history remains.",
+                    );
+                    // Keep conversation alive — return the original outcome without the second attempt.
+                    return Ok(*outcome);
+                }
+            } else {
+                diagnostics.block(
+                    "Escalation refused (no compaction available)",
+                    "text",
+                    &message,
+                )?;
+                print_warning(&message);
+                return Ok(*outcome);
+            }
+        } else {
+            return Err(error);
+        }
+    }
     telemetry::correction_requested(1, reminder);
     let (second_session, second_warnings, second_held, second_buffer) = run_attempt(
         machine,

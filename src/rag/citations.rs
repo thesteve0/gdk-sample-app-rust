@@ -89,6 +89,7 @@ pub fn inspect_citations(
     warnings
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GroundingOutcome {
     // No excerpts were supplied for this turn (kickoff, no_evidence, unavailable).
     NotSupplied,

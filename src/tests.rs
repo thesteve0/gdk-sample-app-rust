@@ -1666,6 +1666,7 @@ async fn deterministic_orchestration_silent_ignore_retries_once_with_fresh_bound
         2,
         &PromptCaptures::default(),
         &CitationRegistry::new(),
+        None,
         &mut diagnostics,
     )
     .await?;
@@ -1753,6 +1754,7 @@ async fn orchestration_acknowledged_once(answer: &str) -> anyhow::Result<()> {
         2,
         &PromptCaptures::default(),
         &CitationRegistry::new(),
+        None,
         &mut diagnostics,
     )
     .await?;
@@ -1850,6 +1852,7 @@ async fn deterministic_orchestration_failed_halted_or_incomplete_attempt_never_a
             2,
             &PromptCaptures::default(),
             &CitationRegistry::new(),
+            None,
             &mut diagnostics,
         )
         .await;
@@ -1936,6 +1939,7 @@ async fn deterministic_orchestration_first_approval_validation_failure_prevents_
         2,
         &PromptCaptures::default(),
         &CitationRegistry::new(),
+        None,
         &mut diagnostics,
     )
     .await;
@@ -2288,6 +2292,7 @@ async fn deterministic_orchestration_fabricated_ids_use_only_one_correction() ->
         2,
         &PromptCaptures::default(),
         &registry,
+        None,
         &mut diagnostics,
     )
     .await?;
@@ -2403,6 +2408,7 @@ async fn deterministic_no_evidence_and_unavailable_finish_without_retry() -> any
             3,
             &PromptCaptures::default(),
             &CitationRegistry::new(),
+            None,
             &mut diagnostics,
         )
         .await?;
@@ -2483,6 +2489,7 @@ async fn learning_context_estimate_is_optional_and_appears_once_after_completed_
             2,
             &PromptCaptures::default(),
             &CitationRegistry::new(),
+            None,
             &mut diagnostics,
         )
         .await?;
