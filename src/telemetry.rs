@@ -11,27 +11,41 @@ use std::{
 };
 use tracing_subscriber::prelude::*;
 
+fn normalize_endpoint(raw: String) -> String {
+    let trimmed = raw.trim().trim_end_matches('/');
+    if trimmed.ends_with("/v1/traces") {
+        trimmed.to_string()
+    } else {
+        format!("{}/v1/traces", trimmed)
+    }
+}
+
+fn resolve_endpoint() -> String {
+    for name in [
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "MLFLOW_TRACKING_URI",
+        "MLFLOW_ENDPOINT",
+    ] {
+        if let Ok(value) = env::var(name) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return normalize_endpoint(trimmed.to_string());
+            }
+        }
+    }
+    // Default from presentation/start-infra.sh: MLFLOW_PORT=5000 on 127.0.0.1
+    "http://127.0.0.1:5000/v1/traces".to_string()
+}
+
 pub fn initialize() -> anyhow::Result<Option<SdkTracerProvider>> {
-    let experiment = match env::var("MLFLOW_EXPERIMENT_ID") {
-        Ok(value) => value,
-        Err(env::VarError::NotPresent) => return Ok(None),
-        Err(error) => return Err(error.into()),
-    };
+    // Default to the ports from presentation/start-infra.sh (MLflow 5000 at 127.0.0.1);
+    // explicit environment variables overwrite the defaults when present.
+    let experiment = env::var("MLFLOW_EXPERIMENT_ID").unwrap_or_else(|_| "0".to_string());
     if experiment.is_empty() || !experiment.bytes().all(|byte| byte.is_ascii_digit()) {
         return Err(anyhow::anyhow!("MLFLOW_EXPERIMENT_ID must be numeric"));
     }
-    for variable in [
-        "OTEL_EXPORTER_OTLP_HEADERS",
-        "OTEL_EXPORTER_OTLP_TRACES_HEADERS",
-        "OTEL_RESOURCE_ATTRIBUTES",
-    ] {
-        if env::var_os(variable).is_some() {
-            return Err(anyhow::anyhow!(
-                "unset {}: this lesson supplies its own nonsecret headers/resource",
-                variable
-            ));
-        }
-    }
+    let endpoint = resolve_endpoint();
     // Fixed local transport: never forward configuration credentials or use a hosted judge.
     let client = reqwest::blocking::Client::builder()
         .no_proxy()
@@ -41,7 +55,7 @@ pub fn initialize() -> anyhow::Result<Option<SdkTracerProvider>> {
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
         .with_http_client(client)
-        .with_endpoint("http://127.0.0.1:5000/v1/traces")
+        .with_endpoint(endpoint)
         .with_headers(HashMap::from([(
             "x-mlflow-experiment-id".to_string(),
             experiment,
