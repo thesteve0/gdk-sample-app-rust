@@ -399,9 +399,14 @@ pub async fn maintain_with_pending(
     }
     match result {
         Ok(_state) => {
-            if let Some(report) = saved.maintenance_report {
+            if let Some(report) = &saved.maintenance_report {
                 if report.disposition.starts_with("applied:") {
                     print_status("Older context summarized; your latest exchanges remain. Summary is fallible, not mastery.");
+                } else if report
+                    .disposition
+                    .starts_with("no-op: insufficient eligible older history")
+                {
+                    print_warning("I checked whether I could shorten the conversation history, but there wasn’t enough older history that I’m allowed to summarize. I left the history unchanged. You can continue, provided the next request still fits the input budget.");
                 } else {
                     print_warning(&format!("Context maintenance: {}. Continuing at the same learner prompt; input allowance still applies.", report.disposition));
                 }
@@ -411,6 +416,19 @@ pub async fn maintain_with_pending(
             "Context maintenance failed; history retained: {}",
             error
         )),
+    }
+    if let Some(sizer) = &saved.context_sizer {
+        let prompt = saved
+            .prompt_parts()
+            .into_iter()
+            .map(|(_name, text)| text)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let mut tools = vec![tool_definition()];
+        if saved.lesson.persistence_enabled {
+            tools.push(record_tool_definition());
+        }
+        print_status(&sizer.status(&prompt, &tools, &saved.conversation));
     }
     Ok(())
 }

@@ -388,6 +388,9 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
                                 None,
                             )
                             .await?;
+                            let status =
+                                context_status(&sizer, &loss_provider, &runtime, &session_id).await;
+                            print_status(&status);
                         }
                         Err(failure) => print_warning(&failure),
                     }
@@ -414,6 +417,8 @@ async fn run_learning_partner(diagnostics: &mut DiagnosticLog) -> anyhow::Result
                     }),
                 )
                 .await?;
+                let status = context_status(&sizer, &loss_provider, &runtime, &session_id).await;
+                print_status(&status);
             }
             // Remember this turn's supplied IDs before the preparation moves
             // into the runtime; later turns resolve citations against them.

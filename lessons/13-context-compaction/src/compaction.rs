@@ -991,6 +991,11 @@ pub async fn maintain(
             if let Some(report) = saved.maintenance_report {
                 if report.disposition.starts_with("applied:") {
                     print_status("Older context summarized; your latest exchanges remain. Summary is fallible, not mastery.");
+                } else if report
+                    .disposition
+                    .starts_with("no-op: insufficient eligible older history")
+                {
+                    print_warning("I checked whether I could shorten the conversation history, but there wasn’t enough older history that I’m allowed to summarize. I left the history unchanged. You can continue, provided the next request still fits the input budget.");
                 } else {
                     print_warning(&format!("Context maintenance: {}. Continuing at the same learner prompt; input allowance still applies.", report.disposition));
                 }
